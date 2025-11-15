@@ -1,0 +1,218 @@
+syntax = "proto3";
+
+package task;
+
+option go_package = "github.com/chanduchitikam/task-management-system/proto/task;task";
+
+import "google/api/annotations.proto";
+import "google/protobuf/timestamp.proto";
+
+// TaskService handles CRUD operations on tasks
+service TaskService {
+  // Create a new task
+  rpc CreateTask(CreateTaskRequest) returns (CreateTaskResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/tasks"
+      body: "*"
+    };
+  }
+
+  // Get task by ID
+  rpc GetTask(GetTaskRequest) returns (GetTaskResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/tasks/{task_id}"
+    };
+  }
+
+  // Update task
+  rpc UpdateTask(UpdateTaskRequest) returns (UpdateTaskResponse) {
+    option (google.api.http) = {
+      put: "/api/v1/tasks/{task_id}"
+      body: "*"
+    };
+  }
+
+  // Delete task
+  rpc DeleteTask(DeleteTaskRequest) returns (DeleteTaskResponse) {
+    option (google.api.http) = {
+      delete: "/api/v1/tasks/{task_id}"
+    };
+  }
+
+  // List tasks with filters
+  rpc ListTasks(ListTasksRequest) returns (ListTasksResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/tasks"
+    };
+  }
+
+  // Assign task to user
+  rpc AssignTask(AssignTaskRequest) returns (AssignTaskResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/tasks/{task_id}/assign"
+      body: "*"
+    };
+  }
+
+  // Update task status
+  rpc UpdateTaskStatus(UpdateTaskStatusRequest) returns (UpdateTaskStatusResponse) {
+    option (google.api.http) = {
+      patch: "/api/v1/tasks/{task_id}/status"
+      body: "*"
+    };
+  }
+
+  // Get tasks assigned to a user
+  rpc GetUserTasks(GetUserTasksRequest) returns (GetUserTasksResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/users/{user_id}/tasks"
+    };
+  }
+}
+
+// Task status
+enum TaskStatus {
+  TASK_STATUS_UNSPECIFIED = 0;
+  TASK_STATUS_TODO = 1;
+  TASK_STATUS_IN_PROGRESS = 2;
+  TASK_STATUS_IN_REVIEW = 3;
+  TASK_STATUS_COMPLETED = 4;
+  TASK_STATUS_CANCELLED = 5;
+}
+
+// Task priority
+enum TaskPriority {
+  TASK_PRIORITY_UNSPECIFIED = 0;
+  TASK_PRIORITY_LOW = 1;
+  TASK_PRIORITY_MEDIUM = 2;
+  TASK_PRIORITY_HIGH = 3;
+  TASK_PRIORITY_CRITICAL = 4;
+}
+
+// Task message
+message Task {
+  string task_id = 1;
+  string title = 2;
+  string description = 3;
+  TaskStatus status = 4;
+  TaskPriority priority = 5;
+  string assigned_to = 6;
+  string created_by = 7;
+  string team_id = 8;
+  google.protobuf.Timestamp due_date = 9;
+  google.protobuf.Timestamp created_at = 10;
+  google.protobuf.Timestamp updated_at = 11;
+  repeated string tags = 12;
+}
+
+// Create task request
+message CreateTaskRequest {
+  string title = 1;
+  string description = 2;
+  TaskStatus status = 3;
+  TaskPriority priority = 4;
+  string assigned_to = 5;
+  string team_id = 6;
+  google.protobuf.Timestamp due_date = 7;
+  repeated string tags = 8;
+}
+
+// Create task response
+message CreateTaskResponse {
+  Task task = 1;
+  string message = 2;
+}
+
+// Get task request
+message GetTaskRequest {
+  string task_id = 1;
+}
+
+// Get task response
+message GetTaskResponse {
+  Task task = 1;
+}
+
+// Update task request
+message UpdateTaskRequest {
+  string task_id = 1;
+  string title = 2;
+  string description = 3;
+  TaskStatus status = 4;
+  TaskPriority priority = 5;
+  string assigned_to = 6;
+  google.protobuf.Timestamp due_date = 7;
+  repeated string tags = 8;
+}
+
+// Update task response
+message UpdateTaskResponse {
+  Task task = 1;
+  string message = 2;
+}
+
+// Delete task request
+message DeleteTaskRequest {
+  string task_id = 1;
+}
+
+// Delete task response
+message DeleteTaskResponse {
+  string message = 1;
+}
+
+// List tasks request
+message ListTasksRequest {
+  int32 page = 1;
+  int32 page_size = 2;
+  TaskStatus status_filter = 3;
+  TaskPriority priority_filter = 4;
+  string team_filter = 5;
+  string assigned_to_filter = 6;
+}
+
+// List tasks response
+message ListTasksResponse {
+  repeated Task tasks = 1;
+  int32 total_count = 2;
+  int32 page = 3;
+  int32 page_size = 4;
+}
+
+// Assign task request
+message AssignTaskRequest {
+  string task_id = 1;
+  string user_id = 2;
+}
+
+// Assign task response
+message AssignTaskResponse {
+  Task task = 1;
+  string message = 2;
+}
+
+// Update task status request
+message UpdateTaskStatusRequest {
+  string task_id = 1;
+  TaskStatus status = 2;
+}
+
+// Update task status response
+message UpdateTaskStatusResponse {
+  Task task = 1;
+  string message = 2;
+}
+
+// Get user tasks request
+message GetUserTasksRequest {
+  string user_id = 1;
+  TaskStatus status_filter = 2;
+  int32 page = 3;
+  int32 page_size = 4;
+}
+
+// Get user tasks response
+message GetUserTasksResponse {
+  repeated Task tasks = 1;
+  int32 total_count = 2;
+}

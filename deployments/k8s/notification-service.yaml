@@ -1,0 +1,61 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: notification-service
+  namespace: task-management
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: notification-service
+  template:
+    metadata:
+      labels:
+        app: notification-service
+    spec:
+      containers:
+      - name: notification-service
+        image: task-management/notification-service:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 50053
+          name: grpc
+        env:
+        - name: GRPC_PORT
+          value: "50053"
+        envFrom:
+        - configMapRef:
+            name: app-config
+        - secretRef:
+            name: app-secrets
+        livenessProbe:
+          tcpSocket:
+            port: 50053
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          tcpSocket:
+            port: 50053
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: notification-service
+  namespace: task-management
+spec:
+  selector:
+    app: notification-service
+  ports:
+  - port: 50053
+    targetPort: 50053
+    name: grpc
+  type: ClusterIP

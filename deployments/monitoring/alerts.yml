@@ -1,0 +1,187 @@
+# Prometheus Alert Rules for Task Management System
+
+groups:
+  - name: service_health
+    interval: 30s
+    rules:
+      # Service is down
+      - alert: ServiceDown
+        expr: up == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Service {{ $labels.job }} is down"
+          description: "{{ $labels.job }} on {{ $labels.instance }} has been down for more than 2 minutes."
+
+      # High error rate
+      - alert: HighErrorRate
+        expr: rate(http_requests_total{status=~"5.."}[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High error rate on {{ $labels.service }}"
+          description: "Error rate is {{ $value | humanizePercentage }} on {{ $labels.service }}"
+
+      # API Gateway high latency
+      - alert: APIGatewayHighLatency
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{job="gateway"}[5m])) > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "API Gateway high latency"
+          description: "95th percentile latency is {{ $value }}s (threshold: 1s)"
+
+  - name: resource_usage
+    interval: 30s
+    rules:
+      # High CPU usage
+      - alert: HighCPUUsage
+        expr: rate(process_cpu_seconds_total[5m]) > 0.8
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU usage on {{ $labels.job }}"
+          description: "CPU usage is {{ $value | humanizePercentage }} on {{ $labels.instance }}"
+
+      # High memory usage
+      - alert: HighMemoryUsage
+        expr: process_resident_memory_bytes / 1024 / 1024 / 1024 > 2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage on {{ $labels.job }}"
+          description: "Memory usage is {{ $value }}GB on {{ $labels.instance }}"
+
+      # Container restarts
+      - alert: ContainerRestarting
+        expr: rate(kube_pod_container_status_restarts_total[15m]) > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Container {{ $labels.container }} is restarting"
+          description: "Container {{ $labels.container }} in pod {{ $labels.pod }} has restarted {{ $value }} times in the last 15 minutes"
+
+  - name: database_health
+    interval: 30s
+    rules:
+      # PostgreSQL is down
+      - alert: PostgreSQLDown
+        expr: pg_up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "PostgreSQL is down"
+          description: "PostgreSQL database has been down for more than 1 minute"
+
+      # High database connections
+      - alert: HighDatabaseConnections
+        expr: pg_stat_database_numbackends / pg_settings_max_connections > 0.8
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High PostgreSQL connection usage"
+          description: "Database connection usage is {{ $value | humanizePercentage }}"
+
+      # Slow queries
+      - alert: SlowQueries
+        expr: rate(pg_stat_statements_mean_exec_time_seconds[5m]) > 1
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Slow database queries detected"
+          description: "Average query execution time is {{ $value }}s"
+
+      # Redis is down
+      - alert: RedisDown
+        expr: redis_up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Redis is down"
+          description: "Redis cache has been down for more than 1 minute"
+
+      # High Redis memory usage
+      - alert: RedisHighMemory
+        expr: redis_memory_used_bytes / redis_memory_max_bytes > 0.9
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Redis high memory usage"
+          description: "Redis memory usage is {{ $value | humanizePercentage }}"
+
+  - name: application_metrics
+    interval: 30s
+    rules:
+      # JWT token generation failures
+      - alert: JWTGenerationFailures
+        expr: rate(jwt_generation_failures_total[5m]) > 0.01
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "JWT token generation failures"
+          description: "JWT generation failing at {{ $value }} requests/sec"
+
+      # Task creation failures
+      - alert: TaskCreationFailures
+        expr: rate(task_creation_failures_total[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High task creation failure rate"
+          description: "Task creation failing at {{ $value }} requests/sec"
+
+      # Notification delivery failures
+      - alert: NotificationDeliveryFailures
+        expr: rate(notification_delivery_failures_total[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Notification delivery failures"
+          description: "Notifications failing at {{ $value }} requests/sec"
+
+  - name: kubernetes_cluster
+    interval: 30s
+    rules:
+      # Pod not ready
+      - alert: PodNotReady
+        expr: kube_pod_status_phase{phase!="Running"} > 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Pod {{ $labels.pod }} not ready"
+          description: "Pod {{ $labels.pod }} in namespace {{ $labels.namespace }} has been in {{ $labels.phase }} state for more than 10 minutes"
+
+      # Deployment replica mismatch
+      - alert: DeploymentReplicasMismatch
+        expr: kube_deployment_spec_replicas != kube_deployment_status_replicas_available
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Deployment {{ $labels.deployment }} has mismatched replicas"
+          description: "Deployment {{ $labels.deployment }} has {{ $value }} available replicas (expected: {{ $labels.spec_replicas }})"
+
+      # Node not ready
+      - alert: NodeNotReady
+        expr: kube_node_status_condition{condition="Ready",status="true"} == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Node {{ $labels.node }} is not ready"
+          description: "Node {{ $labels.node }} has been not ready for more than 5 minutes"

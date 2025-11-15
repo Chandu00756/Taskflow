@@ -1,0 +1,308 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "notification.proto",
+    "version": "version not set"
+  },
+  "tags": [
+    {
+      "name": "NotificationService"
+    }
+  ],
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "paths": {
+    "/api/v1/notifications": {
+      "get": {
+        "summary": "Get notification history",
+        "operationId": "NotificationService_GetNotifications",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/notificationGetNotificationsResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "unreadOnly",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
+          }
+        ],
+        "tags": [
+          "NotificationService"
+        ]
+      }
+    },
+    "/api/v1/notifications/send": {
+      "post": {
+        "summary": "Send notification",
+        "operationId": "NotificationService_SendNotification",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/notificationSendNotificationResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/notificationSendNotificationRequest"
+            }
+          }
+        ],
+        "tags": [
+          "NotificationService"
+        ]
+      }
+    },
+    "/api/v1/notifications/{notificationId}/read": {
+      "patch": {
+        "summary": "Mark notification as read",
+        "operationId": "NotificationService_MarkAsRead",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/notificationMarkAsReadResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "notificationId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/NotificationServiceMarkAsReadBody"
+            }
+          }
+        ],
+        "tags": [
+          "NotificationService"
+        ]
+      }
+    }
+  },
+  "definitions": {
+    "NotificationServiceMarkAsReadBody": {
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string"
+        }
+      },
+      "title": "Mark as read request"
+    },
+    "notificationGetNotificationsResponse": {
+      "type": "object",
+      "properties": {
+        "notifications": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/notificationNotificationEvent"
+          }
+        },
+        "totalCount": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "unreadCount": {
+          "type": "integer",
+          "format": "int32"
+        }
+      },
+      "title": "Get notifications response"
+    },
+    "notificationMarkAsReadResponse": {
+      "type": "object",
+      "properties": {
+        "message": {
+          "type": "string"
+        }
+      },
+      "title": "Mark as read response"
+    },
+    "notificationNotificationEvent": {
+      "type": "object",
+      "properties": {
+        "notificationId": {
+          "type": "string"
+        },
+        "userId": {
+          "type": "string"
+        },
+        "type": {
+          "$ref": "#/definitions/notificationNotificationType"
+        },
+        "title": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "taskId": {
+          "type": "string"
+        },
+        "relatedUserId": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "read": {
+          "type": "boolean"
+        },
+        "metadata": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      },
+      "title": "Notification event"
+    },
+    "notificationNotificationType": {
+      "type": "string",
+      "enum": [
+        "NOTIFICATION_TYPE_UNSPECIFIED",
+        "NOTIFICATION_TYPE_TASK_ASSIGNED",
+        "NOTIFICATION_TYPE_TASK_UPDATED",
+        "NOTIFICATION_TYPE_TASK_COMPLETED",
+        "NOTIFICATION_TYPE_TASK_COMMENT",
+        "NOTIFICATION_TYPE_TASK_DUE_SOON",
+        "NOTIFICATION_TYPE_TASK_OVERDUE"
+      ],
+      "default": "NOTIFICATION_TYPE_UNSPECIFIED",
+      "title": "Notification type"
+    },
+    "notificationSendNotificationRequest": {
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string"
+        },
+        "type": {
+          "$ref": "#/definitions/notificationNotificationType"
+        },
+        "title": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "taskId": {
+          "type": "string"
+        },
+        "relatedUserId": {
+          "type": "string"
+        },
+        "metadata": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      },
+      "title": "Send notification request"
+    },
+    "notificationSendNotificationResponse": {
+      "type": "object",
+      "properties": {
+        "notificationId": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        }
+      },
+      "title": "Send notification response"
+    },
+    "protobufAny": {
+      "type": "object",
+      "properties": {
+        "@type": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": {}
+    },
+    "rpcStatus": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "message": {
+          "type": "string"
+        },
+        "details": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/protobufAny"
+          }
+        }
+      }
+    }
+  }
+}

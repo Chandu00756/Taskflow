@@ -1,0 +1,169 @@
+syntax = "proto3";
+
+package user;
+
+option go_package = "github.com/chanduchitikam/task-management-system/proto/user;user";
+
+import "google/api/annotations.proto";
+import "google/protobuf/timestamp.proto";
+
+// UserService handles authentication and user profile management
+service UserService {
+  // Register a new user
+  rpc Register(RegisterRequest) returns (RegisterResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/auth/register"
+      body: "*"
+    };
+  }
+
+  // Login user and return JWT token
+  rpc Login(LoginRequest) returns (LoginResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/auth/login"
+      body: "*"
+    };
+  }
+
+  // Get user profile by ID
+  rpc GetUser(GetUserRequest) returns (GetUserResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/users/{user_id}"
+    };
+  }
+
+  // Update user profile
+  rpc UpdateUser(UpdateUserRequest) returns (UpdateUserResponse) {
+    option (google.api.http) = {
+      put: "/api/v1/users/{user_id}"
+      body: "*"
+    };
+  }
+
+  // Delete user
+  rpc DeleteUser(DeleteUserRequest) returns (DeleteUserResponse) {
+    option (google.api.http) = {
+      delete: "/api/v1/users/{user_id}"
+    };
+  }
+
+  // List all users (admin only)
+  rpc ListUsers(ListUsersRequest) returns (ListUsersResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/users"
+    };
+  }
+
+  // Validate JWT token
+  rpc ValidateToken(ValidateTokenRequest) returns (ValidateTokenResponse);
+}
+
+// User roles
+enum UserRole {
+  USER_ROLE_UNSPECIFIED = 0;
+  USER_ROLE_MEMBER = 1;
+  USER_ROLE_ADMIN = 2;
+}
+
+// User message
+message User {
+  string user_id = 1;
+  string email = 2;
+  string username = 3;
+  string full_name = 4;
+  UserRole role = 5;
+  google.protobuf.Timestamp created_at = 6;
+  google.protobuf.Timestamp updated_at = 7;
+}
+
+// Register request
+message RegisterRequest {
+  string email = 1;
+  string username = 2;
+  string password = 3;
+  string full_name = 4;
+  UserRole role = 5;
+}
+
+// Register response
+message RegisterResponse {
+  User user = 1;
+  string message = 2;
+}
+
+// Login request
+message LoginRequest {
+  string email = 1;
+  string password = 2;
+}
+
+// Login response
+message LoginResponse {
+  string access_token = 1;
+  string refresh_token = 2;
+  User user = 3;
+  int64 expires_in = 4;
+}
+
+// Get user request
+message GetUserRequest {
+  string user_id = 1;
+}
+
+// Get user response
+message GetUserResponse {
+  User user = 1;
+}
+
+// Update user request
+message UpdateUserRequest {
+  string user_id = 1;
+  string email = 2;
+  string username = 3;
+  string full_name = 4;
+  UserRole role = 5;
+}
+
+// Update user response
+message UpdateUserResponse {
+  User user = 1;
+  string message = 2;
+}
+
+// Delete user request
+message DeleteUserRequest {
+  string user_id = 1;
+}
+
+// Delete user response
+message DeleteUserResponse {
+  string message = 1;
+}
+
+// List users request
+message ListUsersRequest {
+  int32 page = 1;
+  int32 page_size = 2;
+  string role_filter = 3;
+}
+
+// List users response
+message ListUsersResponse {
+  repeated User users = 1;
+  int32 total_count = 2;
+  int32 page = 3;
+  int32 page_size = 4;
+}
+
+// Validate token request
+message ValidateTokenRequest {
+  string token = 1;
+}
+
+// Validate token response
+message ValidateTokenResponse {
+  bool valid = 1;
+  string user_id = 2;
+  UserRole role = 3;
+  string message = 4;
+}

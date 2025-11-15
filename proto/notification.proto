@@ -1,0 +1,111 @@
+syntax = "proto3";
+
+package notification;
+
+option go_package = "github.com/chanduchitikam/task-management-system/proto/notification;notification";
+
+import "google/api/annotations.proto";
+import "google/protobuf/timestamp.proto";
+
+// NotificationService handles real-time notifications
+service NotificationService {
+  // Subscribe to task notifications (bidirectional streaming)
+  rpc SubscribeToNotifications(stream SubscribeRequest) returns (stream NotificationEvent);
+
+  // Send notification
+  rpc SendNotification(SendNotificationRequest) returns (SendNotificationResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/notifications/send"
+      body: "*"
+    };
+  }
+
+  // Get notification history
+  rpc GetNotifications(GetNotificationsRequest) returns (GetNotificationsResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/notifications"
+    };
+  }
+
+  // Mark notification as read
+  rpc MarkAsRead(MarkAsReadRequest) returns (MarkAsReadResponse) {
+    option (google.api.http) = {
+      patch: "/api/v1/notifications/{notification_id}/read"
+      body: "*"
+    };
+  }
+}
+
+// Notification type
+enum NotificationType {
+  NOTIFICATION_TYPE_UNSPECIFIED = 0;
+  NOTIFICATION_TYPE_TASK_ASSIGNED = 1;
+  NOTIFICATION_TYPE_TASK_UPDATED = 2;
+  NOTIFICATION_TYPE_TASK_COMPLETED = 3;
+  NOTIFICATION_TYPE_TASK_COMMENT = 4;
+  NOTIFICATION_TYPE_TASK_DUE_SOON = 5;
+  NOTIFICATION_TYPE_TASK_OVERDUE = 6;
+}
+
+// Notification event
+message NotificationEvent {
+  string notification_id = 1;
+  string user_id = 2;
+  NotificationType type = 3;
+  string title = 4;
+  string message = 5;
+  string task_id = 6;
+  string related_user_id = 7;
+  google.protobuf.Timestamp created_at = 8;
+  bool read = 9;
+  map<string, string> metadata = 10;
+}
+
+// Subscribe request for streaming
+message SubscribeRequest {
+  string user_id = 1;
+  repeated NotificationType event_types = 2;
+}
+
+// Send notification request
+message SendNotificationRequest {
+  string user_id = 1;
+  NotificationType type = 2;
+  string title = 3;
+  string message = 4;
+  string task_id = 5;
+  string related_user_id = 6;
+  map<string, string> metadata = 7;
+}
+
+// Send notification response
+message SendNotificationResponse {
+  string notification_id = 1;
+  string message = 2;
+}
+
+// Get notifications request
+message GetNotificationsRequest {
+  string user_id = 1;
+  bool unread_only = 2;
+  int32 page = 3;
+  int32 page_size = 4;
+}
+
+// Get notifications response
+message GetNotificationsResponse {
+  repeated NotificationEvent notifications = 1;
+  int32 total_count = 2;
+  int32 unread_count = 3;
+}
+
+// Mark as read request
+message MarkAsReadRequest {
+  string notification_id = 1;
+  string user_id = 2;
+}
+
+// Mark as read response
+message MarkAsReadResponse {
+  string message = 1;
+}

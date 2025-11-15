@@ -1,0 +1,115 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: taskmanagement-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: taskmanagement
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: taskmanagement-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  user-service:
+    build:
+      context: .
+      dockerfile: deployments/docker/Dockerfile.user
+    container_name: user-service
+    environment:
+      - GRPC_PORT=50051
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_NAME=taskmanagement
+      - JWT_SECRET=your-secret-key-change-in-production
+    ports:
+      - "50051:50051"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  task-service:
+    build:
+      context: .
+      dockerfile: deployments/docker/Dockerfile.task
+    container_name: task-service
+    environment:
+      - GRPC_PORT=50051
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_NAME=taskmanagement
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    ports:
+      - "50052:50052"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  notification-service:
+    build:
+      context: .
+      dockerfile: deployments/docker/Dockerfile.notification
+    container_name: notification-service
+    environment:
+      - GRPC_PORT=50051
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_NAME=taskmanagement
+    ports:
+      - "50053:50053"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  gateway:
+    build:
+      context: .
+      dockerfile: deployments/docker/Dockerfile.gateway
+    container_name: api-gateway
+    environment:
+      - HTTP_PORT=8080
+      - GRPC_PORT=50051
+      - JWT_SECRET=your-secret-key-change-in-production
+      - USER_SERVICE_ADDR=user-service:50051
+      - TASK_SERVICE_ADDR=task-service:50052
+      - NOTIFICATION_SERVICE_ADDR=notification-service:50053
+    ports:
+      - "8080:8080"
+    depends_on:
+      - user-service
+      - task-service
+      - notification-service
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
