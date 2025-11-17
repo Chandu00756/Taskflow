@@ -21,10 +21,31 @@ class APIClient {
 // // // Request interceptor
     this.client.interceptors.request.use(
       (config: InternalAxiosRequestConfig) => {
-        // Ensure we pick up the latest token from storage in case it was set elsewhere
-        const token = this.getAccessToken();
-        if (token && config.headers) {
-          config.headers.Authorization = `Bearer ${token}`;
+        // ALWAYS read fresh token from storage on each request (don't cache)
+        // This ensures we pick up tokens even if set after client initialization
+        if (typeof window !== 'undefined') {
+          let token: string | null = null;
+          
+          // Try reading from Zustand's persisted auth-storage first
+          try {
+            const authStorage = localStorage.getItem('auth-storage');
+            if (authStorage) {
+              const parsed = JSON.parse(authStorage);
+              token = parsed?.state?.accessToken || null;
+            }
+          } catch (e) {
+            // ignore parse errors
+          }
+          
+          // Fallback to old access_token key
+          if (!token) {
+            token = localStorage.getItem('access_token');
+          }
+          
+          if (token && config.headers) {
+            config.headers.Authorization = `Bearer ${token}`;
+            this.accessToken = token; // update cached value
+          }
         }
         return config;
       },
