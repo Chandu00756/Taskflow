@@ -11,7 +11,7 @@ import dynamic from 'next/dynamic';
 import type { ConfettiProps } from 'react-confetti';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
-import { authAPI } from '@/lib/api';
+import { authAPI, apiClient } from '@/lib/api';
 import { parseJwt } from '@/lib/jwt';
 import { useAuthStore } from '@/store/auth';
 import { cn } from '@/lib/utils';
@@ -65,6 +65,8 @@ export default function LoginPage() {
       };
 
       setAuth(userWithClaims, access, refresh);
+      apiClient.setAccessToken(access);
+      apiClient.setRefreshToken(refresh);
       toast.success('Welcome back! ✨');
       setShowCelebration(true);
       setTimeout(() => {

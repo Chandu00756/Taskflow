@@ -75,8 +75,24 @@ class APIClient {
   }
 
   getAccessToken(): string | null {
-    if (!this.accessToken && typeof window !== 'undefined') {
-      this.accessToken = localStorage.getItem('access_token');
+    if (typeof window !== 'undefined') {
+      // Read from auth store (persisted in localStorage as 'auth-storage')
+      try {
+        const authStorage = localStorage.getItem('auth-storage');
+        if (authStorage) {
+          const parsed = JSON.parse(authStorage);
+          if (parsed?.state?.accessToken) {
+            this.accessToken = parsed.state.accessToken;
+            return this.accessToken;
+          }
+        }
+      } catch (e) {
+        // fallback to old key
+      }
+      // Fallback: check old access_token key
+      if (!this.accessToken) {
+        this.accessToken = localStorage.getItem('access_token');
+      }
     }
     return this.accessToken;
   }
