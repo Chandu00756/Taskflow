@@ -16,24 +16,24 @@ import (
 )
 
 func main() {
-	// Load configuration
+	// 	// 	// Load configuration
 	cfg, err := config.LoadConfig()
 	if err != nil {
 		log.Fatalf("Failed to load config: %v", err)
 	}
 
-	// Connect to database
+	// 	// 	// Connect to database
 	db, err := database.NewPostgresConnection(cfg.Database.GetDSN())
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
 
-	// Auto-migrate models
+	// 	// 	// Auto-migrate models
 	if err := database.AutoMigrate(db, &models.Task{}); err != nil {
 		log.Fatalf("Failed to migrate database: %v", err)
 	}
 
-	// Connect to Redis
+	// 	// 	// Connect to Redis
 	redisClient, err := cache.NewRedisClient(
 		cfg.Redis.GetRedisAddr(),
 		cfg.Redis.Password,
@@ -43,17 +43,17 @@ func main() {
 		log.Fatalf("Failed to connect to Redis: %v", err)
 	}
 
-	// Create gRPC server
+	// 	// 	// Create gRPC server
 	grpcServer := grpc.NewServer()
 
-	// Register TaskService
+	// 	// 	// Register TaskService
 	taskService := service.NewTaskService(db, redisClient)
 	taskpb.RegisterTaskServiceServer(grpcServer, taskService)
 
-	// Register reflection
+	// 	// 	// Register reflection
 	reflection.Register(grpcServer)
 
-	// Start listening (use different port from UserService)
+	// 	// 	// Start listening (use different port from UserService)
 	port := cfg.Server.GRPCPort + 1 // 50052
 	addr := fmt.Sprintf(":%d", port)
 	listener, err := net.Listen("tcp", addr)

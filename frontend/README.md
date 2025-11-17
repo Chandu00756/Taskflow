@@ -1,8 +1,8 @@
-# Task Management System - Frontend
+# # # Task Management System - Frontend
 
 Modern React/Next.js frontend for the Task Management System.
 
-## Features
+# # ## Features
 
 - 🎨 **Modern UI** - Built with Next.js 14, React, and Tailwind CSS
 - 🔄 **Real-time Updates** - WebSocket integration for live notifications
@@ -13,7 +13,7 @@ Modern React/Next.js frontend for the Task Management System.
 - 📊 **Dashboard** - Beautiful analytics and task visualization
 - 🎯 **Type-Safe** - Full TypeScript support
 
-## Tech Stack
+# # ## Tech Stack
 
 - **Framework**: Next.js 14 (App Router)
 - **Language**: TypeScript
@@ -28,43 +28,43 @@ Modern React/Next.js frontend for the Task Management System.
 - **Animations**: Framer Motion
 - **Notifications**: Sonner
 
-## Getting Started
+# # ## Getting Started
 
-### Prerequisites
+# # ### Prerequisites
 
 - Node.js 18+ 
 - npm or yarn or pnpm
 
-### Installation
+# # ### Installation
 
 ```bash
-# Navigate to frontend directory
+# # # Navigate to frontend directory
 cd frontend
 
-# Install dependencies
+# # # Install dependencies
 npm install
 
-# Copy environment variables
+# # # Copy environment variables
 cp .env.example .env.local
 
-# Update .env.local with your backend URL
+# # # Update .env.local with your backend URL
 NEXT_PUBLIC_API_URL=http://localhost:8080
 NEXT_PUBLIC_WS_URL=ws://localhost:8080
 
-# Run development server
+# # # Run development server
 npm run dev
 ```
 
 The application will be available at http://localhost:3000
 
-### Build for Production
+# # ### Build for Production
 
 ```bash
 npm run build
 npm start
 ```
 
-## Project Structure
+# # ## Project Structure
 
 ```
 frontend/
@@ -92,14 +92,14 @@ frontend/
 
 ```
 
-## API Integration
+# # ## API Integration
 
 The frontend communicates with the backend via:
 
 1. **REST API** - HTTP endpoints for CRUD operations
 2. **WebSocket** - Real-time updates for tasks and notifications
 
-### API Client
+# # ### API Client
 
 The API client is fully typed and includes:
 - Automatic JWT token management
@@ -127,7 +127,7 @@ const task = await api.tasks.createTask({
 const notifications = await api.notifications.getUserNotifications(userId);
 ```
 
-### WebSocket Client
+# # ### WebSocket Client
 
 Real-time updates via WebSocket:
 
@@ -151,7 +151,7 @@ wsClient.on('notification.new', (message) => {
 wsClient.disconnect();
 ```
 
-## Available Scripts
+# # ## Available Scripts
 
 - `npm run dev` - Start development server
 - `npm run build` - Build for production
@@ -159,7 +159,7 @@ wsClient.disconnect();
 - `npm run lint` - Run ESLint
 - `npm run type-check` - Run TypeScript compiler check
 
-## Environment Variables
+# # ## Environment Variables
 
 Create a `.env.local` file:
 
@@ -168,22 +168,22 @@ NEXT_PUBLIC_API_URL=http://localhost:8080
 NEXT_PUBLIC_WS_URL=ws://localhost:8080
 ```
 
-## Features Overview
+# # ## Features Overview
 
-### Authentication
+# # ### Authentication
 - User registration
 - Login with email/password
 - JWT-based authentication
 - Automatic token refresh
 - Protected routes
 
-### Dashboard
+# # ### Dashboard
 - Task statistics
 - Charts and analytics
 - Recent activity
 - Quick actions
 
-### Task Management
+# # ### Task Management
 - Create, read, update, delete tasks
 - Task assignment
 - Priority levels (LOW, MEDIUM, HIGH, URGENT)
@@ -191,13 +191,13 @@ NEXT_PUBLIC_WS_URL=ws://localhost:8080
 - Due dates
 - Filtering and sorting
 
-### Real-time Features
+# # ### Real-time Features
 - Live task updates
 - Instant notifications
 - Online user presence
 - Collaborative editing
 
-### User Experience
+# # ### User Experience
 - Responsive design
 - Dark mode
 - Keyboard shortcuts
@@ -205,17 +205,17 @@ NEXT_PUBLIC_WS_URL=ws://localhost:8080
 - Loading states
 - Error handling
 
-## Customization
+# # ## Customization
 
-### Themes
+# # ### Themes
 
 Edit `tailwind.config.js` to customize colors, fonts, and styles.
 
-### Components
+# # ### Components
 
 All UI components are in `src/components/ui/` and can be customized or replaced.
 
-## Using as a Standalone Frontend
+# # ## Using as a Standalone Frontend
 
 This frontend is designed to work with any backend that implements the same API contract. To use with your own backend:
 
@@ -223,7 +223,7 @@ This frontend is designed to work with any backend that implements the same API 
 2. Ensure your backend implements the same endpoints (see API documentation)
 3. Implement WebSocket support for real-time features (optional)
 
-### API Requirements
+# # ### API Requirements
 
 Your backend must implement:
 - POST `/api/v1/auth/register` - User registration
@@ -237,30 +237,30 @@ Your backend must implement:
 
 See full API documentation in the main README.
 
-## Deployment
+# # ## Deployment
 
-### Vercel (Recommended)
+# # ### Vercel (Recommended)
 
 ```bash
 npm install -g vercel
 vercel
 ```
 
-### Docker
+# # ### Docker
 
 ```bash
 docker build -t task-frontend .
 docker run -p 3000:3000 task-frontend
 ```
 
-### Static Export
+# # ### Static Export
 
 ```bash
 npm run build
-# Deploy the `out/` directory to any static hosting
+# # # Deploy the `out/` directory to any static hosting
 ```
 
-## Contributing
+# # ## Contributing
 
 1. Fork the repository
 2. Create your feature branch
@@ -268,6 +268,6 @@ npm run build
 4. Push to the branch
 5. Create a Pull Request
 
-## License
+# # ## License
 
 MIT License - see LICENSE file for details

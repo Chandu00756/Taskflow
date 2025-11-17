@@ -1,10 +1,12 @@
-// Type definitions for API requests and responses
+// // // Type definitions for API requests and responses
 
 export interface User {
   id: string;
   email: string;
   username: string;
   full_name: string;
+  org_id?: string;
+  role?: string;
   created_at: string;
   updated_at: string;
 }
@@ -112,6 +114,38 @@ export interface ListUsersResponse {
 
 export interface ListNotificationsResponse {
   notifications: Notification[];
+  total: number;
+}
+
+// Invites
+export interface CreateInviteRequest {
+  email: string;
+  username?: string;
+  full_name?: string;
+  role?: string; // 'member'|'admin'
+  expires_hours?: number;
+}
+
+export interface InviteItem {
+  invite_id: string;
+  email: string;
+  org_id: string;
+  role: string;
+  expires_at: string;
+  used_at?: string | null;
+  created_by: string;
+  created_at: string;
+}
+
+export interface AcceptInviteRequest {
+  token: string;
+  password: string;
+  username: string;
+  full_name?: string;
+}
+
+export interface ListInvitesResponse {
+  invites: InviteItem[];
   total: number;
 }
 

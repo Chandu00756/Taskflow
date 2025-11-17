@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -54,7 +54,8 @@ const STATUS_LABELS: Record<TaskStatus, string> = {
 
 export default function TasksPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
+  // Avoid Next's useSearchParams during prerender; use client-side URLSearchParams
+  const [searchParamsClient, setSearchParamsClient] = useState<URLSearchParams | null>(null);
   const { isAuthenticated, user } = useAuthStore();
   const queryClient = useQueryClient();
   
@@ -88,10 +89,14 @@ export default function TasksPage() {
   }, [isAuthenticated, router]);
 
   useEffect(() => {
-    if (searchParams.get('action') === 'create') {
-      setIsCreateModalOpen(true);
+    if (typeof window !== 'undefined') {
+      const sp = new URLSearchParams(window.location.search);
+      setSearchParamsClient(sp);
+      if (sp.get('action') === 'create') {
+        setIsCreateModalOpen(true);
+      }
     }
-  }, [searchParams]);
+  }, []);
 
   const tasksQuery = useQuery({
     queryKey: ['tasks'],

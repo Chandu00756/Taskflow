@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-// Config holds all application configuration
+// // // Config holds all application configuration
 type Config struct {
 	Server   ServerConfig
 	Database DatabaseConfig
@@ -16,14 +16,14 @@ type Config struct {
 	Sentry   SentryConfig
 }
 
-// ServerConfig holds server-specific configuration
+// // // ServerConfig holds server-specific configuration
 type ServerConfig struct {
 	GRPCPort    int
 	HTTPPort    int
 	Environment string
 }
 
-// DatabaseConfig holds database connection configuration
+// // // DatabaseConfig holds database connection configuration
 type DatabaseConfig struct {
 	Host     string
 	Port     int
@@ -33,7 +33,7 @@ type DatabaseConfig struct {
 	SSLMode  string
 }
 
-// RedisConfig holds Redis connection configuration
+// // // RedisConfig holds Redis connection configuration
 type RedisConfig struct {
 	Host     string
 	Port     int
@@ -41,14 +41,14 @@ type RedisConfig struct {
 	DB       int
 }
 
-// JWTConfig holds JWT configuration
+// // // JWTConfig holds JWT configuration
 type JWTConfig struct {
 	SecretKey            string
 	AccessTokenDuration  time.Duration
 	RefreshTokenDuration time.Duration
 }
 
-// SentryConfig holds Sentry configuration
+// // // SentryConfig holds Sentry configuration
 type SentryConfig struct {
 	DSN                string
 	Release            string
@@ -57,7 +57,7 @@ type SentryConfig struct {
 	GoVersion          string
 }
 
-// LoadConfig loads configuration from environment variables
+// // // LoadConfig loads configuration from environment variables
 func LoadConfig() (*Config, error) {
 	config := &Config{
 		Server: ServerConfig{
@@ -96,7 +96,7 @@ func LoadConfig() (*Config, error) {
 	return config, nil
 }
 
-// GetDSN returns the database connection string
+// // // GetDSN returns the database connection string
 func (c *DatabaseConfig) GetDSN() string {
 	return fmt.Sprintf(
 		"host=%s port=%d user=%s password=%s dbname=%s sslmode=%s",
@@ -104,12 +104,12 @@ func (c *DatabaseConfig) GetDSN() string {
 	)
 }
 
-// GetRedisAddr returns the Redis connection address
+// // // GetRedisAddr returns the Redis connection address
 func (c *RedisConfig) GetRedisAddr() string {
 	return fmt.Sprintf("%s:%d", c.Host, c.Port)
 }
 
-// Helper functions
+// // // Helper functions
 func getEnv(key, defaultValue string) string {
 	if value := os.Getenv(key); value != "" {
 		return value

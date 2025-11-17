@@ -1,8 +1,8 @@
-# Using the Backend with Your Own Frontend
+# # # Using the Backend with Your Own Frontend
 
 This guide explains how to use the Task Management System backend with your own custom frontend application.
 
-## Overview
+# # ## Overview
 
 The Task Management System backend is **completely frontend-agnostic** and can be integrated with:
 
@@ -13,11 +13,11 @@ The Task Management System backend is **completely frontend-agnostic** and can b
 - ✅ Static sites with client-side JavaScript
 - ✅ Any application that can make HTTP requests or gRPC calls
 
-## Integration Options
+# # ## Integration Options
 
 You have **3 ways** to integrate with the backend:
 
-### Option 1: REST API (Recommended for Web/Mobile)
+# # ### Option 1: REST API (Recommended for Web/Mobile)
 
 **Best for**: Web frontends, mobile apps, simple integrations
 
@@ -29,7 +29,7 @@ You have **3 ways** to integrate with the backend:
 
 **Endpoint**: `http://localhost:8080/api/v1/`
 
-### Option 2: gRPC (Recommended for High Performance)
+# # ### Option 2: gRPC (Recommended for High Performance)
 
 **Best for**: Microservices, high-performance apps, real-time systems
 
@@ -43,7 +43,7 @@ You have **3 ways** to integrate with the backend:
 - Task Service: `localhost:50052`
 - Notification Service: `localhost:50053`
 
-### Option 3: WebSocket (For Real-time Features)
+# # ### Option 3: WebSocket (For Real-time Features)
 
 **Best for**: Real-time notifications, live updates, collaborative features
 
@@ -56,11 +56,11 @@ You have **3 ways** to integrate with the backend:
 
 ---
 
-## Quick Start Guides
+# # ## Quick Start Guides
 
-### JavaScript/TypeScript Frontend
+# # ### JavaScript/TypeScript Frontend
 
-#### Using Fetch API
+# # #### Using Fetch API
 
 ```javascript
 // Login
@@ -97,7 +97,7 @@ const task = await taskResponse.json();
 console.log('Created task:', task);
 ```
 
-#### Using Axios
+# # #### Using Axios
 
 ```javascript
 import axios from 'axios';
@@ -130,7 +130,7 @@ const tasks = await api.get('/api/v1/tasks');
 console.log(tasks.data);
 ```
 
-#### WebSocket Connection
+# # #### WebSocket Connection
 
 ```javascript
 const token = localStorage.getItem('token');
@@ -173,7 +173,7 @@ setInterval(() => {
 
 ---
 
-### React Example
+# # ### React Example
 
 ```jsx
 import { useState, useEffect } from 'react';
@@ -233,7 +233,7 @@ function TaskList() {
 
 ---
 
-### Vue.js Example
+# # ### Vue.js Example
 
 ```vue
 <template>
@@ -284,7 +284,7 @@ export default {
 
 ---
 
-### Python Example
+# # ### Python Example
 
 ```python
 import requests
@@ -340,11 +340,11 @@ class TaskClient:
         response.raise_for_status()
         return response.json()
 
-# Usage
+# # # Usage
 client = TaskClient()
 client.login('user@example.com', 'password')
 
-# Create task
+# # # Create task
 task = client.create_task(
     title='Build API Client',
     description='Create Python SDK for the API',
@@ -352,19 +352,19 @@ task = client.create_task(
 )
 print(f'Created task: {task["id"]}')
 
-# Get all tasks
+# # # Get all tasks
 tasks = client.get_tasks()
 for task in tasks:
     print(f'{task["title"]} - {task["status"]}')
 
-# Update task
+# # # Update task
 updated = client.update_task(task['id'], status='IN_PROGRESS')
 print(f'Updated task status to: {updated["status"]}')
 ```
 
 ---
 
-### Mobile App Example (React Native)
+# # ### Mobile App Example (React Native)
 
 ```jsx
 import React, { useState, useEffect } from 'react';
@@ -430,7 +430,7 @@ export default function TaskScreen() {
 
 ---
 
-### Swift (iOS) Example
+# # ### Swift (iOS) Example
 
 ```swift
 import Foundation
@@ -508,15 +508,15 @@ api.login(email: "user@example.com", password: "password") { result in
 
 ---
 
-## Environment Configuration
+# # ## Environment Configuration
 
-### Development
+# # ### Development
 ```
 API_URL=http://localhost:8080
 WS_URL=ws://localhost:8080
 ```
 
-### Production
+# # ### Production
 ```
 API_URL=https://api.yourdomain.com
 WS_URL=wss://api.yourdomain.com
@@ -524,7 +524,7 @@ WS_URL=wss://api.yourdomain.com
 
 ---
 
-## Authentication Flow
+# # ## Authentication Flow
 
 1. **Register/Login** → Get access_token and refresh_token
 2. **Store tokens** → localStorage (web), AsyncStorage (mobile), Keychain (iOS)
@@ -549,7 +549,7 @@ async function refreshToken() {
 
 ---
 
-## Error Handling
+# # ## Error Handling
 
 All API errors return this format:
 
@@ -598,7 +598,7 @@ try {
 
 ---
 
-## CORS Configuration
+# # ## CORS Configuration
 
 The backend allows all origins by default for development.
 
@@ -616,7 +616,7 @@ allowedOrigins := os.Getenv("ALLOWED_ORIGINS") // "https://app.com,https://admin
 
 ---
 
-## Rate Limiting
+# # ## Rate Limiting
 
 - **100 requests per second** per IP address
 - **Burst of 10** additional requests
@@ -627,7 +627,7 @@ allowedOrigins := os.Getenv("ALLOWED_ORIGINS") // "https://app.com,https://admin
 
 ---
 
-## Complete API Reference
+# # ## Complete API Reference
 
 See [API_REFERENCE.md](./API_REFERENCE.md) for:
 - Full endpoint documentation
@@ -638,9 +638,9 @@ See [API_REFERENCE.md](./API_REFERENCE.md) for:
 
 ---
 
-## Example Projects
+# # ## Example Projects
 
-### Minimal HTML/JavaScript Example
+# # ### Minimal HTML/JavaScript Example
 
 ```html
 <!DOCTYPE html>
@@ -706,7 +706,7 @@ See [API_REFERENCE.md](./API_REFERENCE.md) for:
 
 ---
 
-## Support & Resources
+# # ## Support & Resources
 
 - **API Reference**: [API_REFERENCE.md](./API_REFERENCE.md)
 - **Integration Guide**: [INTEGRATION_GUIDE.md](./INTEGRATION_GUIDE.md)

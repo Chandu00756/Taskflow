@@ -8,13 +8,13 @@ import (
 	"github.com/chanduchitikam/task-management-system/pkg/auth"
 )
 
-// WebSocketHandler handles WebSocket connections
+// // // WebSocketHandler handles WebSocket connections
 type WebSocketHandler struct {
 	hub        *websocket.Hub
 	jwtManager *auth.JWTManager
 }
 
-// NewWebSocketHandler creates a new WebSocket handler
+// // // NewWebSocketHandler creates a new WebSocket handler
 func NewWebSocketHandler(hub *websocket.Hub, jwtManager *auth.JWTManager) *WebSocketHandler {
 	return &WebSocketHandler{
 		hub:        hub,
@@ -22,9 +22,9 @@ func NewWebSocketHandler(hub *websocket.Hub, jwtManager *auth.JWTManager) *WebSo
 	}
 }
 
-// HandleConnection handles WebSocket connection requests
+// // // HandleConnection handles WebSocket connection requests
 func (h *WebSocketHandler) HandleConnection(w http.ResponseWriter, r *http.Request) {
-	// Extract JWT token from query parameter or Authorization header
+	// 	// 	// Extract JWT token from query parameter or Authorization header
 	token := r.URL.Query().Get("token")
 	if token == "" {
 		authHeader := r.Header.Get("Authorization")
@@ -38,24 +38,24 @@ func (h *WebSocketHandler) HandleConnection(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	// Verify JWT token
+	// 	// 	// Verify JWT token
 	claims, err := h.jwtManager.Verify(token)
 	if err != nil {
 		http.Error(w, "Invalid authentication token", http.StatusUnauthorized)
 		return
 	}
 
-	// Upgrade connection and start client
+	// 	// 	// Upgrade connection and start client
 	websocket.ServeWs(h.hub, w, r, claims.UserID)
 }
 
-// HandleStats returns WebSocket hub statistics
+// // // HandleStats returns WebSocket hub statistics
 func (h *WebSocketHandler) HandleStats(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	stats := h.hub.GetStats()
 
 	w.WriteHeader(http.StatusOK)
-	// Simple JSON encoding without importing encoding/json again
+	// 	// 	// Simple JSON encoding without importing encoding/json again
 	w.Write([]byte(`{"total_users":`))
 	w.Write([]byte(string(rune(stats["total_users"].(int) + '0'))))
 	w.Write([]byte(`,"total_clients":`))
@@ -63,14 +63,14 @@ func (h *WebSocketHandler) HandleStats(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(`}`))
 }
 
-// HandleOnlineUsers returns list of online users
+// // // HandleOnlineUsers returns list of online users
 func (h *WebSocketHandler) HandleOnlineUsers(w http.ResponseWriter, r *http.Request) {
 	users := h.hub.GetOnlineUsers()
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 
-	// Simple JSON array encoding
+	// 	// 	// Simple JSON array encoding
 	w.Write([]byte(`{"users":[`))
 	for i, user := range users {
 		if i > 0 {

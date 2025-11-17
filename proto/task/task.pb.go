@@ -149,10 +149,11 @@ type Task struct {
 	AssignedTo    string                 `protobuf:"bytes,6,opt,name=assigned_to,json=assignedTo,proto3" json:"assigned_to,omitempty"`
 	CreatedBy     string                 `protobuf:"bytes,7,opt,name=created_by,json=createdBy,proto3" json:"created_by,omitempty"`
 	TeamId        string                 `protobuf:"bytes,8,opt,name=team_id,json=teamId,proto3" json:"team_id,omitempty"`
-	DueDate       *timestamppb.Timestamp `protobuf:"bytes,9,opt,name=due_date,json=dueDate,proto3" json:"due_date,omitempty"`
-	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,11,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
-	Tags          []string               `protobuf:"bytes,12,rep,name=tags,proto3" json:"tags,omitempty"`
+	GroupId       string                 `protobuf:"bytes,9,opt,name=group_id,json=groupId,proto3" json:"group_id,omitempty"`
+	DueDate       *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=due_date,json=dueDate,proto3" json:"due_date,omitempty"`
+	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,11,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,12,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	Tags          []string               `protobuf:"bytes,13,rep,name=tags,proto3" json:"tags,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -243,6 +244,13 @@ func (x *Task) GetTeamId() string {
 	return ""
 }
 
+func (x *Task) GetGroupId() string {
+	if x != nil {
+		return x.GroupId
+	}
+	return ""
+}
+
 func (x *Task) GetDueDate() *timestamppb.Timestamp {
 	if x != nil {
 		return x.DueDate
@@ -280,8 +288,9 @@ type CreateTaskRequest struct {
 	Priority      TaskPriority           `protobuf:"varint,4,opt,name=priority,proto3,enum=task.TaskPriority" json:"priority,omitempty"`
 	AssignedTo    string                 `protobuf:"bytes,5,opt,name=assigned_to,json=assignedTo,proto3" json:"assigned_to,omitempty"`
 	TeamId        string                 `protobuf:"bytes,6,opt,name=team_id,json=teamId,proto3" json:"team_id,omitempty"`
-	DueDate       *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=due_date,json=dueDate,proto3" json:"due_date,omitempty"`
-	Tags          []string               `protobuf:"bytes,8,rep,name=tags,proto3" json:"tags,omitempty"`
+	GroupId       string                 `protobuf:"bytes,7,opt,name=group_id,json=groupId,proto3" json:"group_id,omitempty"`
+	DueDate       *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=due_date,json=dueDate,proto3" json:"due_date,omitempty"`
+	Tags          []string               `protobuf:"bytes,9,rep,name=tags,proto3" json:"tags,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -354,6 +363,13 @@ func (x *CreateTaskRequest) GetAssignedTo() string {
 func (x *CreateTaskRequest) GetTeamId() string {
 	if x != nil {
 		return x.TeamId
+	}
+	return ""
+}
+
+func (x *CreateTaskRequest) GetGroupId() string {
+	if x != nil {
+		return x.GroupId
 	}
 	return ""
 }
@@ -767,7 +783,8 @@ type ListTasksRequest struct {
 	StatusFilter     TaskStatus             `protobuf:"varint,3,opt,name=status_filter,json=statusFilter,proto3,enum=task.TaskStatus" json:"status_filter,omitempty"`
 	PriorityFilter   TaskPriority           `protobuf:"varint,4,opt,name=priority_filter,json=priorityFilter,proto3,enum=task.TaskPriority" json:"priority_filter,omitempty"`
 	TeamFilter       string                 `protobuf:"bytes,5,opt,name=team_filter,json=teamFilter,proto3" json:"team_filter,omitempty"`
-	AssignedToFilter string                 `protobuf:"bytes,6,opt,name=assigned_to_filter,json=assignedToFilter,proto3" json:"assigned_to_filter,omitempty"`
+	GroupFilter      string                 `protobuf:"bytes,6,opt,name=group_filter,json=groupFilter,proto3" json:"group_filter,omitempty"`
+	AssignedToFilter string                 `protobuf:"bytes,7,opt,name=assigned_to_filter,json=assignedToFilter,proto3" json:"assigned_to_filter,omitempty"`
 	unknownFields    protoimpl.UnknownFields
 	sizeCache        protoimpl.SizeCache
 }
@@ -833,6 +850,13 @@ func (x *ListTasksRequest) GetPriorityFilter() TaskPriority {
 func (x *ListTasksRequest) GetTeamFilter() string {
 	if x != nil {
 		return x.TeamFilter
+	}
+	return ""
+}
+
+func (x *ListTasksRequest) GetGroupFilter() string {
+	if x != nil {
+		return x.GroupFilter
 	}
 	return ""
 }
@@ -1252,7 +1276,7 @@ var File_task_proto protoreflect.FileDescriptor
 const file_task_proto_rawDesc = "" +
 	"\n" +
 	"\n" +
-	"task.proto\x12\x04task\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xcb\x03\n" +
+	"task.proto\x12\x04task\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xe6\x03\n" +
 	"\x04Task\x12\x17\n" +
 	"\atask_id\x18\x01 \x01(\tR\x06taskId\x12\x14\n" +
 	"\x05title\x18\x02 \x01(\tR\x05title\x12 \n" +
@@ -1263,14 +1287,15 @@ const file_task_proto_rawDesc = "" +
 	"assignedTo\x12\x1d\n" +
 	"\n" +
 	"created_by\x18\a \x01(\tR\tcreatedBy\x12\x17\n" +
-	"\ateam_id\x18\b \x01(\tR\x06teamId\x125\n" +
-	"\bdue_date\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\adueDate\x129\n" +
+	"\ateam_id\x18\b \x01(\tR\x06teamId\x12\x19\n" +
+	"\bgroup_id\x18\t \x01(\tR\agroupId\x125\n" +
+	"\bdue_date\x18\n" +
+	" \x01(\v2\x1a.google.protobuf.TimestampR\adueDate\x129\n" +
 	"\n" +
-	"created_at\x18\n" +
-	" \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
+	"created_at\x18\v \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
 	"\n" +
-	"updated_at\x18\v \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x12\x12\n" +
-	"\x04tags\x18\f \x03(\tR\x04tags\"\xaa\x02\n" +
+	"updated_at\x18\f \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x12\x12\n" +
+	"\x04tags\x18\r \x03(\tR\x04tags\"\xc5\x02\n" +
 	"\x11CreateTaskRequest\x12\x14\n" +
 	"\x05title\x18\x01 \x01(\tR\x05title\x12 \n" +
 	"\vdescription\x18\x02 \x01(\tR\vdescription\x12(\n" +
@@ -1278,9 +1303,10 @@ const file_task_proto_rawDesc = "" +
 	"\bpriority\x18\x04 \x01(\x0e2\x12.task.TaskPriorityR\bpriority\x12\x1f\n" +
 	"\vassigned_to\x18\x05 \x01(\tR\n" +
 	"assignedTo\x12\x17\n" +
-	"\ateam_id\x18\x06 \x01(\tR\x06teamId\x125\n" +
-	"\bdue_date\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\adueDate\x12\x12\n" +
-	"\x04tags\x18\b \x03(\tR\x04tags\"N\n" +
+	"\ateam_id\x18\x06 \x01(\tR\x06teamId\x12\x19\n" +
+	"\bgroup_id\x18\a \x01(\tR\agroupId\x125\n" +
+	"\bdue_date\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\adueDate\x12\x12\n" +
+	"\x04tags\x18\t \x03(\tR\x04tags\"N\n" +
 	"\x12CreateTaskResponse\x12\x1e\n" +
 	"\x04task\x18\x01 \x01(\v2\n" +
 	".task.TaskR\x04task\x12\x18\n" +
@@ -1307,15 +1333,16 @@ const file_task_proto_rawDesc = "" +
 	"\x11DeleteTaskRequest\x12\x17\n" +
 	"\atask_id\x18\x01 \x01(\tR\x06taskId\".\n" +
 	"\x12DeleteTaskResponse\x12\x18\n" +
-	"\amessage\x18\x01 \x01(\tR\amessage\"\x86\x02\n" +
+	"\amessage\x18\x01 \x01(\tR\amessage\"\xa9\x02\n" +
 	"\x10ListTasksRequest\x12\x12\n" +
 	"\x04page\x18\x01 \x01(\x05R\x04page\x12\x1b\n" +
 	"\tpage_size\x18\x02 \x01(\x05R\bpageSize\x125\n" +
 	"\rstatus_filter\x18\x03 \x01(\x0e2\x10.task.TaskStatusR\fstatusFilter\x12;\n" +
 	"\x0fpriority_filter\x18\x04 \x01(\x0e2\x12.task.TaskPriorityR\x0epriorityFilter\x12\x1f\n" +
 	"\vteam_filter\x18\x05 \x01(\tR\n" +
-	"teamFilter\x12,\n" +
-	"\x12assigned_to_filter\x18\x06 \x01(\tR\x10assignedToFilter\"\x87\x01\n" +
+	"teamFilter\x12!\n" +
+	"\fgroup_filter\x18\x06 \x01(\tR\vgroupFilter\x12,\n" +
+	"\x12assigned_to_filter\x18\a \x01(\tR\x10assignedToFilter\"\x87\x01\n" +
 	"\x11ListTasksResponse\x12 \n" +
 	"\x05tasks\x18\x01 \x03(\v2\n" +
 	".task.TaskR\x05tasks\x12\x1f\n" +

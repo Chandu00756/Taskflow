@@ -7,7 +7,7 @@ import (
 	"gorm.io/gorm"
 )
 
-// Notification represents a notification in the system
+// // // Notification represents a notification in the system
 type Notification struct {
 	ID            string    `gorm:"primaryKey;type:uuid;default:gen_random_uuid()" json:"id"`
 	UserID        string    `gorm:"type:uuid;not null;index" json:"user_id"`
@@ -21,7 +21,7 @@ type Notification struct {
 	CreatedAt     time.Time `json:"created_at"`
 }
 
-// BeforeCreate hook to generate UUID
+// // // BeforeCreate hook to generate UUID
 func (n *Notification) BeforeCreate(tx *gorm.DB) error {
 	if n.ID == "" {
 		n.ID = uuid.New().String()
@@ -29,7 +29,7 @@ func (n *Notification) BeforeCreate(tx *gorm.DB) error {
 	return nil
 }
 
-// TableName specifies the table name
+// // // TableName specifies the table name
 func (Notification) TableName() string {
 	return "notifications"
 }

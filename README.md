@@ -1,4 +1,4 @@
-# 🚀 Task Management System
+# # # 🚀 Task Management System
 
 <div align="center">
 
@@ -18,9 +18,9 @@
 
 ---
 
-## 🌟 Features
+# # ## 🌟 Features
 
-### Core Functionality
+# # ### Core Functionality
 
 - ✅ **Advanced Task Management** - Create, update, delete, and organize tasks with rich metadata
 - ✅ **Intelligent Search** - Full-text search with filters, tags, and advanced queries
@@ -29,7 +29,7 @@
 - ✅ **Role-Based Access Control** - Granular permissions (Admin, Team Member, Guest)
 - ✅ **Drag & Drop Interface** - Intuitive Kanban-style task board
 
-### Technical Excellence
+# # ### Technical Excellence
 
 - 🔐 **JWT Authentication** - Secure token-based authentication
 - 🚀 **Microservices Architecture** - Scalable, independent services
@@ -38,7 +38,7 @@
 - 🐳 **Containerized** - Docker & Kubernetes ready
 - 🔄 **CI/CD Ready** - Automated testing and deployment pipelines
 
-### Modern Frontend
+# # ### Modern Frontend
 
 - 🎨 **Next.js 14** - React Server Components, App Router
 - 🎭 **TypeScript** - Type-safe development
@@ -48,9 +48,9 @@
 
 ---
 
-## 🏗️ Architecture
+# # ## 🏗️ Architecture
 
-### System Overview
+# # ### System Overview
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -90,7 +90,7 @@
                     └─────────────────┘
 ```
 
-### Microservices
+# # ### Microservices
 
 | Service | Port | Purpose | Tech Stack |
 |---------|------|---------|------------|
@@ -102,9 +102,9 @@
 
 ---
 
-## 🚀 Quick Start
+# # ## 🚀 Quick Start
 
-### Prerequisites
+# # ### Prerequisites
 
 - **Go** 1.21 or higher
 - **Node.js** 18+ and npm/yarn
@@ -113,72 +113,70 @@
 - **Docker** & Docker Compose (optional but recommended)
 - **Protocol Buffers** compiler (`protoc`)
 
-### Option 1: Docker Compose (Recommended)
+# # ### Option 1: Docker Compose (Recommended)
 
 ```bash
-# Clone the repository
+# # # Clone the repository
 git clone <repository-url>
 cd task-management-system
 
-# Start all services
+# # # Start all services
 docker-compose up -d
 
-# Check service health
+# # # Check service health
 docker-compose ps
 
-# View logs
+# # # View logs
 docker-compose logs -f
 
-# Frontend: http://localhost:3000
-# API Gateway: http://localhost:8080
-# Prometheus: http://localhost:9090
+# # # Frontend: http://localhost:3000
 ```
 
-### Option 2: Local Development
+# # ### Option 2: Local Development
 
 ```bash
-# 1. Install dependencies
+# # # 1. Install dependencies
 go mod download
 cd frontend && npm install && cd ..
 
-# 2. Setup database
+# # # 2. Setup database
 createdb taskmanagement
 psql taskmanagement < scripts/schema.sql
 
-# 3. Start Redis
+# # # 3. Start Redis
 redis-server
 
-# 4. Configure environment
+# # # 4. Configure environment
 cp .env.example .env
-# Edit .env with your database credentials
+# # # Edit .env with your database credentials
 
-# 5. Generate Protocol Buffers
+# # # 5. Generate Protocol Buffers
 ./scripts/generate-proto.sh
 
-# 6. Start backend services
+# # # 6. Start backend services
 ./start.sh
 
-# 7. Start frontend (in new terminal)
+# # # 7. Start frontend (in new terminal)
 cd frontend
 npm run dev
 ```
 
-### Verify Installation
+# # ### Verify Installation
 
 ```bash
-# Check API health
+# # # Check API health
 curl http://localhost:8080/health
 
-# Check services
+# # # Check services
 curl http://localhost:8080/api/v1/tasks
 
-# Access frontend
+# # # Access frontend
 open http://localhost:3000
 ```
 
 ---
 
-## 📚 Documentation
+# # ## 📚 Documentation
 
 | Document | Description |
 |----------|-------------|
@@ -192,12 +190,12 @@ open http://localhost:3000
 
 ---
 
-## 🔌 API Overview
+# # ## 🔌 API Overview
 
-### Authentication
+# # ### Authentication
 
 ```bash
-# Register
+# # # Register
 POST /api/v1/auth/register
 {
   "username": "john_doe",
@@ -205,7 +203,7 @@ POST /api/v1/auth/register
   "password": "secure_password"
 }
 
-# Login
+# # # Login
 POST /api/v1/auth/login
 {
   "email": "john@example.com",
@@ -213,10 +211,10 @@ POST /api/v1/auth/login
 }
 ```
 
-### Tasks
+# # ### Tasks
 
 ```bash
-# Create task
+# # # Create task
 POST /api/v1/tasks
 Authorization: Bearer <token>
 {
@@ -227,13 +225,13 @@ Authorization: Bearer <token>
   "due_date": "2025-12-31T23:59:59Z"
 }
 
-# List tasks
+# # # List tasks
 GET /api/v1/tasks?status=TODO&priority=HIGH
 
-# Update task
+# # # Update task
 PUT /api/v1/tasks/{id}
 
-# Delete task
+# # # Delete task
 DELETE /api/v1/tasks/{id}
 ```
 
@@ -241,9 +239,9 @@ See [API Reference](docs/api/API_REFERENCE.md) for complete documentation.
 
 ---
 
-## 🛠️ Tech Stack
+# # ## 🛠️ Tech Stack
 
-### Backend
+# # ### Backend
 
 - **Language**: Go 1.21+
 - **RPC Framework**: gRPC + Protocol Buffers
@@ -253,7 +251,7 @@ See [API Reference](docs/api/API_REFERENCE.md) for complete documentation.
 - **Logging**: Zap (structured logging)
 - **Metrics**: Prometheus
 
-### Frontend
+# # ### Frontend
 
 - **Framework**: Next.js 14 (App Router)
 - **Language**: TypeScript 5
@@ -263,7 +261,7 @@ See [API Reference](docs/api/API_REFERENCE.md) for complete documentation.
 - **Drag & Drop**: @dnd-kit
 - **Forms**: React Hook Form + Zod validation
 
-### DevOps
+# # ### DevOps
 
 - **Containerization**: Docker
 - **Orchestration**: Kubernetes
@@ -273,7 +271,7 @@ See [API Reference](docs/api/API_REFERENCE.md) for complete documentation.
 
 ---
 
-## 📊 Project Structure
+# # ## 📊 Project Structure
 
 ```
 task-management-system/
@@ -305,30 +303,30 @@ task-management-system/
 
 ---
 
-## 🧪 Testing
+# # ## 🧪 Testing
 
 ```bash
-# Run all tests
+# # # Run all tests
 make test
 
-# Run tests with coverage
+# # # Run tests with coverage
 make test-coverage
 
-# Run specific service tests
+# # # Run specific service tests
 cd services/task && go test -v ./...
 
-# Load testing
+# # # Load testing
 ./scripts/load-test.sh
 
-# Frontend tests
+# # # Frontend tests
 cd frontend && npm test
 ```
 
 ---
 
-## 📈 Monitoring & Observability
+# # ## 📈 Monitoring & Observability
 
-### Prometheus Metrics
+# # ### Prometheus Metrics
 
 - Service health metrics
 - Request latency and throughput
@@ -336,52 +334,52 @@ cd frontend && npm test
 - Cache hit/miss rates
 - Custom business metrics
 
-### Access Metrics
+# # ### Access Metrics
 
 ```bash
-# User Service metrics
+# # # User Service metrics
 curl http://localhost:9091/metrics
 
-# Task Service metrics
+# # # Task Service metrics
 curl http://localhost:9092/metrics
 
-# Notification Service metrics
+# # # Notification Service metrics
 curl http://localhost:9093/metrics
 
-# Gateway metrics
+# # # Gateway metrics
 curl http://localhost:9090/metrics
 ```
 
 ---
 
-## 🚢 Deployment
+# # ## 🚢 Deployment
 
-### Docker
+# # ### Docker
 
 ```bash
-# Build all services
+# # # Build all services
 make docker-build
 
-# Push to registry
+# # # Push to registry
 make docker-push
 
-# Deploy with Docker Compose
+# # # Deploy with Docker Compose
 docker-compose up -d
 ```
 
-### Kubernetes
+# # ### Kubernetes
 
 ```bash
-# Apply all manifests
+# # # Apply all manifests
 kubectl apply -f deployments/k8s/
 
-# Check deployments
+# # # Check deployments
 kubectl get pods
 
-# Scale services
+# # # Scale services
 kubectl scale deployment task-service --replicas=3
 
-# View logs
+# # # View logs
 kubectl logs -f deployment/task-service
 ```
 
@@ -389,11 +387,11 @@ See [Production Guide](docs/deployment/PRODUCTION_GUIDE.md) for detailed deploym
 
 ---
 
-## 🤝 Contributing
+# # ## 🤝 Contributing
 
 We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for details.
 
-### Development Workflow
+# # ### Development Workflow
 
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/amazing-feature`)
@@ -403,13 +401,13 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for deta
 
 ---
 
-## 📝 License
+# # ## 📝 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ---
 
-## 👥 Team & Support
+# # ## 👥 Team & Support
 
 - **Documentation**: [docs/](docs/)
 - **Issues**: [GitHub Issues](../../issues)
@@ -417,7 +415,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-## 🙏 Acknowledgments
+# # ## 🙏 Acknowledgments
 
 - [gRPC](https://grpc.io/) - High-performance RPC framework
 - [Protocol Buffers](https://developers.google.com/protocol-buffers) - Efficient serialization

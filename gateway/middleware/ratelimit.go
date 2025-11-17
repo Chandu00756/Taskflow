@@ -11,7 +11,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-// RateLimiter implements rate limiting per IP or user
+// // // RateLimiter implements rate limiting per IP or user
 type RateLimiter struct {
 	limiters map[string]*rate.Limiter
 	mu       sync.RWMutex
@@ -19,7 +19,7 @@ type RateLimiter struct {
 	burst    int
 }
 
-// NewRateLimiter creates a new rate limiter
+// // // NewRateLimiter creates a new rate limiter
 func NewRateLimiter(requestsPerSecond int, burst int) *RateLimiter {
 	return &RateLimiter{
 		limiters: make(map[string]*rate.Limiter),
@@ -28,7 +28,7 @@ func NewRateLimiter(requestsPerSecond int, burst int) *RateLimiter {
 	}
 }
 
-// getLimiter gets or creates a limiter for a key
+// // // getLimiter gets or creates a limiter for a key
 func (rl *RateLimiter) getLimiter(key string) *rate.Limiter {
 	rl.mu.RLock()
 	limiter, exists := rl.limiters[key]
@@ -44,7 +44,7 @@ func (rl *RateLimiter) getLimiter(key string) *rate.Limiter {
 	return limiter
 }
 
-// Unary returns a rate limiting interceptor for unary RPCs
+// // // Unary returns a rate limiting interceptor for unary RPCs
 func (rl *RateLimiter) Unary() grpc.UnaryServerInterceptor {
 	return func(
 		ctx context.Context,
@@ -52,7 +52,7 @@ func (rl *RateLimiter) Unary() grpc.UnaryServerInterceptor {
 		info *grpc.UnaryServerInfo,
 		handler grpc.UnaryHandler,
 	) (interface{}, error) {
-		// Use user_id from context if available, otherwise use method name
+		// 		// 		// Use user_id from context if available, otherwise use method name
 		key := info.FullMethod
 		if userID, ok := ctx.Value("user_id").(string); ok {
 			key = userID
@@ -67,7 +67,7 @@ func (rl *RateLimiter) Unary() grpc.UnaryServerInterceptor {
 	}
 }
 
-// CleanupLimiters periodically removes inactive limiters
+// // // CleanupLimiters periodically removes inactive limiters
 func (rl *RateLimiter) CleanupLimiters(interval time.Duration) {
 	ticker := time.NewTicker(interval)
 	go func() {

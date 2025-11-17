@@ -18,7 +18,10 @@ import {
   ListNotificationsResponse,
 } from './types';
 
-// Authentication API
+// Invite types
+import { CreateInviteRequest, AcceptInviteRequest, ListInvitesResponse } from './types';
+
+// // // Authentication API
 export const authAPI = {
   register: (data: RegisterRequest) =>
     apiClient.post<AuthResponse>(API_ENDPOINTS.AUTH.REGISTER, data),
@@ -31,7 +34,7 @@ export const authAPI = {
   },
 };
 
-// Users API
+// // // Users API
 export const usersAPI = {
   getUser: (id: string) =>
     apiClient.get<User>(API_ENDPOINTS.USERS.BY_ID(id)),
@@ -46,7 +49,7 @@ export const usersAPI = {
     apiClient.delete(API_ENDPOINTS.USERS.BY_ID(id)),
 };
 
-// Tasks API
+// // // Tasks API
 export const tasksAPI = {
   createTask: (data: CreateTaskRequest) =>
     apiClient.post<Task>(API_ENDPOINTS.TASKS.BASE, data).then(transformTask),
@@ -79,7 +82,7 @@ export const tasksAPI = {
     apiClient.post<Task>(API_ENDPOINTS.TASKS.ASSIGN(taskId), data).then(transformTask),
 };
 
-// Transform API response to match frontend types
+// // // Transform API response to match frontend types
 function transformTask(task: any): Task {
   return {
     id: task.taskId || task.id,
@@ -97,7 +100,7 @@ function transformTask(task: any): Task {
   };
 }
 
-// Notifications API
+// // // Notifications API
 export const notificationsAPI = {
   createNotification: (data: CreateNotificationRequest) =>
     apiClient.post<Notification>(API_ENDPOINTS.NOTIFICATIONS.BASE, data),
@@ -111,10 +114,23 @@ export const notificationsAPI = {
     apiClient.put<Notification>(API_ENDPOINTS.NOTIFICATIONS.MARK_READ(id), {}),
 };
 
-// Export all APIs
+// // // Invites / Org admin API
+export const invitesAPI = {
+  createInvite: (orgId: string, data: CreateInviteRequest, token?: string) =>
+    apiClient.post(API_ENDPOINTS.INVITES.CREATE + `?org_id=${orgId}`, data),
+
+  acceptInvite: (data: AcceptInviteRequest) =>
+    apiClient.post(API_ENDPOINTS.INVITES.ACCEPT, data),
+
+  listInvites: (orgId: string) =>
+    apiClient.get<ListInvitesResponse>(API_ENDPOINTS.INVITES.LIST + `?org_id=${orgId}`),
+};
+
+// // // Export all APIs
 export const api = {
   auth: authAPI,
   users: usersAPI,
   tasks: tasksAPI,
   notifications: notificationsAPI,
+  invites: invitesAPI,
 };

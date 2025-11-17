@@ -1,14 +1,14 @@
 #!/bin/bash
 
-# Load environment variables
+# # # Load environment variables
 set -a
 source .env
 set +a
 
-# Create logs directory
+# # # Create logs directory
 mkdir -p logs
 
-# Start services
+# # # Start services
 echo "🚀 Starting User Service on :50051..."
 ./bin/user-service > logs/user-service.log 2>&1 &
 USER_PID=$!
@@ -37,7 +37,7 @@ echo "   PID: $GATEWAY_PID"
 
 sleep 3
 
-# Check if services are running
+# # # Check if services are running
 echo ""
 echo "📊 Service Status:"
 echo "=================="

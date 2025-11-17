@@ -9,7 +9,7 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-// Message types for WebSocket communication
+// // // Message types for WebSocket communication
 const (
 	MessageTypeTaskCreated  = "task.created"
 	MessageTypeTaskUpdated  = "task.updated"
@@ -22,7 +22,7 @@ const (
 	MessageTypePong         = "pong"
 )
 
-// Message represents a WebSocket message
+// // // Message represents a WebSocket message
 type Message struct {
 	Type      string                 `json:"type"`
 	UserID    string                 `json:"user_id,omitempty"`
@@ -30,7 +30,7 @@ type Message struct {
 	Data      map[string]interface{} `json:"data"`
 }
 
-// Client represents a WebSocket client connection
+// // // Client represents a WebSocket client connection
 type Client struct {
 	hub      *Hub
 	conn     *websocket.Conn
@@ -40,7 +40,7 @@ type Client struct {
 	lastPing time.Time
 }
 
-// Hub maintains active WebSocket clients and broadcasts messages
+// // // Hub maintains active WebSocket clients and broadcasts messages
 type Hub struct {
 	clients    map[string]map[*Client]bool // userID -> clients
 	broadcast  chan *Message
@@ -49,7 +49,7 @@ type Hub struct {
 	mu         sync.RWMutex
 }
 
-// NewHub creates a new WebSocket hub
+// // // NewHub creates a new WebSocket hub
 func NewHub() *Hub {
 	return &Hub{
 		clients:    make(map[string]map[*Client]bool),
@@ -59,7 +59,7 @@ func NewHub() *Hub {
 	}
 }
 
-// Run starts the hub's main loop
+// // // Run starts the hub's main loop
 func (h *Hub) Run() {
 	for {
 		select {
@@ -75,7 +75,7 @@ func (h *Hub) Run() {
 	}
 }
 
-// registerClient registers a new client
+// // // registerClient registers a new client
 func (h *Hub) registerClient(client *Client) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -87,7 +87,7 @@ func (h *Hub) registerClient(client *Client) {
 
 	log.Printf("Client registered: userID=%s, total_clients=%d", client.userID, h.getTotalClients())
 
-	// Broadcast user online status
+	// 	// 	// Broadcast user online status
 	h.broadcast <- &Message{
 		Type:      MessageTypeUserOnline,
 		UserID:    client.userID,
@@ -98,7 +98,7 @@ func (h *Hub) registerClient(client *Client) {
 	}
 }
 
-// unregisterClient unregisters a client
+// // // unregisterClient unregisters a client
 func (h *Hub) unregisterClient(client *Client) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -108,11 +108,11 @@ func (h *Hub) unregisterClient(client *Client) {
 			delete(clients, client)
 			close(client.send)
 
-			// Remove user entry if no more clients
+			// 			// 			// Remove user entry if no more clients
 			if len(clients) == 0 {
 				delete(h.clients, client.userID)
 
-				// Broadcast user offline status
+				// 				// 				// Broadcast user offline status
 				h.broadcast <- &Message{
 					Type:      MessageTypeUserOffline,
 					UserID:    client.userID,
@@ -128,7 +128,7 @@ func (h *Hub) unregisterClient(client *Client) {
 	}
 }
 
-// broadcastMessage broadcasts a message to relevant clients
+// // // broadcastMessage broadcasts a message to relevant clients
 func (h *Hub) broadcastMessage(message *Message) {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
@@ -139,7 +139,7 @@ func (h *Hub) broadcastMessage(message *Message) {
 		return
 	}
 
-	// If message has a specific userID, send only to that user's clients
+	// 	// 	// If message has a specific userID, send only to that user's clients
 	if message.UserID != "" {
 		if clients, ok := h.clients[message.UserID]; ok {
 			for client := range clients {
@@ -153,7 +153,7 @@ func (h *Hub) broadcastMessage(message *Message) {
 			}
 		}
 	} else {
-		// Broadcast to all clients
+		// 		// 		// Broadcast to all clients
 		for _, clients := range h.clients {
 			for client := range clients {
 				select {
@@ -168,7 +168,7 @@ func (h *Hub) broadcastMessage(message *Message) {
 	}
 }
 
-// BroadcastToUser sends a message to all connections of a specific user
+// // // BroadcastToUser sends a message to all connections of a specific user
 func (h *Hub) BroadcastToUser(userID string, messageType string, data map[string]interface{}) {
 	h.broadcast <- &Message{
 		Type:      messageType,
@@ -178,7 +178,7 @@ func (h *Hub) BroadcastToUser(userID string, messageType string, data map[string
 	}
 }
 
-// BroadcastToAll sends a message to all connected clients
+// // // BroadcastToAll sends a message to all connected clients
 func (h *Hub) BroadcastToAll(messageType string, data map[string]interface{}) {
 	h.broadcast <- &Message{
 		Type:      messageType,
@@ -187,7 +187,7 @@ func (h *Hub) BroadcastToAll(messageType string, data map[string]interface{}) {
 	}
 }
 
-// GetOnlineUsers returns a list of currently online user IDs
+// // // GetOnlineUsers returns a list of currently online user IDs
 func (h *Hub) GetOnlineUsers() []string {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
@@ -199,7 +199,7 @@ func (h *Hub) GetOnlineUsers() []string {
 	return users
 }
 
-// IsUserOnline checks if a user is currently online
+// // // IsUserOnline checks if a user is currently online
 func (h *Hub) IsUserOnline(userID string) bool {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
@@ -208,7 +208,7 @@ func (h *Hub) IsUserOnline(userID string) bool {
 	return ok && len(clients) > 0
 }
 
-// getTotalClients returns total number of connected clients
+// // // getTotalClients returns total number of connected clients
 func (h *Hub) getTotalClients() int {
 	total := 0
 	for _, clients := range h.clients {
@@ -217,7 +217,7 @@ func (h *Hub) getTotalClients() int {
 	return total
 }
 
-// GetStats returns hub statistics
+// // // GetStats returns hub statistics
 func (h *Hub) GetStats() map[string]interface{} {
 	h.mu.RLock()
 	defer h.mu.RUnlock()

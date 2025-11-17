@@ -9,7 +9,7 @@ import (
 	"gorm.io/gorm/logger"
 )
 
-// NewPostgresConnection creates a new PostgreSQL database connection
+// // // NewPostgresConnection creates a new PostgreSQL database connection
 func NewPostgresConnection(dsn string) (*gorm.DB, error) {
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Info),
@@ -23,7 +23,7 @@ func NewPostgresConnection(dsn string) (*gorm.DB, error) {
 		return nil, fmt.Errorf("failed to get database instance: %w", err)
 	}
 
-	// Set connection pool settings
+	// 	// 	// Set connection pool settings
 	sqlDB.SetMaxIdleConns(10)
 	sqlDB.SetMaxOpenConns(100)
 
@@ -31,7 +31,7 @@ func NewPostgresConnection(dsn string) (*gorm.DB, error) {
 	return db, nil
 }
 
-// AutoMigrate runs database migrations for the given models
+// // // AutoMigrate runs database migrations for the given models
 func AutoMigrate(db *gorm.DB, models ...interface{}) error {
 	return db.AutoMigrate(models...)
 }

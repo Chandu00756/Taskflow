@@ -1,10 +1,10 @@
-# API Documentation - Task Management System
+# # # API Documentation - Task Management System
 
 **Base URL**: `http://localhost:8080` (Development)
 
 The Task Management System provides both **gRPC** and **REST** APIs, allowing developers to integrate using their preferred protocol.
 
-## Table of Contents
+# # ## Table of Contents
 
 - [Authentication](#authentication)
 - [REST API Endpoints](#rest-api-endpoints)
@@ -16,11 +16,11 @@ The Task Management System provides both **gRPC** and **REST** APIs, allowing de
 
 ---
 
-## Authentication
+# # ## Authentication
 
 All APIs (except registration and login) require JWT authentication.
 
-### Getting a Token
+# # ### Getting a Token
 
 **Register a new user:**
 ```http
@@ -61,7 +61,7 @@ Content-Type: application/json
 }
 ```
 
-### Using the Token
+# # ### Using the Token
 
 Include the access token in the Authorization header:
 
@@ -71,11 +71,11 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 
 ---
 
-## REST API Endpoints
+# # ## REST API Endpoints
 
-### Users
+# # ### Users
 
-#### Get User Profile
+# # #### Get User Profile
 ```http
 GET /api/v1/users/:id
 Authorization: Bearer {token}
@@ -93,7 +93,7 @@ Authorization: Bearer {token}
 }
 ```
 
-#### List Users
+# # #### List Users
 ```http
 GET /api/v1/users
 Authorization: Bearer {token}
@@ -114,7 +114,7 @@ Authorization: Bearer {token}
 }
 ```
 
-#### Update User
+# # #### Update User
 ```http
 PUT /api/v1/users/:id
 Authorization: Bearer {token}
@@ -126,7 +126,7 @@ Content-Type: application/json
 }
 ```
 
-#### Delete User
+# # #### Delete User
 ```http
 DELETE /api/v1/users/:id
 Authorization: Bearer {token}
@@ -134,9 +134,9 @@ Authorization: Bearer {token}
 
 ---
 
-### Tasks
+# # ### Tasks
 
-#### Create Task
+# # #### Create Task
 ```http
 POST /api/v1/tasks
 Authorization: Bearer {token}
@@ -171,13 +171,13 @@ Content-Type: application/json
 }
 ```
 
-#### Get Task
+# # #### Get Task
 ```http
 GET /api/v1/tasks/:id
 Authorization: Bearer {token}
 ```
 
-#### List All Tasks
+# # #### List All Tasks
 ```http
 GET /api/v1/tasks
 Authorization: Bearer {token}
@@ -198,13 +198,13 @@ Authorization: Bearer {token}
 }
 ```
 
-#### Get User Tasks
+# # #### Get User Tasks
 ```http
 GET /api/v1/tasks/user/:userId
 Authorization: Bearer {token}
 ```
 
-#### Update Task
+# # #### Update Task
 ```http
 PUT /api/v1/tasks/:id
 Authorization: Bearer {token}
@@ -216,13 +216,13 @@ Content-Type: application/json
 }
 ```
 
-#### Delete Task
+# # #### Delete Task
 ```http
 DELETE /api/v1/tasks/:id
 Authorization: Bearer {token}
 ```
 
-#### Assign Task
+# # #### Assign Task
 ```http
 POST /api/v1/tasks/:taskId/assign
 Authorization: Bearer {token}
@@ -235,9 +235,9 @@ Content-Type: application/json
 
 ---
 
-### Notifications
+# # ### Notifications
 
-#### Create Notification
+# # #### Create Notification
 ```http
 POST /api/v1/notifications
 Authorization: Bearer {token}
@@ -251,7 +251,7 @@ Content-Type: application/json
 }
 ```
 
-#### Get User Notifications
+# # #### Get User Notifications
 ```http
 GET /api/v1/notifications/user/:userId
 Authorization: Bearer {token}
@@ -275,7 +275,7 @@ Authorization: Bearer {token}
 }
 ```
 
-#### Mark Notification as Read
+# # #### Mark Notification as Read
 ```http
 PUT /api/v1/notifications/:id/read
 Authorization: Bearer {token}
@@ -283,11 +283,11 @@ Authorization: Bearer {token}
 
 ---
 
-## gRPC Services
+# # ## gRPC Services
 
 For high-performance applications, use the native gRPC services directly.
 
-### Service Definitions
+# # ### Service Definitions
 
 **User Service** (Port 50051)
 - `Register(RegisterRequest) returns (AuthResponse)`
@@ -311,7 +311,7 @@ For high-performance applications, use the native gRPC services directly.
 - `GetNotifications(GetNotificationsRequest) returns (ListNotificationsResponse)`
 - `MarkAsRead(MarkAsReadRequest) returns (Notification)`
 
-### Proto Files
+# # ### Proto Files
 
 Proto definitions are available in the `/proto` directory:
 - `/proto/user/user.proto`
@@ -320,11 +320,11 @@ Proto definitions are available in the `/proto` directory:
 
 ---
 
-## WebSocket Real-time API
+# # ## WebSocket Real-time API
 
 Connect to WebSocket for real-time updates.
 
-### Connection
+# # ### Connection
 
 ```javascript
 const ws = new WebSocket('ws://localhost:8080/ws?token=YOUR_ACCESS_TOKEN');
@@ -339,7 +339,7 @@ ws.onmessage = (event) => {
 };
 ```
 
-### Message Types
+# # ### Message Types
 
 **Incoming Messages** (Server → Client):
 
@@ -356,7 +356,7 @@ ws.onmessage = (event) => {
 
 - `ping` - Keep connection alive
 
-### Example Message
+# # ### Example Message
 
 ```json
 {
@@ -373,9 +373,9 @@ ws.onmessage = (event) => {
 
 ---
 
-## Client SDKs
+# # ## Client SDKs
 
-### JavaScript/TypeScript SDK
+# # ### JavaScript/TypeScript SDK
 
 The frontend includes a full TypeScript SDK:
 
@@ -401,7 +401,7 @@ const notifications = await api.notifications.getUserNotifications(userId);
 
 **Location**: `/frontend/src/lib/api/`
 
-### Python SDK Example
+# # ### Python SDK Example
 
 ```python
 import requests
@@ -435,13 +435,13 @@ class TaskManagementClient:
     def list_tasks(self):
         return self.session.get(f"{self.base_url}/api/v1/tasks").json()
 
-# Usage
+# # # Usage
 client = TaskManagementClient('http://localhost:8080')
 client.login('user@example.com', 'password')
 tasks = client.list_tasks()
 ```
 
-### Go SDK Example
+# # ### Go SDK Example
 
 ```go
 package main
@@ -481,7 +481,7 @@ func main() {
 
 ---
 
-## Error Handling
+# # ## Error Handling
 
 All errors follow a consistent format:
 
@@ -493,7 +493,7 @@ All errors follow a consistent format:
 }
 ```
 
-### HTTP Status Codes
+# # ### HTTP Status Codes
 
 - `200` - Success
 - `201` - Created
@@ -506,7 +506,7 @@ All errors follow a consistent format:
 
 ---
 
-## Rate Limiting
+# # ## Rate Limiting
 
 The API Gateway implements rate limiting:
 
@@ -530,7 +530,7 @@ Headers included in response:
 
 ---
 
-## CORS Configuration
+# # ## CORS Configuration
 
 The API Gateway allows cross-origin requests from any origin by default.
 
@@ -542,7 +542,7 @@ w.Header().Set("Access-Control-Allow-Origin", "https://yourdomain.com")
 
 ---
 
-## API Versioning
+# # ## API Versioning
 
 Current API version: **v1**
 
@@ -552,7 +552,7 @@ Future versions will be released as `/api/v2/`, `/api/v3/`, etc.
 
 ---
 
-## Support
+# # ## Support
 
 For questions or issues:
 - Open an issue on GitHub

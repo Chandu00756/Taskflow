@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Build script for all services
+# # # Build script for all services
 
 set -e
 
@@ -10,11 +10,11 @@ NC='\033[0m'
 
 echo -e "${GREEN}Building Task Management System...${NC}"
 
-# Generate proto files first
+# # # Generate proto files first
 echo -e "${YELLOW}Generating Protocol Buffers...${NC}"
 ./scripts/generate-proto.sh
 
-# Build services
+# # # Build services
 echo -e "${YELLOW}Building UserService...${NC}"
 go build -o bin/user-service ./services/user
 

@@ -1,9 +1,8 @@
-# Production Deployment Guide
-## Task Management System - Enterprise Setup
+# # # Production Deployment Guide
 
 This guide covers setting up monitoring, auto-scaling, CI/CD, and error tracking for production deployment.
 
-## Table of Contents
+# # ## Table of Contents
 
 1. [Prerequisites](#prerequisites)
 2. [Monitoring Setup](#monitoring-setup)
@@ -15,24 +14,24 @@ This guide covers setting up monitoring, auto-scaling, CI/CD, and error tracking
 
 ---
 
-## Prerequisites
+# # ## Prerequisites
 
-### Required Tools
+# # ### Required Tools
 ```bash
-# Kubernetes CLI
+# # # Kubernetes CLI
 kubectl version --client
 
-# Helm (package manager for Kubernetes)
+# # # Helm (package manager for Kubernetes)
 helm version
 
-# Docker
+# # # Docker
 docker --version
 
-# GitHub CLI (optional)
+# # # GitHub CLI (optional)
 gh --version
 ```
 
-### Cloud Provider Setup
+# # ### Cloud Provider Setup
 
 Choose your cloud provider:
 
@@ -72,27 +71,27 @@ az aks create \
 
 ---
 
-## Monitoring Setup
+# # ## Monitoring Setup
 
-### 1. Install Prometheus & Grafana
+# # ### 1. Install Prometheus & Grafana
 
 ```bash
-# Add Helm repositories
+# # # Add Helm repositories
 helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
 helm repo add grafana https://grafana.github.io/helm-charts
 helm repo update
 
-# Create monitoring namespace
+# # # Create monitoring namespace
 kubectl create namespace monitoring
 
-# Install Prometheus
+# # # Install Prometheus
 helm install prometheus prometheus-community/kube-prometheus-stack \
   --namespace monitoring \
   --set prometheus.prometheusSpec.retention=30d \
   --set prometheus.prometheusSpec.storageSpec.volumeClaimTemplate.spec.resources.requests.storage=50Gi \
   --values deployments/monitoring/prometheus-values.yaml
 
-# Install Grafana
+# # # Install Grafana
 helm install grafana grafana/grafana \
   --namespace monitoring \
   --set persistence.enabled=true \
@@ -100,35 +99,33 @@ helm install grafana grafana/grafana \
   --set adminPassword='your-secure-password'
 ```
 
-### 2. Apply Custom Prometheus Configuration
+# # ### 2. Apply Custom Prometheus Configuration
 
 ```bash
-# Apply custom Prometheus config
+# # # Apply custom Prometheus config
 kubectl create configmap prometheus-config \
   --from-file=deployments/monitoring/prometheus.yml \
   -n monitoring
 
-# Apply alert rules
+# # # Apply alert rules
 kubectl create configmap prometheus-alerts \
   --from-file=deployments/monitoring/alerts.yml \
   -n monitoring
 ```
 
-### 3. Access Grafana Dashboard
+# # ### 3. Access Grafana Dashboard
 
 ```bash
-# Get Grafana admin password
+# # # Get Grafana admin password
 kubectl get secret --namespace monitoring grafana -o jsonpath="{.data.admin-password}" | base64 --decode
 
-# Port forward to access locally
+# # # Port forward to access locally
 kubectl port-forward -n monitoring svc/grafana 3000:80
 
-# Access at: http://localhost:3000
-# Username: admin
-# Password: (from command above)
+# # # Access at: http://localhost:3000
 ```
 
-### 4. Import Dashboards
+# # ### 4. Import Dashboards
 
 **Pre-built Dashboards**:
 - Go Application Metrics: Dashboard ID `6671`
@@ -174,38 +171,38 @@ kubectl port-forward -n monitoring svc/grafana 3000:80
 
 ---
 
-## Auto-Scaling Configuration
+# # ## Auto-Scaling Configuration
 
-### 1. Install Metrics Server
+# # ### 1. Install Metrics Server
 
 ```bash
 kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
 ```
 
-### 2. Apply HPA Configurations
+# # ### 2. Apply HPA Configurations
 
 ```bash
-# Apply all HPA configurations
+# # # Apply all HPA configurations
 kubectl apply -f deployments/k8s/hpa.yaml
 
-# Verify HPA status
+# # # Verify HPA status
 kubectl get hpa -n task-management
 
-# Watch auto-scaling in action
+# # # Watch auto-scaling in action
 kubectl get hpa -n task-management --watch
 ```
 
-### 3. Test Auto-Scaling
+# # ### 3. Test Auto-Scaling
 
 ```bash
-# Generate load to test scaling
+# # # Generate load to test scaling
 kubectl run -i --tty load-generator --rm --image=busybox --restart=Never -- /bin/sh
 
-# Inside the pod, run:
+# # # Inside the pod, run:
 while true; do wget -q -O- http://gateway.task-management.svc.cluster.local:8080/api/v1/tasks; done
 ```
 
-### 4. Cluster Autoscaler
+# # ### 4. Cluster Autoscaler
 
 **GKE**:
 ```bash
@@ -233,16 +230,16 @@ az aks update \
 
 ---
 
-## CI/CD Pipeline
+# # ## CI/CD Pipeline
 
-### 1. GitHub Actions Setup
+# # ### 1. GitHub Actions Setup
 
 The CI/CD pipeline is already configured in `.github/workflows/ci-cd.yml`.
 
 **Required GitHub Secrets**:
 
 ```bash
-# Set GitHub secrets using GitHub CLI
+# # # Set GitHub secrets using GitHub CLI
 gh secret set GITHUB_TOKEN --body "your-github-token"
 gh secret set KUBECONFIG_STAGING --body "$(cat ~/.kube/config | base64)"
 gh secret set KUBECONFIG_PRODUCTION --body "$(cat ~/.kube/config | base64)"
@@ -250,7 +247,7 @@ gh secret set DATABASE_URL --body "postgresql://user:pass@host:5432/db"
 gh secret set SLACK_WEBHOOK --body "https://hooks.slack.com/services/YOUR/WEBHOOK/URL"
 ```
 
-### 2. Pipeline Stages
+# # ### 2. Pipeline Stages
 
 The pipeline includes:
 
@@ -261,57 +258,45 @@ The pipeline includes:
 5. **Deploy to Production**: Deploy on version tags (v*)
 6. **Database Migrations**: Run migrations automatically
 
-### 3. Deployment Workflow
+# # ### 3. Deployment Workflow
 
 **Deploy to Staging**:
 ```bash
-# Push to develop branch
+# # # Push to develop branch
 git checkout develop
 git merge feature/my-feature
 git push origin develop
 
-# GitHub Actions will automatically:
-# 1. Run tests
-# 2. Build images
-# 3. Deploy to staging
-# 4. Run smoke tests
+# # # GitHub Actions will automatically:
 ```
 
 **Deploy to Production**:
 ```bash
-# Create a release tag
+# # # Create a release tag
 git tag -a v1.0.0 -m "Release version 1.0.0"
 git push origin v1.0.0
 
-# GitHub Actions will automatically:
-# 1. Run tests
-# 2. Build images
-# 3. Security scan
-# 4. Deploy to production (blue-green)
-# 5. Run smoke tests
-# 6. Switch traffic
+# # # GitHub Actions will automatically:
 ```
 
-### 4. Blue-Green Deployment
+# # ### 4. Blue-Green Deployment
 
 The production deployment uses blue-green strategy:
 
 ```bash
-# Current production (blue)
+# # # Current production (blue)
 kubectl get pods -n task-management-production -l version=blue
 
-# New version (green)
+# # # New version (green)
 kubectl get pods -n task-management-production -l version=green
 
-# Traffic is switched after green is healthy
-# Old blue deployment remains as backup
+# # # Traffic is switched after green is healthy
 ```
 
-### 5. Rollback Procedure
+# # ### 5. Rollback Procedure
 
 ```bash
-# Automatic rollback on failure (handled by pipeline)
-# Manual rollback:
+# # # Automatic rollback on failure (handled by pipeline)
 kubectl rollout undo deployment/user-service -n task-management-production
 kubectl rollout undo deployment/task-service -n task-management-production
 kubectl rollout undo deployment/notification-service -n task-management-production
@@ -320,22 +305,22 @@ kubectl rollout undo deployment/gateway -n task-management-production
 
 ---
 
-## Error Tracking with Sentry
+# # ## Error Tracking with Sentry
 
-### 1. Create Sentry Project
+# # ### 1. Create Sentry Project
 
 1. Go to [sentry.io](https://sentry.io) and create an account
 2. Create a new project: "task-management-system"
 3. Get your DSN: `https://xxx@yyy.ingest.sentry.io/zzz`
 
-### 2. Install Sentry SDK
+# # ### 2. Install Sentry SDK
 
 ```bash
 cd /Users/chanduchitikam/goproject/task-management-system
 go get github.com/getsentry/sentry-go
 ```
 
-### 3. Update Configuration
+# # ### 3. Update Configuration
 
 Add Sentry configuration to `pkg/config/config.go`:
 
@@ -361,7 +346,7 @@ Sentry: SentryConfig{
 },
 ```
 
-### 4. Initialize in Services
+# # ### 4. Initialize in Services
 
 Update each service's `main.go`:
 
@@ -386,7 +371,7 @@ func main() {
 }
 ```
 
-### 5. Capture Errors
+# # ### 5. Capture Errors
 
 ```go
 // In your service code
@@ -401,17 +386,17 @@ if err != nil {
 }
 ```
 
-### 6. Environment Variables
+# # ### 6. Environment Variables
 
 ```bash
-# Add to .env and Kubernetes secrets
+# # # Add to .env and Kubernetes secrets
 SENTRY_DSN=https://xxx@yyy.ingest.sentry.io/zzz
 SENTRY_TRACES_SAMPLE_RATE=0.1
 SENTRY_PROFILES_SAMPLE_RATE=0.1
 RELEASE_VERSION=v1.0.0
 ```
 
-### 7. Kubernetes Secret for Sentry
+# # ### 7. Kubernetes Secret for Sentry
 
 ```bash
 kubectl create secret generic sentry-config \
@@ -421,23 +406,23 @@ kubectl create secret generic sentry-config \
 
 ---
 
-## Deployment Steps
+# # ## Deployment Steps
 
-### Complete Production Deployment
+# # ### Complete Production Deployment
 
 ```bash
-# 1. Create namespace
+# # # 1. Create namespace
 kubectl create namespace task-management
 
-# 2. Deploy databases
+# # # 2. Deploy databases
 kubectl apply -f deployments/k8s/postgres.yaml
 kubectl apply -f deployments/k8s/redis.yaml
 
-# 3. Wait for databases
+# # # 3. Wait for databases
 kubectl wait --for=condition=ready pod -l app=postgres -n task-management --timeout=300s
 kubectl wait --for=condition=ready pod -l app=redis -n task-management --timeout=300s
 
-# 4. Create secrets
+# # # 4. Create secrets
 kubectl create secret generic database-credentials \
   --from-literal=username=taskuser \
   --from-literal=password='your-secure-password' \
@@ -447,111 +432,109 @@ kubectl create secret generic jwt-secret \
   --from-literal=secret='your-super-secret-jwt-key' \
   -n task-management
 
-# 5. Deploy services
+# # # 5. Deploy services
 kubectl apply -f deployments/k8s/user-service.yaml
 kubectl apply -f deployments/k8s/task-service.yaml
 kubectl apply -f deployments/k8s/notification-service.yaml
 kubectl apply -f deployments/k8s/gateway.yaml
 
-# 6. Apply HPA
+# # # 6. Apply HPA
 kubectl apply -f deployments/k8s/hpa.yaml
 
-# 7. Configure ingress
+# # # 7. Configure ingress
 kubectl apply -f deployments/k8s/ingress.yaml
 
-# 8. Verify deployment
+# # # 8. Verify deployment
 kubectl get all -n task-management
 ```
 
 ---
 
-## Operational Procedures
+# # ## Operational Procedures
 
-### Health Checks
+# # ### Health Checks
 
 ```bash
-# Check pod health
+# # # Check pod health
 kubectl get pods -n task-management
 
-# Check service endpoints
+# # # Check service endpoints
 kubectl get endpoints -n task-management
 
-# Check HPA status
+# # # Check HPA status
 kubectl get hpa -n task-management
 
-# Check logs
+# # # Check logs
 kubectl logs -f deployment/gateway -n task-management
 ```
 
-### Scaling Operations
+# # ### Scaling Operations
 
 ```bash
-# Manual scaling (if needed)
+# # # Manual scaling (if needed)
 kubectl scale deployment/user-service --replicas=5 -n task-management
 
-# Update HPA limits
+# # # Update HPA limits
 kubectl patch hpa user-service-hpa -n task-management \
   -p '{"spec":{"maxReplicas":20}}'
 ```
 
-### Database Operations
+# # ### Database Operations
 
 ```bash
-# Backup database
+# # # Backup database
 kubectl exec -n task-management postgres-0 -- \
   pg_dump -U taskuser taskmanagement > backup-$(date +%Y%m%d).sql
 
-# Restore database
+# # # Restore database
 kubectl exec -i -n task-management postgres-0 -- \
   psql -U taskuser taskmanagement < backup-20250111.sql
 ```
 
-### Monitoring Alerts
+# # ### Monitoring Alerts
 
 **Check Prometheus Alerts**:
 ```bash
 kubectl port-forward -n monitoring svc/prometheus-kube-prometheus-prometheus 9090:9090
-# Open: http://localhost:9090/alerts
+# # # Open: http://localhost:9090/alerts
 ```
 
 **Check Grafana**:
 ```bash
 kubectl port-forward -n monitoring svc/grafana 3000:80
-# Open: http://localhost:3000
+# # # Open: http://localhost:3000
 ```
 
-### Troubleshooting
+# # ### Troubleshooting
 
 **Service not responding**:
 ```bash
-# Check logs
+# # # Check logs
 kubectl logs deployment/user-service -n task-management --tail=100
 
-# Check events
+# # # Check events
 kubectl get events -n task-management --sort-by='.lastTimestamp'
 
-# Describe pod
+# # # Describe pod
 kubectl describe pod <pod-name> -n task-management
 ```
 
 **High error rate**:
 ```bash
-# Check Sentry dashboard
-# Check Grafana error rate panel
-# Check application logs
+# # # Check Sentry dashboard
 kubectl logs -f deployment/gateway -n task-management | grep ERROR
 ```
 
 **Database connection issues**:
 ```bash
-# Test database connection
+# # # Test database connection
 kubectl run -it --rm debug --image=postgres:15-alpine --restart=Never -- \
   psql -h postgres.task-management.svc.cluster.local -U taskuser -d taskmanagement
 ```
 
 ---
 
-## Monitoring Dashboard URLs
+# # ## Monitoring Dashboard URLs
 
 After deployment, access:
 
@@ -562,7 +545,7 @@ After deployment, access:
 
 ---
 
-## Summary Checklist
+# # ## Summary Checklist
 
 - [x] ✅ Monitoring: Prometheus + Grafana configured
 - [x] ✅ Auto-scaling: HPA configured for all services

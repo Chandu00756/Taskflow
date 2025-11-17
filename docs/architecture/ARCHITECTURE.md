@@ -1,9 +1,9 @@
-# Task Management System - Architecture
+# # # Task Management System - Architecture
 
-## Overview
+# # ## Overview
 This is a **backend-only** microservices application built with Go and gRPC. It does not include a frontend - clients interact with the system via REST API through the API Gateway.
 
-## Architecture Diagram
+# # ## Architecture Diagram
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
@@ -77,9 +77,9 @@ This is a **backend-only** microservices application built with Go and gRPC. It 
         └───────────────────────────────┘
 ```
 
-## Technology Stack
+# # ## Technology Stack
 
-### Backend Services
+# # ### Backend Services
 - **Language**: Go 1.24.4
 - **RPC Framework**: gRPC + Protocol Buffers v3
 - **API Gateway**: grpc-gateway v2.27.3 (HTTP/JSON ↔ gRPC)
@@ -92,14 +92,14 @@ This is a **backend-only** microservices application built with Go and gRPC. It 
 - **Metrics**: Prometheus client
 - **Logging**: Uber Zap
 
-### Infrastructure
+# # ### Infrastructure
 - **Database**: PostgreSQL 15-alpine (Docker)
 - **Cache**: Redis 7-alpine (Docker)
 - **Deployment**: Docker + Kubernetes manifests
 
-## Service Details
+# # ## Service Details
 
-### 1. User Service (Port 50051)
+# # ### 1. User Service (Port 50051)
 **Responsibilities:**
 - User registration & authentication
 - JWT token generation & validation
@@ -113,7 +113,7 @@ This is a **backend-only** microservices application built with Go and gRPC. It 
 - `GET /api/v1/users/{id}` - Get user profile
 - `PUT /api/v1/users/{id}` - Update user profile
 
-### 2. Task Service (Port 50052)
+# # ### 2. Task Service (Port 50052)
 **Responsibilities:**
 - Task CRUD operations
 - Task assignment & status management
@@ -128,7 +128,7 @@ This is a **backend-only** microservices application built with Go and gRPC. It 
 - `DELETE /api/v1/tasks/{id}` - Delete task
 - `PUT /api/v1/tasks/{id}/assign` - Assign task to user
 
-### 3. Notification Service (Port 50053)
+# # ### 3. Notification Service (Port 50053)
 **Responsibilities:**
 - Create notifications for events
 - List user notifications
@@ -140,7 +140,7 @@ This is a **backend-only** microservices application built with Go and gRPC. It 
 - `GET /api/v1/notifications/user/{userId}` - Get user notifications
 - `PUT /api/v1/notifications/{id}/read` - Mark as read
 
-### 4. API Gateway (Port 8080)
+# # ### 4. API Gateway (Port 8080)
 **Responsibilities:**
 - HTTP to gRPC translation
 - CORS handling
@@ -149,7 +149,7 @@ This is a **backend-only** microservices application built with Go and gRPC. It 
 - Metrics collection
 - Single entry point for all clients
 
-## Data Flow Example: Creating a Task
+# # ## Data Flow Example: Creating a Task
 
 ```
 1. Client (curl/Postman)
@@ -180,7 +180,7 @@ This is a **backend-only** microservices application built with Go and gRPC. It 
    └─→ {"task": {"id": "uuid", "title": "My Task", ...}}
 ```
 
-## Security Features
+# # ## Security Features
 
 1. **Authentication**: JWT-based with refresh tokens
 2. **Password Security**: Bcrypt hashing with salt
@@ -188,7 +188,7 @@ This is a **backend-only** microservices application built with Go and gRPC. It 
 4. **Rate Limiting**: Prevents API abuse
 5. **CORS**: Configurable for frontend integration
 
-## Scalability Features
+# # ## Scalability Features
 
 1. **Microservices**: Independent scaling of services
 2. **Redis Caching**: Reduces database load
@@ -196,14 +196,14 @@ This is a **backend-only** microservices application built with Go and gRPC. It 
 4. **gRPC**: High-performance RPC
 5. **Horizontal Scaling**: Each service can scale independently
 
-## Deployment Options
+# # ## Deployment Options
 
-### Current Setup (Development)
+# # ### Current Setup (Development)
 - PostgreSQL & Redis: Docker containers
 - Services: Local Go binaries
 - Port 5433 for PostgreSQL (avoids local conflict)
 
-### Production Options
+# # ### Production Options
 
 1. **Docker Compose** (Single Host)
    ```bash
@@ -223,16 +223,16 @@ This is a **backend-only** microservices application built with Go and gRPC. It 
    - PostgreSQL → Managed database (AWS RDS, Azure Database)
    - Redis → Managed cache (ElastiCache, Azure Cache)
 
-## Monitoring & Observability
+# # ## Monitoring & Observability
 
 - **Metrics**: Prometheus endpoints on all services
 - **Logging**: Structured JSON logs (Zap)
 - **Health Checks**: Kubernetes readiness/liveness probes
 - **Tracing**: Ready for OpenTelemetry integration
 
-## Missing Components (Future Enhancements)
+# # ## Missing Components (Future Enhancements)
 
-### Frontend Options
+# # ### Frontend Options
 To make this a complete application, you could add:
 
 1. **Web Frontend** (React/Vue/Angular)
@@ -268,20 +268,20 @@ To make this a complete application, you could add:
       API Gateway :8080
    ```
 
-### Additional Services
+# # ### Additional Services
 - **Email Service**: Send task notifications via email
 - **WebSocket Service**: Real-time updates
 - **File Service**: Task attachments
 - **Audit Service**: Track all changes
 - **Search Service**: Full-text search (Elasticsearch)
 
-## Quick Start
+# # ## Quick Start
 
 ```bash
-# Start all services
+# # # Start all services
 ./start-services.sh
 
-# Test the API
+# # # Test the API
 curl -X POST http://localhost:8080/api/v1/auth/register \
   -H "Content-Type: application/json" \
   -d '{
@@ -291,11 +291,11 @@ curl -X POST http://localhost:8080/api/v1/auth/register \
     "full_name": "John Doe"
   }'
 
-# Stop all services
+# # # Stop all services
 pkill -f 'user-service|task-service|notification-service|gateway'
 docker stop taskmanagement-postgres taskmanagement-redis
 ```
 
-## API Documentation
+# # ## API Documentation
 
 See `API_DOCS.md` for complete API reference with all endpoints, request/response formats, and authentication details.

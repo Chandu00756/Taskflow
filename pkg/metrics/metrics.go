@@ -6,7 +6,7 @@ import (
 )
 
 var (
-	// RequestDuration tracks request duration in seconds
+	// 	// 	// RequestDuration tracks request duration in seconds
 	RequestDuration = promauto.NewHistogramVec(
 		prometheus.HistogramOpts{
 			Name:    "grpc_request_duration_seconds",
@@ -16,7 +16,7 @@ var (
 		[]string{"service", "method", "status"},
 	)
 
-	// RequestsTotal tracks total number of requests
+	// 	// 	// RequestsTotal tracks total number of requests
 	RequestsTotal = promauto.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "grpc_requests_total",
@@ -25,7 +25,7 @@ var (
 		[]string{"service", "method", "status"},
 	)
 
-	// ActiveConnections tracks currently active connections
+	// 	// 	// ActiveConnections tracks currently active connections
 	ActiveConnections = promauto.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: "grpc_active_connections",
@@ -34,7 +34,7 @@ var (
 		[]string{"service"},
 	)
 
-	// DatabaseQueries tracks database query duration
+	// 	// 	// DatabaseQueries tracks database query duration
 	DatabaseQueries = promauto.NewHistogramVec(
 		prometheus.HistogramOpts{
 			Name:    "database_query_duration_seconds",
@@ -44,7 +44,7 @@ var (
 		[]string{"operation", "table"},
 	)
 
-	// CacheHits tracks cache hit/miss ratio
+	// 	// 	// CacheHits tracks cache hit/miss ratio
 	CacheHits = promauto.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "cache_requests_total",
@@ -53,7 +53,7 @@ var (
 		[]string{"operation", "status"},
 	)
 
-	// NotificationsSent tracks sent notifications
+	// 	// 	// NotificationsSent tracks sent notifications
 	NotificationsSent = promauto.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "notifications_sent_total",
@@ -62,7 +62,7 @@ var (
 		[]string{"type", "status"},
 	)
 
-	// ActiveSubscribers tracks active notification subscribers
+	// 	// 	// ActiveSubscribers tracks active notification subscribers
 	ActiveSubscribers = promauto.NewGauge(
 		prometheus.GaugeOpts{
 			Name: "notification_active_subscribers",

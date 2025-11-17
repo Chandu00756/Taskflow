@@ -1,13 +1,13 @@
-# Quick Reference - Task Management System
+# # # Quick Reference - Task Management System
 
-## 🚀 Quick Start
+# # ## 🚀 Quick Start
 
-### Start Everything
+# # ### Start Everything
 ```bash
-# Backend + Database
+# # # Backend + Database
 docker-compose up -d
 
-# Frontend (separate terminal)
+# # # Frontend (separate terminal)
 cd frontend
 npm install && npm run dev
 ```
@@ -19,50 +19,50 @@ npm install && npm run dev
 
 ---
 
-## 🔌 API Endpoints (REST)
+# # ## 🔌 API Endpoints (REST)
 
-### Auth
+# # ### Auth
 ```bash
-# Register
+# # # Register
 POST http://localhost:8080/api/v1/auth/register
 {"email": "user@example.com", "username": "john", "password": "pass123", "full_name": "John Doe"}
 
-# Login
+# # # Login
 POST http://localhost:8080/api/v1/auth/login
 {"email": "user@example.com", "password": "pass123"}
-# Returns: {access_token, refresh_token, user}
+# # # Returns: {access_token, refresh_token, user}
 ```
 
-### Tasks
+# # ### Tasks
 ```bash
-# Create
+# # # Create
 POST http://localhost:8080/api/v1/tasks
 Authorization: Bearer {token}
 {"title": "New Task", "description": "Details", "priority": "HIGH", "status": "TODO"}
 
-# List
+# # # List
 GET http://localhost:8080/api/v1/tasks
 Authorization: Bearer {token}
 
-# Get
+# # # Get
 GET http://localhost:8080/api/v1/tasks/{id}
 Authorization: Bearer {token}
 
-# Update
+# # # Update
 PUT http://localhost:8080/api/v1/tasks/{id}
 Authorization: Bearer {token}
 {"status": "IN_PROGRESS"}
 
-# Delete
+# # # Delete
 DELETE http://localhost:8080/api/v1/tasks/{id}
 Authorization: Bearer {token}
 ```
 
 ---
 
-## 💻 Code Examples
+# # ## 💻 Code Examples
 
-### JavaScript (Fetch)
+# # ### JavaScript (Fetch)
 ```javascript
 // Login
 const { access_token } = await fetch('http://localhost:8080/api/v1/auth/login', {
@@ -82,22 +82,22 @@ await fetch('http://localhost:8080/api/v1/tasks', {
 });
 ```
 
-### Python
+# # ### Python
 ```python
 import requests
 
-# Login
+# # # Login
 r = requests.post('http://localhost:8080/api/v1/auth/login',
                   json={'email': 'user@example.com', 'password': 'pass'})
 token = r.json()['access_token']
 
-# Create Task
+# # # Create Task
 requests.post('http://localhost:8080/api/v1/tasks',
              headers={'Authorization': f'Bearer {token}'},
              json={'title': 'Task', 'priority': 'HIGH'})
 ```
 
-### WebSocket
+# # ### WebSocket
 ```javascript
 const ws = new WebSocket('ws://localhost:8080/ws?token=' + access_token);
 
@@ -109,9 +109,9 @@ ws.onmessage = (event) => {
 
 ---
 
-## 📊 Data Models
+# # ## 📊 Data Models
 
-### Task
+# # ### Task
 ```json
 {
   "id": "uuid",
@@ -127,7 +127,7 @@ ws.onmessage = (event) => {
 }
 ```
 
-### User
+# # ### User
 ```json
 {
   "id": "uuid",
@@ -141,9 +141,9 @@ ws.onmessage = (event) => {
 
 ---
 
-## 🔧 Environment Variables
+# # ## 🔧 Environment Variables
 
-### Backend (.env)
+# # ### Backend (.env)
 ```bash
 DB_HOST=localhost
 DB_PORT=5433
@@ -155,7 +155,7 @@ REDIS_PORT=6379
 JWT_SECRET=your-secret-key
 ```
 
-### Frontend (.env.local)
+# # ### Frontend (.env.local)
 ```bash
 NEXT_PUBLIC_API_URL=http://localhost:8080
 NEXT_PUBLIC_WS_URL=ws://localhost:8080
@@ -163,38 +163,38 @@ NEXT_PUBLIC_WS_URL=ws://localhost:8080
 
 ---
 
-## 🐳 Docker Commands
+# # ## 🐳 Docker Commands
 
 ```bash
-# Start all services
+# # # Start all services
 docker-compose up -d
 
-# View logs
+# # # View logs
 docker-compose logs -f
 
-# Stop all
+# # # Stop all
 docker-compose down
 
-# Rebuild
+# # # Rebuild
 docker-compose build
 
-# Reset database
+# # # Reset database
 docker-compose down -v
 docker-compose up -d
 ```
 
 ---
 
-## 🧪 Testing
+# # ## 🧪 Testing
 
 ```bash
-# Backend tests
+# # # Backend tests
 go test ./...
 
-# Frontend tests
+# # # Frontend tests
 cd frontend && npm test
 
-# API testing with curl
+# # # API testing with curl
 curl -X POST http://localhost:8080/api/v1/auth/register \
   -H "Content-Type: application/json" \
   -d '{"email":"test@example.com","username":"test","password":"pass123","full_name":"Test User"}'
@@ -202,7 +202,7 @@ curl -X POST http://localhost:8080/api/v1/auth/register \
 
 ---
 
-## 📁 Project Structure
+# # ## 📁 Project Structure
 
 ```
 task-management-system/
@@ -216,7 +216,7 @@ task-management-system/
 
 ---
 
-## 🔐 Authentication Flow
+# # ## 🔐 Authentication Flow
 
 1. Register/Login → Get `access_token`
 2. Store token (localStorage, AsyncStorage)
@@ -226,7 +226,7 @@ task-management-system/
 
 ---
 
-## 📚 Documentation
+# # ## 📚 Documentation
 
 | File | Purpose |
 |------|---------|
@@ -239,35 +239,35 @@ task-management-system/
 
 ---
 
-## ⚡ Common Tasks
+# # ## ⚡ Common Tasks
 
-### Add a new endpoint
+# # ### Add a new endpoint
 1. Update proto file
 2. Run `make proto`
 3. Implement service method
 4. Restart service
 
-### Deploy to production
+# # ### Deploy to production
 1. Read `PRODUCTION_GUIDE.md`
 2. Set up K8s cluster
 3. `kubectl apply -f deployments/k8s/`
 4. Deploy monitoring
 
-### Debug issues
+# # ### Debug issues
 ```bash
-# Check service logs
+# # # Check service logs
 docker-compose logs service-name
 
-# Check database
+# # # Check database
 docker exec -it postgres-db psql -U taskuser -d taskmanagement
 
-# Check Redis
+# # # Check Redis
 docker exec -it redis-cache redis-cli
 ```
 
 ---
 
-## 🎯 Status Codes
+# # ## 🎯 Status Codes
 
 | Code | Meaning |
 |------|---------|
@@ -280,7 +280,7 @@ docker exec -it redis-cache redis-cli
 
 ---
 
-## 🌐 Ports
+# # ## 🌐 Ports
 
 | Service | Port |
 |---------|------|

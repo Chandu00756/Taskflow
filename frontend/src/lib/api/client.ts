@@ -18,11 +18,13 @@ class APIClient {
   }
 
   private setupInterceptors() {
-    // Request interceptor
+// // // Request interceptor
     this.client.interceptors.request.use(
       (config: InternalAxiosRequestConfig) => {
-        if (this.accessToken && config.headers) {
-          config.headers.Authorization = `Bearer ${this.accessToken}`;
+        // Ensure we pick up the latest token from storage in case it was set elsewhere
+        const token = this.getAccessToken();
+        if (token && config.headers) {
+          config.headers.Authorization = `Bearer ${token}`;
         }
         return config;
       },
@@ -31,18 +33,18 @@ class APIClient {
       }
     );
 
-    // Response interceptor
+// // // Response interceptor
     this.client.interceptors.response.use(
       (response) => response,
       async (error: AxiosError) => {
         const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
 
-        // Handle 401 errors
+// // // Handle 401 errors
         if (error.response?.status === 401 && !originalRequest._retry) {
           originalRequest._retry = true;
 
           try {
-            // Try to refresh token
+// // // Try to refresh token
             const refreshToken = this.getRefreshToken();
             if (refreshToken) {
               const response = await this.refreshAccessToken(refreshToken);
@@ -50,7 +52,7 @@ class APIClient {
               return this.client(originalRequest);
             }
           } catch (refreshError) {
-            // Refresh failed, logout user
+// // // Refresh failed, logout user
             this.clearTokens();
             if (typeof window !== 'undefined') {
               window.location.href = '/login';
@@ -64,7 +66,7 @@ class APIClient {
     );
   }
 
-  // Token management
+// // // Token management
   setAccessToken(token: string) {
     this.accessToken = token;
     if (typeof window !== 'undefined') {
@@ -104,7 +106,7 @@ class APIClient {
     return this.client.post('/api/v1/auth/refresh', { refresh_token: refreshToken });
   }
 
-  // HTTP methods
+// // // HTTP methods
   async get<T>(url: string, config = {}) {
     const response = await this.client.get<T>(url, config);
     return response.data;

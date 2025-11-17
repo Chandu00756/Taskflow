@@ -1,10 +1,10 @@
-# Integration Guide: Task Management System with Portal VII
+# # # Integration Guide: Task Management System with Portal VII
 
-## Overview
+# # ## Overview
 
 This guide explains how to integrate your Go-based Task Management System backend with Portal VII (or any web/mobile application).
 
-## Integration Architecture
+# # ## Integration Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -45,13 +45,13 @@ This guide explains how to integrate your Go-based Task Management System backen
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-## Integration Methods
+# # ## Integration Methods
 
-### Method 1: Direct API Integration (Recommended)
+# # ### Method 1: Direct API Integration (Recommended)
 
 Portal VII's frontend makes HTTP requests directly to your Task Management API Gateway.
 
-#### Step 1: Enable CORS
+# # #### Step 1: Enable CORS
 
 Your API Gateway already has CORS enabled. Verify the configuration:
 
@@ -79,40 +79,35 @@ func corsMiddleware(next http.Handler) http.Handler {
 }
 ```
 
-#### Step 2: Deploy Your Backend
+# # #### Step 2: Deploy Your Backend
 
 You need to make your backend accessible from the internet. Options:
 
 **Option A: Deploy to Cloud (Production)**
 ```bash
-# Deploy to Google Cloud Run, AWS ECS, Azure Container Apps, etc.
-# Your API Gateway will get a public URL like:
-# https://task-api.yourcloud.com
+# # # Deploy to Google Cloud Run, AWS ECS, Azure Container Apps, etc.
 ```
 
 **Option B: Use ngrok for Development/Testing**
 ```bash
-# Install ngrok
+# # # Install ngrok
 brew install ngrok
 
-# Start your services
+# # # Start your services
 ./start-services.sh
 
-# Expose API Gateway (port 8080) to internet
+# # # Expose API Gateway (port 8080) to internet
 ngrok http 8080
 
-# You'll get a public URL like:
-# https://abc123.ngrok.io
+# # # You'll get a public URL like:
 ```
 
 **Option C: Deploy to Your Own Server**
 ```bash
-# Deploy to VPS (DigitalOcean, Linode, etc.)
-# Configure nginx as reverse proxy
-# Get SSL certificate with Let's Encrypt
+# # # Deploy to VPS (DigitalOcean, Linode, etc.)
 ```
 
-#### Step 3: Frontend Integration Code
+# # #### Step 3: Frontend Integration Code
 
 **Example: JavaScript/TypeScript SDK for Portal VII**
 
@@ -244,7 +239,7 @@ class TaskManagementAPI {
 export default TaskManagementAPI;
 ```
 
-#### Step 4: Use in Portal VII Components
+# # #### Step 4: Use in Portal VII Components
 
 **Example: React Component in Portal VII**
 
@@ -335,7 +330,7 @@ function TaskDashboard() {
 export default TaskDashboard;
 ```
 
-### Method 2: Backend-to-Backend Integration
+# # ### Method 2: Backend-to-Backend Integration
 
 If Portal VII has its own backend, you can integrate server-to-server.
 
@@ -391,7 +386,7 @@ class TaskService {
 module.exports = new TaskService();
 ```
 
-### Method 3: Embedded iFrame (Not Recommended)
+# # ### Method 3: Embedded iFrame (Not Recommended)
 
 You could build a simple web UI for your task management system and embed it:
 
@@ -405,9 +400,9 @@ You could build a simple web UI for your task management system and embed it:
 ></iframe>
 ```
 
-## Authentication Flow
+# # ## Authentication Flow
 
-### Step-by-Step Authentication
+# # ### Step-by-Step Authentication
 
 ```javascript
 // 1. User registers/logs in via Portal VII
@@ -464,12 +459,12 @@ async function refreshAccessToken() {
 }
 ```
 
-## Environment Configuration
+# # ## Environment Configuration
 
-### Your Backend (.env)
+# # ### Your Backend (.env)
 
 ```bash
-# Update these for production deployment
+# # # Update these for production deployment
 DB_HOST=your-postgres-host.com
 DB_PORT=5432
 DB_USER=taskuser
@@ -483,25 +478,25 @@ JWT_SECRET=your-super-secret-jwt-key-change-this
 JWT_ACCESS_TOKEN_DURATION=24h
 JWT_REFRESH_TOKEN_DURATION=168h
 
-# API Gateway
+# # # API Gateway
 GRPC_PORT=50051
 HTTP_PORT=8080
 
-# Production settings
+# # # Production settings
 ENVIRONMENT=production
 LOG_LEVEL=info
 ```
 
-### Portal VII Frontend (.env)
+# # ### Portal VII Frontend (.env)
 
 ```bash
-# Add to Portal VII's environment variables
+# # # Add to Portal VII's environment variables
 REACT_APP_TASK_API_URL=https://your-task-api.com
 VITE_TASK_API_URL=https://your-task-api.com  # If using Vite
 NEXT_PUBLIC_TASK_API_URL=https://your-task-api.com  # If using Next.js
 ```
 
-## Deployment Checklist
+# # ## Deployment Checklist
 
 - [ ] **1. Deploy Backend to Cloud**
   - [ ] Choose cloud provider (AWS, GCP, Azure, DigitalOcean)
@@ -536,28 +531,27 @@ NEXT_PUBLIC_TASK_API_URL=https://your-task-api.com  # If using Next.js
   - [ ] Test with multiple users
   - [ ] Performance testing
 
-## Quick Start Script for Portal VII
+# # ## Quick Start Script for Portal VII
 
 ```bash
-# 1. Clone or add SDK to Portal VII
+# # # 1. Clone or add SDK to Portal VII
 cd portal-vii
 mkdir -p src/services
 curl -o src/services/taskManagementAPI.js \
   https://raw.githubusercontent.com/your-repo/task-sdk/main/taskManagementAPI.js
 
-# 2. Install dependencies (if needed)
+# # # 2. Install dependencies (if needed)
 npm install axios  # or use fetch API
 
-# 3. Configure environment
+# # # 3. Configure environment
 echo "REACT_APP_TASK_API_URL=http://localhost:8080" >> .env.local
 
-# 4. Import and use in your components
-# See examples above
+# # # 4. Import and use in your components
 ```
 
-## Example API Calls from Portal VII
+# # ## Example API Calls from Portal VII
 
-### Register a New User
+# # ### Register a New User
 ```bash
 curl -X POST https://your-backend.com/api/v1/auth/register \
   -H "Content-Type: application/json" \
@@ -569,7 +563,7 @@ curl -X POST https://your-backend.com/api/v1/auth/register \
   }'
 ```
 
-### Create a Task
+# # ### Create a Task
 ```bash
 TOKEN="your-jwt-token-here"
 
@@ -584,15 +578,15 @@ curl -X POST https://your-backend.com/api/v1/tasks \
   }'
 ```
 
-### Get User's Tasks
+# # ### Get User's Tasks
 ```bash
 curl -X GET "https://your-backend.com/api/v1/tasks?status=TASK_STATUS_TODO&limit=10" \
   -H "Authorization: Bearer $TOKEN"
 ```
 
-## Support & Troubleshooting
+# # ## Support & Troubleshooting
 
-### Common Issues
+# # ### Common Issues
 
 1. **CORS Errors**
    - Verify Portal VII domain is in CORS allowed origins
@@ -609,7 +603,7 @@ curl -X GET "https://your-backend.com/api/v1/tasks?status=TASK_STATUS_TODO&limit
    - Check firewall/security group rules
    - Verify correct API URL in Portal VII config
 
-### Need Help?
+# # ### Need Help?
 
 Check the following files in your project:
 - `API_DOCS.md` - Complete API reference
@@ -617,7 +611,7 @@ Check the following files in your project:
 - `QUICKSTART.md` - Quick start guide
 - `GETTING_STARTED.md` - Development guide
 
-## Next Steps
+# # ## Next Steps
 
 1. **Deploy your backend** to a cloud provider
 2. **Get the public API URL** (e.g., https://task-api.yourcompany.com)

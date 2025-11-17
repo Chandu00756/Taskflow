@@ -17,7 +17,9 @@ func setupTestDB(t *testing.T) *gorm.DB {
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
 
-	err = db.AutoMigrate(&models.User{})
+	// Auto-migrate user, organization, and invite models so tests don't fail
+	// when service code expects those tables to exist (in-memory sqlite).
+	err = db.AutoMigrate(&models.User{}, &models.Organization{}, &models.Invite{})
 	require.NoError(t, err)
 
 	return db
@@ -48,7 +50,7 @@ func TestLogin(t *testing.T) {
 	jwtManager := auth.NewJWTManager("test-secret", 3600, 86400)
 	service := NewUserService(db, jwtManager)
 
-	// First register a user
+	// 	// 	// First register a user
 	registerReq := &userpb.RegisterRequest{
 		Email:    "test@example.com",
 		Username: "testuser",
@@ -58,7 +60,7 @@ func TestLogin(t *testing.T) {
 	_, err := service.Register(context.Background(), registerReq)
 	require.NoError(t, err)
 
-	// Then login
+	// 	// 	// Then login
 	loginReq := &userpb.LoginRequest{
 		Email:    "test@example.com",
 		Password: "password123",
@@ -77,7 +79,7 @@ func TestGetUser(t *testing.T) {
 	jwtManager := auth.NewJWTManager("test-secret", 3600, 86400)
 	service := NewUserService(db, jwtManager)
 
-	// Register a user
+	// 	// 	// Register a user
 	registerReq := &userpb.RegisterRequest{
 		Email:    "test@example.com",
 		Username: "testuser",
@@ -87,12 +89,31 @@ func TestGetUser(t *testing.T) {
 	registerResp, err := service.Register(context.Background(), registerReq)
 	require.NoError(t, err)
 
-	// Get the user
+	//  	//  	// Get the user
 	getReq := &userpb.GetUserRequest{
 		UserId: registerResp.User.UserId,
 	}
 
-	resp, err := service.GetUser(context.Background(), getReq)
+	// provide authentication context expected by the service
+	// lookup created user in test DB to determine OrgID and role
+	var created models.User
+	if err := db.Where("id = ?", registerResp.User.UserId).First(&created).Error; err != nil {
+		t.Fatalf("failed to lookup created user: %v", err)
+	}
+
+	roleStr := created.Role
+	if roleStr == "" {
+		roleStr = "member"
+	}
+
+	authCtx := context.Background()
+	authCtx = context.WithValue(authCtx, "user_id", registerResp.User.UserId)
+	authCtx = context.WithValue(authCtx, "email", registerResp.User.Email)
+	authCtx = context.WithValue(authCtx, "role", roleStr)
+	// Use the actual OrgID created by registration (may be empty for no-org scenarios)
+	authCtx = context.WithValue(authCtx, "org_id", created.OrgID)
+
+	resp, err := service.GetUser(authCtx, getReq)
 	require.NoError(t, err)
 	assert.NotNil(t, resp)
 	assert.Equal(t, "test@example.com", resp.User.Email)

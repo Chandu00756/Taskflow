@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
@@ -12,7 +12,9 @@ import type { ConfettiProps } from 'react-confetti';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { UserPlus, ShieldCheck, Sparkles } from 'lucide-react';
-import { authAPI } from '@/lib/api';
+import { authAPI, invitesAPI } from '@/lib/api';
+import { parseJwt } from '@/lib/jwt';
+import { useAuthStore } from '@/store/auth';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -87,21 +89,114 @@ export default function RegisterPage() {
   const passwordValue = watch('password');
   const passwordScore = useMemo(() => scorePassword(passwordValue), [passwordValue]);
 
+  const { setAuth } = useAuthStore();
+
   const registerMutation = useMutation({
     mutationFn: authAPI.register,
-    onSuccess: () => {
-      toast.success('Account created! Securely redirecting you to login.');
+    onSuccess: async (data: any, variables: any) => {
+      toast.success('Account created! Logging you in...');
       setShowCelebration(true);
-      setTimeout(() => router.push('/login'), 1400);
+      // Automatically login to obtain tokens and org claims
+      try {
+        const loginResp: any = await authAPI.login({ email: (variables as any).email, password: (variables as any).password });
+        const access = loginResp.access_token;
+        const refresh = loginResp.refresh_token;
+        const parsed = typeof window !== 'undefined' ? parseJwt(access) : null;
+        const userWithClaims = {
+          ...loginResp.user,
+          org_id: parsed?.org_id || parsed?.orgId || '',
+          role: parsed?.role || '',
+        };
+        setAuth(userWithClaims, access, refresh);
+        setTimeout(() => router.push('/dashboard'), 1200);
+      } catch (e: any) {
+        // fallback: redirect to login
+        setTimeout(() => router.push('/login'), 1200);
+      }
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.message || 'Registration failed');
     },
   });
 
+  // invite accept mutation
+  const acceptMutation = useMutation({
+    mutationFn: (data: any) => invitesAPI.acceptInvite(data),
+    onSuccess: () => {
+      toast.success('Invite accepted! Redirecting to login.');
+      setTimeout(() => router.push('/login'), 1200);
+    },
+    onError: (err: any) => {
+      toast.error(err?.response?.data?.message || 'Failed to accept invite');
+    },
+  });
+
+  const [tokenParam, setTokenParam] = useState('');
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const sp = new URLSearchParams(window.location.search);
+      const t = sp.get('token') || '';
+      setTokenParam(t);
+    }
+  }, []);
+
   const onSubmit = (values: RegisterFormValues) => {
     const { confirmPassword, ...payload } = values;
-    registerMutation.mutate(payload);
+    if (tokenParam) {
+      // Accept invite flow
+      const acceptPayload = {
+        token: tokenParam,
+        password: values.password,
+        username: values.username,
+        full_name: values.full_name,
+      };
+      // Use mutateAsync so we can login immediately after accept
+      acceptMutation
+        .mutateAsync(acceptPayload)
+        .then((res: any) => {
+          // accept returns created user; now login using email from response and provided password
+          const email = res?.user?.email;
+          if (email) {
+            authAPI.login({ email, password: values.password }).then((loginResp: any) => {
+              const access = loginResp.access_token;
+              const refresh = loginResp.refresh_token;
+              const parsed = typeof window !== 'undefined' ? parseJwt(access) : null;
+              const userWithClaims = {
+                ...loginResp.user,
+                org_id: parsed?.org_id || parsed?.orgId || '',
+                role: parsed?.role || '',
+              };
+              setAuth(userWithClaims, access, refresh);
+              router.push('/dashboard');
+            });
+          } else {
+            router.push('/login');
+          }
+        })
+        .catch(() => {
+          // handled by mutation onError
+        });
+    } else {
+      registerMutation.mutate(payload, {
+        onSuccess: (data: any) => {
+          // store org_id and role from token
+          const access = data.access_token;
+          const parsed = typeof window !== 'undefined' ? parseJwt(access) : null;
+          const userWithClaims = {
+            ...data.user,
+            org_id: parsed?.org_id || parsed?.orgId || '',
+            role: parsed?.role || '',
+          };
+          // set auth via store directly to avoid circular import; use localStorage for now
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('access_token', access);
+            localStorage.setItem('refresh_token', data.refresh_token);
+            localStorage.setItem('auth_user', JSON.stringify(userWithClaims));
+          }
+        },
+      });
+    }
   };
 
   return (

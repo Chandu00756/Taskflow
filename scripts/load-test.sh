@@ -1,10 +1,10 @@
 #!/bin/bash
 
-# Load testing script using Vegeta
+# # # Load testing script using Vegeta
 
 set -e
 
-# Colors
+# # # Colors
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 RED='\033[0;31m'
@@ -12,13 +12,13 @@ NC='\033[0m'
 
 echo -e "${GREEN}Starting load test for Task Management System${NC}"
 
-# Check if vegeta is installed
+# # # Check if vegeta is installed
 if ! command -v vegeta &> /dev/null; then
     echo -e "${YELLOW}Vegeta not found. Installing...${NC}"
     go install github.com/tsenart/vegeta@latest
 fi
 
-# Configuration
+# # # Configuration
 BASE_URL=${BASE_URL:-"http://localhost:8080"}
 DURATION=${DURATION:-"30s"}
 RATE=${RATE:-"100"}

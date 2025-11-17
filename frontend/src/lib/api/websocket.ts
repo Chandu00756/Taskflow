@@ -35,7 +35,7 @@ class WebSocketClient {
         this.reconnectAttempts = 0;
         this.emitEvent('open');
 
-        // Start ping interval
+// // // Start ping interval
         this.startPing();
       };
 
@@ -70,7 +70,7 @@ class WebSocketClient {
       handlers.forEach((handler) => handler(message));
     }
 
-    // Also trigger handlers for all message types
+// // // Also trigger handlers for all message types
     const allHandlers = this.messageHandlers.get('*');
     if (allHandlers) {
       allHandlers.forEach((handler) => handler(message));

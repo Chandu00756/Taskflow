@@ -12,6 +12,7 @@ import type { ConfettiProps } from 'react-confetti';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { authAPI } from '@/lib/api';
+import { parseJwt } from '@/lib/jwt';
 import { useAuthStore } from '@/store/auth';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
@@ -53,7 +54,17 @@ export default function LoginPage() {
   const loginMutation = useMutation({
     mutationFn: authAPI.login,
     onSuccess: (data) => {
-      setAuth(data.user, data.access_token, data.refresh_token);
+      // set auth and extract org_id + role from access token
+      const access = data.access_token;
+      const refresh = data.refresh_token;
+      const parsed = typeof window !== 'undefined' ? parseJwt(access) : null;
+      const userWithClaims = {
+        ...data.user,
+        org_id: parsed?.org_id || parsed?.orgId || '',
+        role: parsed?.role || '',
+      };
+
+      setAuth(userWithClaims, access, refresh);
       toast.success('Welcome back! ✨');
       setShowCelebration(true);
       setTimeout(() => {

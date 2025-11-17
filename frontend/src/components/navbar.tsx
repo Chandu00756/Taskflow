@@ -54,6 +54,18 @@ export function Navbar() {
               >
                 Tasks
               </Link>
+              {user?.role === 'admin' && (
+                <Link
+                  href="/admin/invites"
+                  className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium ${
+                    isActive('/admin/invites')
+                      ? 'border-primary text-gray-900 dark:text-white'
+                      : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
+                  }`}
+                >
+                  Admin
+                </Link>
+              )}
               <Link
                 href="/profile"
                 className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium ${
@@ -78,6 +90,7 @@ export function Navbar() {
             <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
               className="inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary"
+              title={isMobileMenuOpen ? "Close menu" : "Open menu"}
             >
               <svg
                 className="h-6 w-6"

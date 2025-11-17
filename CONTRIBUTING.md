@@ -1,14 +1,14 @@
-# Contributing to Task Management System
+# # # Contributing to Task Management System
 
 Thank you for your interest in contributing to the Task Management System! This document provides guidelines and instructions for contributing.
 
-## 🤝 Code of Conduct
+# # ## 🤝 Code of Conduct
 
 By participating in this project, you agree to abide by our [Code of Conduct](CODE_OF_CONDUCT.md).
 
-## 🚀 Getting Started
+# # ## 🚀 Getting Started
 
-### Prerequisites
+# # ### Prerequisites
 
 Before you begin, ensure you have the following installed:
 
@@ -19,7 +19,7 @@ Before you begin, ensure you have the following installed:
 - Protocol Buffers compiler (`protoc`)
 - Git
 
-### Setting Up Your Development Environment
+# # ### Setting Up Your Development Environment
 
 1. **Fork the repository** on GitHub
 2. **Clone your fork** locally:
@@ -53,7 +53,7 @@ Before you begin, ensure you have the following installed:
 
    ```bash
    cp .env.example .env
-   # Edit .env with your local settings
+# # # Edit .env with your local settings
    ```
 
 7. **Generate Protocol Buffers**:
@@ -68,15 +68,15 @@ Before you begin, ensure you have the following installed:
    ./start.sh
    ```
 
-## 📝 Development Workflow
+# # ## 📝 Development Workflow
 
-### 1. Create a Branch
+# # ### 1. Create a Branch
 
 Always create a new branch for your work:
 
 ```bash
 git checkout -b feature/your-feature-name
-# or
+# # # or
 git checkout -b fix/bug-description
 ```
 
@@ -89,7 +89,7 @@ Branch naming conventions:
 - `test/` - Adding or updating tests
 - `chore/` - Maintenance tasks
 
-### 2. Make Your Changes
+# # ### 2. Make Your Changes
 
 - Write clean, readable code
 - Follow the existing code style
@@ -97,22 +97,22 @@ Branch naming conventions:
 - Update documentation as needed
 - Keep commits atomic and focused
 
-### 3. Test Your Changes
+# # ### 3. Test Your Changes
 
-#### Backend Tests
+# # #### Backend Tests
 
 ```bash
-# Run all tests
+# # # Run all tests
 make test
 
-# Run specific service tests
+# # # Run specific service tests
 cd services/task && go test -v ./...
 
-# Run with coverage
+# # # Run with coverage
 make test-coverage
 ```
 
-#### Frontend Tests
+# # #### Frontend Tests
 
 ```bash
 cd frontend
@@ -120,13 +120,13 @@ npm test
 npm run lint
 ```
 
-#### Integration Tests
+# # #### Integration Tests
 
 ```bash
 ./scripts/load-test.sh
 ```
 
-### 4. Commit Your Changes
+# # ### 4. Commit Your Changes
 
 Write clear, descriptive commit messages:
 
@@ -159,13 +159,13 @@ git commit -m "feat: add task filtering by tags
 - `test`: Adding or updating tests
 - `chore`: Maintenance tasks
 
-### 5. Push to Your Fork
+# # ### 5. Push to Your Fork
 
 ```bash
 git push origin feature/your-feature-name
 ```
 
-### 6. Create a Pull Request
+# # ### 6. Create a Pull Request
 
 1. Go to your fork on GitHub
 2. Click "New Pull Request"
@@ -176,11 +176,11 @@ git push origin feature/your-feature-name
    - Screenshots (for UI changes)
    - Testing performed
 
-## 🎯 Contribution Guidelines
+# # ## 🎯 Contribution Guidelines
 
-### Code Style
+# # ### Code Style
 
-#### Go Code
+# # #### Go Code
 
 - Follow [Effective Go](https://golang.org/doc/effective_go.html)
 - Use `gofmt` for formatting
@@ -213,7 +213,7 @@ func ct(c context.Context, r *CreateTaskRequest) (*Task, error) {
 }
 ```
 
-#### TypeScript/React Code
+# # #### TypeScript/React Code
 
 - Follow the existing ESLint configuration
 - Use TypeScript for type safety
@@ -246,7 +246,7 @@ const TL = ({ t, o }) => {
 };
 ```
 
-### Testing Guidelines
+# # ### Testing Guidelines
 
 - Write tests for all new features
 - Maintain or improve code coverage
@@ -294,7 +294,7 @@ func TestCreateTask(t *testing.T) {
 }
 ```
 
-### Documentation
+# # ### Documentation
 
 - Update documentation for any API changes
 - Add JSDoc/GoDoc comments for new functions
@@ -302,7 +302,7 @@ func TestCreateTask(t *testing.T) {
 - Include examples in documentation
 - Keep diagrams and architecture docs up to date
 
-### Protocol Buffers
+# # ### Protocol Buffers
 
 When modifying `.proto` files:
 
@@ -312,15 +312,15 @@ When modifying `.proto` files:
 4. Update API documentation
 5. Test all affected endpoints
 
-## 🐛 Reporting Bugs
+# # ## 🐛 Reporting Bugs
 
-### Before Submitting a Bug Report
+# # ### Before Submitting a Bug Report
 
 - Check existing issues to avoid duplicates
 - Verify the bug exists in the latest version
 - Gather relevant information (logs, screenshots, etc.)
 
-### Submitting a Bug Report
+# # ### Submitting a Bug Report
 
 Include:
 
@@ -331,7 +331,7 @@ Include:
 - **Logs/screenshots** if applicable
 - **Possible solution** (if you have one)
 
-## 💡 Suggesting Enhancements
+# # ## 💡 Suggesting Enhancements
 
 We welcome feature suggestions! Please:
 
@@ -341,7 +341,7 @@ We welcome feature suggestions! Please:
 - Consider implementation complexity
 - Be open to discussion and feedback
 
-## 🔍 Pull Request Review Process
+# # ## 🔍 Pull Request Review Process
 
 1. **Automated checks** must pass (tests, linting, build)
 2. **Code review** by at least one maintainer
@@ -349,7 +349,7 @@ We welcome feature suggestions! Please:
 4. **Testing** verification
 5. **Approval** and merge by maintainer
 
-### PR Checklist
+# # ### PR Checklist
 
 Before submitting your PR, ensure:
 
@@ -362,7 +362,7 @@ Before submitting your PR, ensure:
 - [ ] PR description is complete
 - [ ] Screenshots included (for UI changes)
 
-## 🏷️ Issue Labels
+# # ## 🏷️ Issue Labels
 
 - `bug` - Something isn't working
 - `enhancement` - New feature or request
@@ -372,14 +372,14 @@ Before submitting your PR, ensure:
 - `question` - Further information requested
 - `wontfix` - This will not be worked on
 
-## 📞 Getting Help
+# # ## 📞 Getting Help
 
 - **Documentation**: Check [docs/](docs/)
 - **Discussions**: Use GitHub Discussions for questions
 - **Issues**: Search existing issues or create a new one
 - **Discord**: Join our community (link if available)
 
-## 🙏 Recognition
+# # ## 🙏 Recognition
 
 Contributors will be:
 
@@ -387,7 +387,7 @@ Contributors will be:
 - Mentioned in release notes for significant contributions
 - Recognized in the community
 
-## 📜 License
+# # ## 📜 License
 
 By contributing, you agree that your contributions will be licensed under the same [MIT License](LICENSE) that covers this project.
 

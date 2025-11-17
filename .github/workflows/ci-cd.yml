@@ -18,7 +18,7 @@ env:
   IMAGE_PREFIX: ${{ github.repository }}
 
 jobs:
-  # Job 1: Lint and Test
+# # # Job 1: Lint and Test
   test:
     name: Test and Lint
     runs-on: ubuntu-latest
@@ -64,7 +64,7 @@ jobs:
           flags: unittests
           name: codecov-umbrella
 
-  # Job 2: Build Docker Images
+# # # Job 2: Build Docker Images
   build:
     name: Build Docker Images
     runs-on: ubuntu-latest
@@ -114,7 +114,7 @@ jobs:
             VERSION=${{ github.sha }}
             BUILD_DATE=${{ github.event.head_commit.timestamp }}
 
-  # Job 3: Security Scanning
+# # # Job 3: Security Scanning
   security:
     name: Security Scanning
     runs-on: ubuntu-latest
@@ -137,7 +137,7 @@ jobs:
           sarif_file: 'trivy-results-${{ matrix.service }}.sarif'
           category: 'trivy-${{ matrix.service }}'
 
-  # Job 4: Deploy to Staging
+# # # Job 4: Deploy to Staging
   deploy-staging:
     name: Deploy to Staging
     runs-on: ubuntu-latest
@@ -162,7 +162,7 @@ jobs:
 
       - name: Deploy to Staging
         run: |
-          # Update image tags
+# # # Update image tags
           kubectl set image deployment/user-service \
             user-service=${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_PREFIX }}/user-service:${{ github.sha }} \
             -n task-management-staging
@@ -179,7 +179,7 @@ jobs:
             gateway=${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_PREFIX }}/gateway:${{ github.sha }} \
             -n task-management-staging
 
-          # Wait for rollout
+# # # Wait for rollout
           kubectl rollout status deployment/user-service -n task-management-staging --timeout=5m
           kubectl rollout status deployment/task-service -n task-management-staging --timeout=5m
           kubectl rollout status deployment/notification-service -n task-management-staging --timeout=5m
@@ -189,7 +189,7 @@ jobs:
         run: |
           ./scripts/smoke-tests.sh https://staging-api.yourcompany.com
 
-  # Job 5: Deploy to Production
+# # # Job 5: Deploy to Production
   deploy-production:
     name: Deploy to Production
     runs-on: ubuntu-latest
@@ -218,10 +218,10 @@ jobs:
 
       - name: Deploy to Production (Blue-Green)
         run: |
-          # Deploy to green environment
+# # # Deploy to green environment
           kubectl apply -f deployments/k8s/green/ -n task-management-production
           
-          # Update image tags for green deployment
+# # # Update image tags for green deployment
           kubectl set image deployment/user-service-green \
             user-service=${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_PREFIX }}/user-service:${{ steps.version.outputs.VERSION }} \
             -n task-management-production
@@ -238,7 +238,7 @@ jobs:
             gateway=${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_PREFIX }}/gateway:${{ steps.version.outputs.VERSION }} \
             -n task-management-production
 
-          # Wait for green deployment
+# # # Wait for green deployment
           kubectl rollout status deployment/user-service-green -n task-management-production --timeout=10m
           kubectl rollout status deployment/task-service-green -n task-management-production --timeout=10m
           kubectl rollout status deployment/notification-service-green -n task-management-production --timeout=10m
@@ -250,7 +250,7 @@ jobs:
 
       - name: Switch traffic to green (manual approval required)
         run: |
-          # Update service selectors to point to green
+# # # Update service selectors to point to green
           kubectl patch service user-service -n task-management-production \
             -p '{"spec":{"selector":{"version":"green"}}}'
           kubectl patch service task-service -n task-management-production \
@@ -287,7 +287,7 @@ jobs:
           webhook_url: ${{ secrets.SLACK_WEBHOOK }}
           fields: repo,message,commit,author,action,eventName,ref,workflow
 
-  # Job 6: Database Migrations
+# # # Job 6: Database Migrations
   migrate-database:
     name: Run Database Migrations
     runs-on: ubuntu-latest
@@ -301,11 +301,11 @@ jobs:
 
       - name: Run migrations
         run: |
-          # Install migrate tool
+# # # Install migrate tool
           curl -L https://github.com/golang-migrate/migrate/releases/download/v4.16.2/migrate.linux-amd64.tar.gz | tar xvz
           sudo mv migrate /usr/local/bin/
           
-          # Run migrations
+# # # Run migrations
           migrate -path ./migrations \
             -database "${{ secrets.DATABASE_URL }}" \
             up

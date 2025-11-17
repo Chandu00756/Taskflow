@@ -99,10 +99,11 @@ message Task {
   string assigned_to = 6;
   string created_by = 7;
   string team_id = 8;
-  google.protobuf.Timestamp due_date = 9;
-  google.protobuf.Timestamp created_at = 10;
-  google.protobuf.Timestamp updated_at = 11;
-  repeated string tags = 12;
+  string group_id = 9;
+  google.protobuf.Timestamp due_date = 10;
+  google.protobuf.Timestamp created_at = 11;
+  google.protobuf.Timestamp updated_at = 12;
+  repeated string tags = 13;
 }
 
 // Create task request
@@ -113,8 +114,9 @@ message CreateTaskRequest {
   TaskPriority priority = 4;
   string assigned_to = 5;
   string team_id = 6;
-  google.protobuf.Timestamp due_date = 7;
-  repeated string tags = 8;
+  string group_id = 7;
+  google.protobuf.Timestamp due_date = 8;
+  repeated string tags = 9;
 }
 
 // Create task response
@@ -168,7 +170,8 @@ message ListTasksRequest {
   TaskStatus status_filter = 3;
   TaskPriority priority_filter = 4;
   string team_filter = 5;
-  string assigned_to_filter = 6;
+  string group_filter = 6;
+  string assigned_to_filter = 7;
 }
 
 // List tasks response

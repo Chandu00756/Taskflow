@@ -10,19 +10,19 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-// LoggingInterceptor logs gRPC requests and responses
+// // // LoggingInterceptor logs gRPC requests and responses
 type LoggingInterceptor struct {
 	logger *zap.Logger
 }
 
-// NewLoggingInterceptor creates a new logging interceptor
+// // // NewLoggingInterceptor creates a new logging interceptor
 func NewLoggingInterceptor(logger *zap.Logger) *LoggingInterceptor {
 	return &LoggingInterceptor{
 		logger: logger,
 	}
 }
 
-// Unary returns a logging interceptor for unary RPCs
+// // // Unary returns a logging interceptor for unary RPCs
 func (l *LoggingInterceptor) Unary() grpc.UnaryServerInterceptor {
 	return func(
 		ctx context.Context,
@@ -32,16 +32,16 @@ func (l *LoggingInterceptor) Unary() grpc.UnaryServerInterceptor {
 	) (interface{}, error) {
 		start := time.Now()
 
-		// Extract user info from context if available
+		// 		// 		// Extract user info from context if available
 		userID := ""
 		if id, ok := ctx.Value("user_id").(string); ok {
 			userID = id
 		}
 
-		// Call handler
+		// 		// 		// Call handler
 		resp, err := handler(ctx, req)
 
-		// Log the request
+		// 		// 		// Log the request
 		duration := time.Since(start)
 		code := codes.OK
 		if err != nil {

@@ -1,7 +1,7 @@
-# Horizontal Pod Autoscaler Configuration for Task Management System
+# # # Horizontal Pod Autoscaler Configuration for Task Management System
 
 ---
-# User Service HPA
+# # # User Service HPA
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
@@ -17,21 +17,21 @@ spec:
   minReplicas: 2
   maxReplicas: 10
   metrics:
-    # CPU-based scaling
+# # # CPU-based scaling
     - type: Resource
       resource:
         name: cpu
         target:
           type: Utilization
           averageUtilization: 70
-    # Memory-based scaling
+# # # Memory-based scaling
     - type: Resource
       resource:
         name: memory
         target:
           type: Utilization
           averageUtilization: 80
-    # Custom metric: Request rate
+# # # Custom metric: Request rate
     - type: Pods
       pods:
         metric:
@@ -62,7 +62,7 @@ spec:
       selectPolicy: Max
 
 ---
-# Task Service HPA
+# # # Task Service HPA
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
@@ -90,7 +90,7 @@ spec:
         target:
           type: Utilization
           averageUtilization: 80
-    # Task service handles more load, so higher threshold
+# # # Task service handles more load, so higher threshold
     - type: Pods
       pods:
         metric:
@@ -121,7 +121,7 @@ spec:
       selectPolicy: Max
 
 ---
-# Notification Service HPA
+# # # Notification Service HPA
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
@@ -179,7 +179,7 @@ spec:
       selectPolicy: Max
 
 ---
-# API Gateway HPA
+# # # API Gateway HPA
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
@@ -207,7 +207,7 @@ spec:
         target:
           type: Utilization
           averageUtilization: 85
-    # Gateway handles the most traffic
+# # # Gateway handles the most traffic
     - type: Pods
       pods:
         metric:

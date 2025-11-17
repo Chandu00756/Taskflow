@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Run all tests
+# # # Run all tests
 
 set -e
 

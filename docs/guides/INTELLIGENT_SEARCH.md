@@ -1,27 +1,27 @@
-# Intelligent Universal Search System
+# # # Intelligent Universal Search System
 
-## Overview
+# # ## Overview
 
 This system implements a comprehensive, intelligent search functionality across the entire application with advanced syntax parsing, @mentions, filters, and real-time autocomplete.
 
-## Features
+# # ## Features
 
-### 1. **Universal Search Bar** (Header)
+# # ### 1. **Universal Search Bar** (Header)
 - Global search accessible from any page
 - Real-time autocomplete with @mentions
 - Entity type filtering (tasks, users, teams, documents, comments)
 - Navigate directly to results from dropdown
 - Recent searches history
 
-### 2. **Intelligent Search Syntax**
+# # ### 2. **Intelligent Search Syntax**
 
-#### Basic Search
+# # #### Basic Search
 ```
 Design review meeting
 ```
 Searches for text in titles and descriptions.
 
-#### @Mentions (User/Team Search)
+# # #### @Mentions (User/Team Search)
 ```
 @john
 @engineering
@@ -31,15 +31,14 @@ Searches for text in titles and descriptions.
 - Provides autocomplete suggestions
 - Scoped to current workspace/team for security
 
-#### #Tags
+# # #### #Tags
 ```
-#urgent
-#bug #feature
+# # #urgent
 ```
 - Searches for tasks with specific tags/labels
 - Multiple tags supported
 
-#### Advanced Filters
+# # #### Advanced Filters
 
 **Assignee Filter:**
 ```
@@ -103,7 +102,7 @@ is:archived          # Show archived items
 is:unread            # Show unread items
 ```
 
-#### Combined Syntax
+# # #### Combined Syntax
 ```
 @john #urgent priority:high status:in_progress created:>7d
 ```
@@ -114,7 +113,7 @@ This searches for:
 - Currently in progress
 - Created in the last 7 days
 
-### 3. **Task Creation with Intelligent Assignment**
+# # ### 3. **Task Creation with Intelligent Assignment**
 
 The task creation modal includes:
 - **Smart user selector** with autocomplete
@@ -124,7 +123,7 @@ The task creation modal includes:
 - Team-based filtering
 - Maximum selection limits
 
-### 4. **Tasks Page Intelligent Filtering**
+# # ### 4. **Tasks Page Intelligent Filtering**
 
 The tasks page implements:
 - Realtime search with syntax parsing
@@ -137,11 +136,11 @@ The tasks page implements:
 - Search query preserved in URL params
 - Debounced search (300ms)
 
-## Architecture
+# # ## Architecture
 
-### Core Files
+# # ### Core Files
 
-#### `/src/lib/api/search.ts`
+# # #### `/src/lib/api/search.ts`
 Main search service with:
 - `searchAPI`: REST API client for all search endpoints
 - `SearchParser`: Intelligent query parser for special syntax
@@ -156,7 +155,7 @@ Main search service with:
 - `SearchParser.parse(query)` - Extract mentions, tags, filters from text
 - `SearchParser.buildQuery(components)` - Build SearchQuery object from parsed components
 
-#### `/src/components/common/user-selector.tsx`
+# # #### `/src/components/common/user-selector.tsx`
 Reusable user/team selector component with:
 - Real-time search with 300ms debounce
 - @mention detection
@@ -167,7 +166,7 @@ Reusable user/team selector component with:
 - Avatar display
 - Click-outside-to-close
 
-#### `/src/components/search/advanced-search.tsx`
+# # #### `/src/components/search/advanced-search.tsx`
 Global search component with:
 - Real-time @mention autocomplete
 - Entity type filters
@@ -177,7 +176,7 @@ Global search component with:
 - Result navigation
 - Keyboard shortcuts (Escape to close)
 
-#### `/src/app/tasks/page.tsx`
+# # #### `/src/app/tasks/page.tsx`
 Enhanced with:
 - Intelligent search parsing integration
 - Visual smart filter badges
@@ -186,7 +185,7 @@ Enhanced with:
 - Tag-based filtering
 - Search syntax help hints
 
-## Search Syntax Parsing Logic
+# # ## Search Syntax Parsing Logic
 
 The `SearchParser` class uses regex patterns to extract:
 
@@ -203,7 +202,7 @@ Then intelligently maps filter keys:
 - `label` or `tag` → `labels`
 - `created`, `updated`, `due` → date filters with parsing
 
-### Date Filter Parser
+# # ### Date Filter Parser
 
 Supports three formats:
 
@@ -222,21 +221,21 @@ Supports three formats:
 - `this-week` - Current week
 - `this-month` - Current month
 
-## Security & Privacy
+# # ## Security & Privacy
 
-### Workspace Scoping
+# # ### Workspace Scoping
 - @mentions only show users/teams within current workspace
 - Search results filtered by user permissions
 - Team privacy respected (open/closed/secret)
 
-### Permission-Based Results
+# # ### Permission-Based Results
 - Users only see results they have access to
 - Organization members auto-join based on email domain
 - Private workspaces require explicit invites
 
-## Backend API Endpoints
+# # ## Backend API Endpoints
 
-### Search Endpoints
+# # ### Search Endpoints
 ```typescript
 POST /api/search
 Body: SearchQuery
@@ -262,7 +261,7 @@ Body: { query: string }
 Response: void
 ```
 
-### Required Database Indexes
+# # ### Required Database Indexes
 
 For optimal performance, create these indexes:
 
@@ -293,11 +292,11 @@ CREATE INDEX idx_task_assignments_task_id ON task_assignments(task_id);
 CREATE INDEX idx_task_tags_tag ON task_tags(tag);
 ```
 
-## Elasticsearch Integration (Optional)
+# # ## Elasticsearch Integration (Optional)
 
 For large-scale deployments, integrate Elasticsearch:
 
-### Index Mapping
+# # ### Index Mapping
 ```json
 {
   "mappings": {
@@ -319,7 +318,7 @@ For large-scale deployments, integrate Elasticsearch:
 }
 ```
 
-### Query Builder
+# # ### Query Builder
 ```typescript
 const buildElasticsearchQuery = (parsed: ParsedSearch) => {
   const must: any[] = [];
@@ -374,9 +373,9 @@ const buildElasticsearchQuery = (parsed: ParsedSearch) => {
 };
 ```
 
-## Usage Examples
+# # ## Usage Examples
 
-### Component Integration
+# # ### Component Integration
 
 ```typescript
 import { useIntelligentSearch } from '@/lib/api/search';
@@ -403,7 +402,7 @@ function MyComponent() {
 }
 ```
 
-### UserSelector Integration
+# # ### UserSelector Integration
 
 ```typescript
 import UserSelector from '@/components/common/user-selector';
@@ -425,7 +424,7 @@ function TaskForm() {
 }
 ```
 
-## Performance Optimization
+# # ## Performance Optimization
 
 1. **Debouncing**: 300ms delay prevents excessive API calls
 2. **Caching**: React Query caches search results
@@ -435,7 +434,7 @@ function TaskForm() {
 6. **CDN**: Cache static autocomplete data
 7. **WebSocket**: Real-time updates for mentions
 
-## Future Enhancements
+# # ## Future Enhancements
 
 1. **Saved Searches**: Save frequently used search queries
 2. **Search Templates**: Pre-built search queries for common tasks
@@ -448,9 +447,9 @@ function TaskForm() {
 9. **Search Sharing**: Share search URLs with team
 10. **Export Results**: Export search results to CSV/PDF
 
-## Testing
+# # ## Testing
 
-### Unit Tests
+# # ### Unit Tests
 ```typescript
 describe('SearchParser', () => {
   it('parses @mentions correctly', () => {
@@ -473,13 +472,13 @@ describe('SearchParser', () => {
 });
 ```
 
-### Integration Tests
+# # ### Integration Tests
 - Test search API endpoints
 - Test autocomplete with real database
 - Test permission filtering
 - Test date range queries
 
-## Troubleshooting
+# # ## Troubleshooting
 
 **Search not working:**
 - Check backend API is running

@@ -10,7 +10,7 @@ import type {
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
-// ==================== UNIVERSAL SEARCH API ====================
+// // // ==================== UNIVERSAL SEARCH API ====================
 
 export const searchAPI = {
   /**
@@ -168,7 +168,7 @@ export const searchAPI = {
   },
 };
 
-// ==================== INTELLIGENT SEARCH PARSER ====================
+// // // ==================== INTELLIGENT SEARCH PARSER ====================
 
 export class SearchParser {
   /**
@@ -191,7 +191,7 @@ export class SearchParser {
     const tags: string[] = [];
     const filters: Record<string, any> = {};
 
-    // Extract @mentions
+// // // Extract @mentions
     const mentionRegex = /@(\w+)/g;
     let match;
     while ((match = mentionRegex.exec(query)) !== null) {
@@ -199,20 +199,20 @@ export class SearchParser {
     }
     cleanQuery = cleanQuery.replace(mentionRegex, '').trim();
 
-    // Extract #tags
+// // // Extract #tags
     const tagRegex = /#(\w+)/g;
     while ((match = tagRegex.exec(query)) !== null) {
       tags.push(match[1]);
     }
     cleanQuery = cleanQuery.replace(tagRegex, '').trim();
 
-    // Extract key:value filters
+// // // Extract key:value filters
     const filterRegex = /(\w+):([^\s]+)/g;
     while ((match = filterRegex.exec(query)) !== null) {
       const key = match[1];
       const value = match[2];
 
-      // Parse different filter types
+// // // Parse different filter types
       if (key === 'assignee' || key === 'assigned') {
         filters.assigned_to = filters.assigned_to || [];
         filters.assigned_to.push(value);
@@ -238,7 +238,7 @@ export class SearchParser {
       } else if (key === 'due') {
         this.parseDateFilter(value, 'due', filters);
       } else if (key === 'is') {
-        // Special flags: is:archived, is:unread, etc.
+// // // Special flags: is:archived, is:unread, etc.
         if (value === 'archived') filters.is_archived = true;
         if (value === 'unread') filters.is_read = false;
       }
@@ -257,7 +257,7 @@ export class SearchParser {
   private static parseDateFilter(value: string, field: 'created' | 'updated' | 'due', filters: Record<string, any>) {
     const now = new Date();
     
-    // Relative dates
+// // // Relative dates
     if (value.match(/^[<>]\d+[dwmy]$/)) {
       const operator = value[0];
       const amount = parseInt(value.slice(1, -1));
@@ -276,7 +276,7 @@ export class SearchParser {
         filters[`${field}_before`] = isoDate;
       }
     }
-    // Absolute dates
+// // // Absolute dates
     else if (value.match(/^[<>]\d{4}-\d{2}-\d{2}$/)) {
       const operator = value[0];
       const date = value.slice(1);
@@ -287,7 +287,7 @@ export class SearchParser {
         filters[`${field}_before`] = date;
       }
     }
-    // Special keywords
+// // // Special keywords
     else if (value === 'today') {
       const today = now.toISOString().split('T')[0];
       filters[`${field}_after`] = today;
@@ -317,7 +317,7 @@ export class SearchParser {
   static buildQuery(components: ReturnType<typeof SearchParser.parse>): SearchQuery {
     const filters = { ...components.filters };
 
-    // Add tags to filters
+// // // Add tags to filters
     if (components.tags.length > 0) {
       filters.labels = [...(filters.labels || []), ...components.tags];
     }
@@ -331,7 +331,7 @@ export class SearchParser {
   }
 }
 
-// ==================== SEARCH UTILITIES ====================
+// // // ==================== SEARCH UTILITIES ====================
 
 export const searchUtils = {
   /**
@@ -400,13 +400,13 @@ export const searchUtils = {
   },
 };
 
-// ==================== SEARCH HOOKS ====================
+// // // ==================== SEARCH HOOKS ====================
 
 /**
  * Custom hook for intelligent search with caching
  */
 export const useIntelligentSearch = () => {
-  // This will be used in components for smart search functionality
+// // // This will be used in components for smart search functionality
   return {
     search: searchAPI.search,
     autocomplete: searchAPI.autocomplete,

@@ -10,16 +10,16 @@ import (
 )
 
 const (
-	// Time allowed to write a message to the peer
+	// 	// 	// Time allowed to write a message to the peer
 	writeWait = 10 * time.Second
 
-	// Time allowed to read the next pong message from the peer
+	// 	// 	// Time allowed to read the next pong message from the peer
 	pongWait = 60 * time.Second
 
-	// Send pings to peer with this period (must be less than pongWait)
+	// 	// 	// Send pings to peer with this period (must be less than pongWait)
 	pingPeriod = (pongWait * 9) / 10
 
-	// Maximum message size allowed from peer
+	// 	// 	// Maximum message size allowed from peer
 	maxMessageSize = 512 * 1024 // 512 KB
 )
 
@@ -27,12 +27,12 @@ var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
 	CheckOrigin: func(r *http.Request) bool {
-		// Allow all origins (configure this properly in production)
+		// 		// 		// Allow all origins (configure this properly in production)
 		return true
 	},
 }
 
-// readPump pumps messages from the WebSocket connection to the hub
+// // // readPump pumps messages from the WebSocket connection to the hub
 func (c *Client) readPump() {
 	defer func() {
 		c.hub.unregister <- c
@@ -58,25 +58,25 @@ func (c *Client) readPump() {
 			break
 		}
 
-		// Handle incoming messages
+		// 		// 		// Handle incoming messages
 		var msg Message
 		if err := json.Unmarshal(message, &msg); err != nil {
 			log.Printf("Failed to unmarshal message: %v", err)
 			continue
 		}
 
-		// Handle ping messages
+		// 		// 		// Handle ping messages
 		if msg.Type == MessageTypePing {
 			c.send <- []byte(`{"type":"pong","timestamp":"` + time.Now().Format(time.RFC3339) + `"}`)
 			continue
 		}
 
-		// You can add more client-to-server message handling here
+		// 		// 		// You can add more client-to-server message handling here
 		log.Printf("Received message from client %s: %s", c.userID, msg.Type)
 	}
 }
 
-// writePump pumps messages from the hub to the WebSocket connection
+// // // writePump pumps messages from the hub to the WebSocket connection
 func (c *Client) writePump() {
 	ticker := time.NewTicker(pingPeriod)
 	defer func() {
@@ -89,7 +89,7 @@ func (c *Client) writePump() {
 		case message, ok := <-c.send:
 			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
 			if !ok {
-				// The hub closed the channel
+				// 				// 				// The hub closed the channel
 				c.conn.WriteMessage(websocket.CloseMessage, []byte{})
 				return
 			}
@@ -100,7 +100,7 @@ func (c *Client) writePump() {
 			}
 			w.Write(message)
 
-			// Add queued messages to the current WebSocket message
+			// 			// 			// Add queued messages to the current WebSocket message
 			n := len(c.send)
 			for i := 0; i < n; i++ {
 				w.Write([]byte{'\n'})
@@ -120,7 +120,7 @@ func (c *Client) writePump() {
 	}
 }
 
-// ServeWs handles WebSocket requests from clients
+// // // ServeWs handles WebSocket requests from clients
 func ServeWs(hub *Hub, w http.ResponseWriter, r *http.Request, userID string) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
@@ -138,7 +138,7 @@ func ServeWs(hub *Hub, w http.ResponseWriter, r *http.Request, userID string) {
 
 	client.hub.register <- client
 
-	// Start read and write pumps in separate goroutines
+	// 	// 	// Start read and write pumps in separate goroutines
 	go client.writePump()
 	go client.readPump()
 }

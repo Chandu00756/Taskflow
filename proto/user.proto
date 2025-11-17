@@ -56,6 +56,29 @@ service UserService {
 
   // Validate JWT token
   rpc ValidateToken(ValidateTokenRequest) returns (ValidateTokenResponse);
+
+  // Invite a user to an organization (org-admin only)
+  rpc InviteUser(InviteRequest) returns (InviteResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/orgs/{org_id}/invites"
+      body: "*"
+    };
+  }
+
+  // Accept an invite using token to complete registration
+  rpc AcceptInvite(AcceptInviteRequest) returns (AcceptInviteResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/invite/accept"
+      body: "*"
+    };
+  }
+
+  // List invites for an organization (org-admin or global admin)
+  rpc ListInvites(ListInvitesRequest) returns (ListInvitesResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/orgs/{org_id}/invites"
+    };
+  }
 }
 
 // User roles
@@ -63,6 +86,59 @@ enum UserRole {
   USER_ROLE_UNSPECIFIED = 0;
   USER_ROLE_MEMBER = 1;
   USER_ROLE_ADMIN = 2;
+}
+
+// Invite request (created by org admin)
+message InviteRequest {
+  string org_id = 1;
+  string email = 2;
+  string role = 3;
+  int32 expires_hours = 4;
+}
+
+// Invite response
+message InviteResponse {
+  string invite_id = 1;
+  string message = 2;
+}
+
+// Accept invite request (used by invitee)
+message AcceptInviteRequest {
+  string token = 1;
+  string username = 2;
+  string password = 3;
+  string full_name = 4;
+}
+
+// Accept invite response
+message AcceptInviteResponse {
+  User user = 1;
+  string message = 2;
+}
+
+// Invite model returned in list
+message Invite {
+  string invite_id = 1;
+  string email = 2;
+  string org_id = 3;
+  string role = 4;
+  google.protobuf.Timestamp expires_at = 5;
+  google.protobuf.Timestamp used_at = 6;
+  string created_by = 7;
+  google.protobuf.Timestamp created_at = 8;
+}
+
+message ListInvitesRequest {
+  string org_id = 1;
+  int32 page = 2;
+  int32 page_size = 3;
+}
+
+message ListInvitesResponse {
+  repeated Invite invites = 1;
+  int32 total_count = 2;
+  int32 page = 3;
+  int32 page_size = 4;
 }
 
 // User message

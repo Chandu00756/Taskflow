@@ -1,4 +1,4 @@
-// ==================== WORKSPACE & ORGANIZATION ====================
+// // // ==================== WORKSPACE & ORGANIZATION ====================
 
 export interface Organization {
   id: string;
@@ -25,7 +25,7 @@ export interface OrganizationSettings {
   };
 }
 
-// ==================== WORKSPACE ====================
+// // // ==================== WORKSPACE ====================
 
 export interface Workspace {
   id: string;
@@ -39,7 +39,7 @@ export interface Workspace {
   updated_at: string;
 }
 
-// ==================== TEAMS & GROUPS ====================
+// // // ==================== TEAMS & GROUPS ====================
 
 export interface Team {
   id: string;
@@ -81,7 +81,7 @@ export interface TeamPermissions {
   can_manage_settings: boolean;
 }
 
-// ==================== USER & PROFILE ====================
+// // // ==================== USER & PROFILE ====================
 
 export interface UserProfile {
   id: string;
@@ -124,7 +124,7 @@ export interface OrganizationMember {
   invited_by?: string;
 }
 
-// ==================== INVITATIONS ====================
+// // // ==================== INVITATIONS ====================
 
 export interface Invitation {
   id: string;
@@ -140,7 +140,7 @@ export interface Invitation {
   created_at: string;
 }
 
-// ==================== MENTIONS & TAGGING ====================
+// // // ==================== MENTIONS & TAGGING ====================
 
 export interface Mention {
   id: string;
@@ -156,7 +156,7 @@ export interface Mention {
   created_at: string;
 }
 
-// ==================== ADVANCED SEARCH ====================
+// // // ==================== ADVANCED SEARCH ====================
 
 export interface SearchQuery {
   query: string;
@@ -169,31 +169,31 @@ export interface SearchQuery {
 }
 
 export interface SearchFilters {
-  // Entity filters
+// // // Entity filters
   entity_types?: ('task' | 'user' | 'team' | 'document' | 'comment')[];
   
-  // User/Team filters
+// // // User/Team filters
   assigned_to?: string[]; // User IDs
   created_by?: string[];
   teams?: string[]; // Team IDs
   organizations?: string[];
   
-  // Status filters
+// // // Status filters
   status?: string[];
   priority?: string[];
   labels?: string[];
   
-  // Time filters
+// // // Time filters
   created_after?: string;
   created_before?: string;
   due_after?: string;
   due_before?: string;
   
-  // Workspace filters
+// // // Workspace filters
   workspace_ids?: string[];
   visibility?: ('private' | 'team' | 'organization' | 'public')[];
   
-  // Advanced filters
+// // // Advanced filters
   has_attachments?: boolean;
   has_comments?: boolean;
   is_archived?: boolean;
@@ -238,7 +238,7 @@ export interface SearchFacets {
   labels?: Record<string, number>;
 }
 
-// ==================== AUTOCOMPLETE ====================
+// // // ==================== AUTOCOMPLETE ====================
 
 export interface AutocompleteRequest {
   query: string;
@@ -269,7 +269,7 @@ export interface AutocompleteSuggestion {
   relevance_score: number;
 }
 
-// ==================== ACTIVITY & AUDIT ====================
+// // // ==================== ACTIVITY & AUDIT ====================
 
 export interface Activity {
   id: string;
@@ -299,7 +299,7 @@ export type ActivityAction =
   | 'left'
   | 'role_changed';
 
-// ==================== PERMISSIONS ====================
+// // // ==================== PERMISSIONS ====================
 
 export interface Permission {
   resource_type: 'task' | 'workspace' | 'team' | 'organization';
@@ -322,7 +322,7 @@ export type PermissionAction =
   | 'manage_settings'
   | 'manage_permissions';
 
-// ==================== API REQUESTS ====================
+// // // ==================== API REQUESTS ====================
 
 export interface CreateOrganizationRequest {
   name: string;

@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, Tag, Hash } from 'lucide-react';
 import UserSelector from '@/components/common/user-selector';
 import { TaskStatus, TaskPriority } from '@/lib/api/types';
+import { useAuthStore } from '@/store/auth';
 
 interface CreateTaskModalProps {
   isOpen: boolean;
@@ -30,6 +31,9 @@ export default function CreateTaskModal({ isOpen, onClose, onSubmit }: CreateTas
   const [selectedAssignee, setSelectedAssignee] = useState<string>('');
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState('');
+  const [teamId, setTeamId] = useState('');
+  const [groupId, setGroupId] = useState('');
+  const { user } = useAuthStore();
 
   const handleAddTag = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && tagInput.trim()) {
@@ -67,6 +71,14 @@ export default function CreateTaskModal({ isOpen, onClose, onSubmit }: CreateTas
       taskData.assigned_to = assignedTo[0];
     }
 
+    if (teamId.trim()) {
+      taskData.team_id = teamId.trim();
+    }
+
+    if (groupId.trim()) {
+      taskData.group_id = groupId.trim();
+    }
+
     // Only add tags if we have them
     if (tags.length > 0) {
       taskData.tags = tags;
@@ -84,6 +96,8 @@ export default function CreateTaskModal({ isOpen, onClose, onSubmit }: CreateTas
     setAssignedTo([]);
     setTags([]);
     setTagInput('');
+    setTeamId('');
+    setGroupId('');
     onClose();
   };
 
@@ -167,7 +181,7 @@ export default function CreateTaskModal({ isOpen, onClose, onSubmit }: CreateTas
                       onChange={setAssignedTo}
                       placeholder="Search and select users..."
                       multiple={true}
-                      includeTeams={true}
+                      includeTeams={Boolean(user?.org_id)}
                       maxSelections={10}
                     />
                     <p className="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
@@ -275,6 +289,30 @@ export default function CreateTaskModal({ isOpen, onClose, onSubmit }: CreateTas
                     </div>
                   </div>
 
+                    {/* Team / Group (optional) */}
+                    {user?.org_id && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Team / Group (optional)</label>
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            placeholder="Team ID"
+                            value={teamId}
+                            onChange={(e) => setTeamId(e.target.value)}
+                            className="w-1/2 px-4 py-2.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg"
+                          />
+                          <input
+                            type="text"
+                            placeholder="Group ID"
+                            value={groupId}
+                            onChange={(e) => setGroupId(e.target.value)}
+                            className="w-1/2 px-4 py-2.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg"
+                          />
+                        </div>
+                        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">If you are creating within an organization, select or enter a Team ID or Group ID. Org admins can leave these empty to create org-wide tasks.</p>
+                      </div>
+                    )}
+
                   {/* Actions */}
                   <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
                     <button
@@ -286,7 +324,7 @@ export default function CreateTaskModal({ isOpen, onClose, onSubmit }: CreateTas
                     </button>
                     <button
                       type="submit"
-                      disabled={!title.trim()}
+                      disabled={!title.trim() || (Boolean(user?.org_id) && user?.role !== 'admin' && !teamId.trim() && !groupId.trim() && assignedTo.length === 0)}
                       className="px-5 py-2.5 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium shadow-lg shadow-blue-500/30"
                     >
                       Create Task

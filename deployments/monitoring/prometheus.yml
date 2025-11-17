@@ -1,4 +1,4 @@
-# Prometheus Configuration for Task Management System
+# # # Prometheus Configuration for Task Management System
 
 global:
   scrape_interval: 15s
@@ -7,20 +7,20 @@ global:
     cluster: 'task-management-production'
     environment: 'production'
 
-# Alertmanager configuration
+# # # Alertmanager configuration
 alerting:
   alertmanagers:
     - static_configs:
         - targets:
             - alertmanager:9093
 
-# Load rules once and periodically evaluate them
+# # # Load rules once and periodically evaluate them
 rule_files:
   - "alerts.yml"
 
-# Scrape configurations
+# # # Scrape configurations
 scrape_configs:
-  # API Gateway metrics
+# # # API Gateway metrics
   - job_name: 'gateway'
     static_configs:
       - targets: ['gateway:8080']
@@ -29,7 +29,7 @@ scrape_configs:
           component: 'api'
     metrics_path: '/metrics'
 
-  # User Service metrics
+# # # User Service metrics
   - job_name: 'user-service'
     static_configs:
       - targets: ['user-service:9090']
@@ -38,7 +38,7 @@ scrape_configs:
           component: 'backend'
     metrics_path: '/metrics'
 
-  # Task Service metrics
+# # # Task Service metrics
   - job_name: 'task-service'
     static_configs:
       - targets: ['task-service:9090']
@@ -47,7 +47,7 @@ scrape_configs:
           component: 'backend'
     metrics_path: '/metrics'
 
-  # Notification Service metrics
+# # # Notification Service metrics
   - job_name: 'notification-service'
     static_configs:
       - targets: ['notification-service:9090']
@@ -56,7 +56,7 @@ scrape_configs:
           component: 'backend'
     metrics_path: '/metrics'
 
-  # PostgreSQL metrics (using postgres_exporter)
+# # # PostgreSQL metrics (using postgres_exporter)
   - job_name: 'postgresql'
     static_configs:
       - targets: ['postgres-exporter:9187']
@@ -64,7 +64,7 @@ scrape_configs:
           service: 'postgresql'
           component: 'database'
 
-  # Redis metrics (using redis_exporter)
+# # # Redis metrics (using redis_exporter)
   - job_name: 'redis'
     static_configs:
       - targets: ['redis-exporter:9121']
@@ -72,7 +72,7 @@ scrape_configs:
           service: 'redis'
           component: 'cache'
 
-  # Kubernetes cluster metrics
+# # # Kubernetes cluster metrics
   - job_name: 'kubernetes-nodes'
     kubernetes_sd_configs:
       - role: node
@@ -83,7 +83,7 @@ scrape_configs:
         target_label: __address__
         action: replace
 
-  # Kubernetes pods
+# # # Kubernetes pods
   - job_name: 'kubernetes-pods'
     kubernetes_sd_configs:
       - role: pod

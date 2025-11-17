@@ -1,10 +1,10 @@
-# Prometheus Alert Rules for Task Management System
+# # # Prometheus Alert Rules for Task Management System
 
 groups:
   - name: service_health
     interval: 30s
     rules:
-      # Service is down
+# # # Service is down
       - alert: ServiceDown
         expr: up == 0
         for: 2m
@@ -14,7 +14,7 @@ groups:
           summary: "Service {{ $labels.job }} is down"
           description: "{{ $labels.job }} on {{ $labels.instance }} has been down for more than 2 minutes."
 
-      # High error rate
+# # # High error rate
       - alert: HighErrorRate
         expr: rate(http_requests_total{status=~"5.."}[5m]) > 0.05
         for: 5m
@@ -24,7 +24,7 @@ groups:
           summary: "High error rate on {{ $labels.service }}"
           description: "Error rate is {{ $value | humanizePercentage }} on {{ $labels.service }}"
 
-      # API Gateway high latency
+# # # API Gateway high latency
       - alert: APIGatewayHighLatency
         expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{job="gateway"}[5m])) > 1
         for: 5m
@@ -37,7 +37,7 @@ groups:
   - name: resource_usage
     interval: 30s
     rules:
-      # High CPU usage
+# # # High CPU usage
       - alert: HighCPUUsage
         expr: rate(process_cpu_seconds_total[5m]) > 0.8
         for: 10m
@@ -47,7 +47,7 @@ groups:
           summary: "High CPU usage on {{ $labels.job }}"
           description: "CPU usage is {{ $value | humanizePercentage }} on {{ $labels.instance }}"
 
-      # High memory usage
+# # # High memory usage
       - alert: HighMemoryUsage
         expr: process_resident_memory_bytes / 1024 / 1024 / 1024 > 2
         for: 5m
@@ -57,7 +57,7 @@ groups:
           summary: "High memory usage on {{ $labels.job }}"
           description: "Memory usage is {{ $value }}GB on {{ $labels.instance }}"
 
-      # Container restarts
+# # # Container restarts
       - alert: ContainerRestarting
         expr: rate(kube_pod_container_status_restarts_total[15m]) > 0
         for: 5m
@@ -70,7 +70,7 @@ groups:
   - name: database_health
     interval: 30s
     rules:
-      # PostgreSQL is down
+# # # PostgreSQL is down
       - alert: PostgreSQLDown
         expr: pg_up == 0
         for: 1m
@@ -80,7 +80,7 @@ groups:
           summary: "PostgreSQL is down"
           description: "PostgreSQL database has been down for more than 1 minute"
 
-      # High database connections
+# # # High database connections
       - alert: HighDatabaseConnections
         expr: pg_stat_database_numbackends / pg_settings_max_connections > 0.8
         for: 5m
@@ -90,7 +90,7 @@ groups:
           summary: "High PostgreSQL connection usage"
           description: "Database connection usage is {{ $value | humanizePercentage }}"
 
-      # Slow queries
+# # # Slow queries
       - alert: SlowQueries
         expr: rate(pg_stat_statements_mean_exec_time_seconds[5m]) > 1
         for: 10m
@@ -100,7 +100,7 @@ groups:
           summary: "Slow database queries detected"
           description: "Average query execution time is {{ $value }}s"
 
-      # Redis is down
+# # # Redis is down
       - alert: RedisDown
         expr: redis_up == 0
         for: 1m
@@ -110,7 +110,7 @@ groups:
           summary: "Redis is down"
           description: "Redis cache has been down for more than 1 minute"
 
-      # High Redis memory usage
+# # # High Redis memory usage
       - alert: RedisHighMemory
         expr: redis_memory_used_bytes / redis_memory_max_bytes > 0.9
         for: 5m
@@ -123,7 +123,7 @@ groups:
   - name: application_metrics
     interval: 30s
     rules:
-      # JWT token generation failures
+# # # JWT token generation failures
       - alert: JWTGenerationFailures
         expr: rate(jwt_generation_failures_total[5m]) > 0.01
         for: 5m
@@ -133,7 +133,7 @@ groups:
           summary: "JWT token generation failures"
           description: "JWT generation failing at {{ $value }} requests/sec"
 
-      # Task creation failures
+# # # Task creation failures
       - alert: TaskCreationFailures
         expr: rate(task_creation_failures_total[5m]) > 0.05
         for: 5m
@@ -143,7 +143,7 @@ groups:
           summary: "High task creation failure rate"
           description: "Task creation failing at {{ $value }} requests/sec"
 
-      # Notification delivery failures
+# # # Notification delivery failures
       - alert: NotificationDeliveryFailures
         expr: rate(notification_delivery_failures_total[5m]) > 0.1
         for: 5m
@@ -156,7 +156,7 @@ groups:
   - name: kubernetes_cluster
     interval: 30s
     rules:
-      # Pod not ready
+# # # Pod not ready
       - alert: PodNotReady
         expr: kube_pod_status_phase{phase!="Running"} > 0
         for: 10m
@@ -166,7 +166,7 @@ groups:
           summary: "Pod {{ $labels.pod }} not ready"
           description: "Pod {{ $labels.pod }} in namespace {{ $labels.namespace }} has been in {{ $labels.phase }} state for more than 10 minutes"
 
-      # Deployment replica mismatch
+# # # Deployment replica mismatch
       - alert: DeploymentReplicasMismatch
         expr: kube_deployment_spec_replicas != kube_deployment_status_replicas_available
         for: 15m
@@ -176,7 +176,7 @@ groups:
           summary: "Deployment {{ $labels.deployment }} has mismatched replicas"
           description: "Deployment {{ $labels.deployment }} has {{ $value }} available replicas (expected: {{ $labels.spec_replicas }})"
 
-      # Node not ready
+# # # Node not ready
       - alert: NodeNotReady
         expr: kube_node_status_condition{condition="Ready",status="true"} == 0
         for: 5m
