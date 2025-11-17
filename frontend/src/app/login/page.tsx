@@ -55,8 +55,9 @@ export default function LoginPage() {
     mutationFn: authAPI.login,
     onSuccess: (data) => {
       // set auth and extract org_id + role from access token
-      const access = data.access_token;
-      const refresh = data.refresh_token;
+      // Handle both camelCase (accessToken) and snake_case (access_token) from API
+      const access = (data as any).accessToken || data.access_token;
+      const refresh = (data as any).refreshToken || data.refresh_token;
       const parsed = typeof window !== 'undefined' ? parseJwt(access) : null;
       const userWithClaims = {
         ...data.user,
