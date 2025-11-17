@@ -52,6 +52,7 @@ out/
 tmp/
 temp/
 *.tmp
+.comment_backup/
 
 # Database
 *.db
@@ -60,3 +61,4 @@ temp/
 
 # OS generated files
 Thumbs.db
+third_party/googleapis/
