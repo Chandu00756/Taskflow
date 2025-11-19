@@ -1,0 +1,639 @@
+syntax = "proto3";
+
+package organization;
+
+option go_package = "github.com/chanduchitikam/task-management-system/proto/organization";
+
+import "google/api/annotations.proto";
+import "google/protobuf/timestamp.proto";
+
+// ============================================================================
+// TEAM MESSAGES
+// ============================================================================
+
+message Team {
+  string id = 1;
+  string org_id = 2;
+  string name = 3;
+  string description = 4;
+  string team_lead_id = 5;
+  string parent_team_id = 6;
+  string status = 7; // active, archived, inactive
+  string metadata = 8; // JSON string
+  google.protobuf.Timestamp created_at = 9;
+  google.protobuf.Timestamp updated_at = 10;
+  string created_by = 11;
+  
+  // Populated fields
+  TeamLead team_lead = 12;
+  repeated TeamMember members = 13;
+  int32 member_count = 14;
+}
+
+message TeamLead {
+  string id = 1;
+  string full_name = 2;
+  string email = 3;
+  string username = 4;
+}
+
+message TeamMember {
+  string id = 1;
+  string team_id = 2;
+  string user_id = 3;
+  string role = 4;
+  google.protobuf.Timestamp joined_at = 5;
+  bool is_active = 6;
+  
+  // User details
+  string full_name = 7;
+  string email = 8;
+  string username = 9;
+}
+
+message CreateTeamRequest {
+  string org_id = 1;
+  string name = 2;
+  string description = 3;
+  string team_lead_id = 4;
+  string parent_team_id = 5;
+}
+
+message CreateTeamResponse {
+  Team team = 1;
+  string message = 2;
+}
+
+message GetTeamRequest {
+  string team_id = 1;
+}
+
+message GetTeamResponse {
+  Team team = 1;
+}
+
+message ListTeamsRequest {
+  string org_id = 1;
+  string status = 2; // filter by status
+  int32 page = 3;
+  int32 page_size = 4;
+}
+
+message ListTeamsResponse {
+  repeated Team teams = 1;
+  int32 total = 2;
+  int32 page = 3;
+  int32 page_size = 4;
+}
+
+message UpdateTeamRequest {
+  string team_id = 1;
+  string name = 2;
+  string description = 3;
+  string team_lead_id = 4;
+  string status = 5;
+}
+
+message UpdateTeamResponse {
+  Team team = 1;
+  string message = 2;
+}
+
+message DeleteTeamRequest {
+  string team_id = 1;
+}
+
+message DeleteTeamResponse {
+  string message = 1;
+}
+
+message AddTeamMemberRequest {
+  string team_id = 1;
+  string user_id = 2;
+  string role = 3;
+}
+
+message AddTeamMemberResponse {
+  TeamMember member = 1;
+  string message = 2;
+}
+
+message RemoveTeamMemberRequest {
+  string team_id = 1;
+  string user_id = 2;
+}
+
+message RemoveTeamMemberResponse {
+  string message = 1;
+}
+
+message ListTeamMembersRequest {
+  string team_id = 1;
+}
+
+message ListTeamMembersResponse {
+  repeated TeamMember members = 1;
+}
+
+// ============================================================================
+// PROJECT MESSAGES
+// ============================================================================
+
+message Project {
+  string id = 1;
+  string org_id = 2;
+  string name = 3;
+  string description = 4;
+  string project_manager_id = 5;
+  string status = 6; // planning, active, on_hold, completed, cancelled
+  string priority = 7; // low, medium, high, critical
+  string start_date = 8; // ISO date string
+  string end_date = 9; // ISO date string
+  double budget = 10;
+  int32 progress = 11;
+  string metadata = 12;
+  google.protobuf.Timestamp created_at = 13;
+  google.protobuf.Timestamp updated_at = 14;
+  string created_by = 15;
+  
+  // Populated fields
+  ProjectManager project_manager = 16;
+  repeated ProjectTeam teams = 17;
+  repeated ProjectMember members = 18;
+  int32 team_count = 19;
+  int32 member_count = 20;
+}
+
+message ProjectManager {
+  string id = 1;
+  string full_name = 2;
+  string email = 3;
+  string username = 4;
+}
+
+message ProjectTeam {
+  string id = 1;
+  string project_id = 2;
+  string team_id = 3;
+  google.protobuf.Timestamp assigned_at = 4;
+  
+  // Team details
+  string team_name = 5;
+  int32 team_member_count = 6;
+}
+
+message ProjectMember {
+  string id = 1;
+  string project_id = 2;
+  string user_id = 3;
+  string role = 4;
+  int32 allocation_percentage = 5;
+  google.protobuf.Timestamp joined_at = 6;
+  bool is_active = 7;
+  
+  // User details
+  string full_name = 8;
+  string email = 9;
+  string username = 10;
+}
+
+message CreateProjectRequest {
+  string org_id = 1;
+  string name = 2;
+  string description = 3;
+  string project_manager_id = 4;
+  string priority = 5;
+  string start_date = 6;
+  string end_date = 7;
+  double budget = 8;
+}
+
+message CreateProjectResponse {
+  Project project = 1;
+  string message = 2;
+}
+
+message GetProjectRequest {
+  string project_id = 1;
+}
+
+message GetProjectResponse {
+  Project project = 1;
+}
+
+message ListProjectsRequest {
+  string org_id = 1;
+  string status = 2;
+  string priority = 3;
+  int32 page = 4;
+  int32 page_size = 5;
+}
+
+message ListProjectsResponse {
+  repeated Project projects = 1;
+  int32 total = 2;
+  int32 page = 3;
+  int32 page_size = 4;
+}
+
+message UpdateProjectRequest {
+  string project_id = 1;
+  string name = 2;
+  string description = 3;
+  string status = 4;
+  string priority = 5;
+  int32 progress = 6;
+  double budget = 7;
+}
+
+message UpdateProjectResponse {
+  Project project = 1;
+  string message = 2;
+}
+
+message DeleteProjectRequest {
+  string project_id = 1;
+}
+
+message DeleteProjectResponse {
+  string message = 1;
+}
+
+message AssignTeamToProjectRequest {
+  string project_id = 1;
+  string team_id = 2;
+}
+
+message AssignTeamToProjectResponse {
+  ProjectTeam project_team = 1;
+  string message = 2;
+}
+
+message RemoveTeamFromProjectRequest {
+  string project_id = 1;
+  string team_id = 2;
+}
+
+message RemoveTeamFromProjectResponse {
+  string message = 1;
+}
+
+message AddProjectMemberRequest {
+  string project_id = 1;
+  string user_id = 2;
+  string role = 3;
+  int32 allocation_percentage = 4;
+}
+
+message AddProjectMemberResponse {
+  ProjectMember member = 1;
+  string message = 2;
+}
+
+message RemoveProjectMemberRequest {
+  string project_id = 1;
+  string user_id = 2;
+}
+
+message RemoveProjectMemberResponse {
+  string message = 1;
+}
+
+// ============================================================================
+// GROUP MESSAGES
+// ============================================================================
+
+message Group {
+  string id = 1;
+  string org_id = 2;
+  string name = 3;
+  string description = 4;
+  string group_type = 5; // functional, temporary, committee, community
+  string owner_id = 6;
+  string status = 7;
+  string metadata = 8;
+  google.protobuf.Timestamp created_at = 9;
+  google.protobuf.Timestamp updated_at = 10;
+  string created_by = 11;
+  
+  // Populated fields
+  GroupOwner owner = 12;
+  repeated GroupMember members = 13;
+  int32 member_count = 14;
+}
+
+message GroupOwner {
+  string id = 1;
+  string full_name = 2;
+  string email = 3;
+  string username = 4;
+}
+
+message GroupMember {
+  string id = 1;
+  string group_id = 2;
+  string user_id = 3;
+  string role = 4;
+  google.protobuf.Timestamp joined_at = 5;
+  bool is_active = 6;
+  
+  // User details
+  string full_name = 7;
+  string email = 8;
+  string username = 9;
+  string team_name = 10; // If member belongs to a team
+}
+
+message CreateGroupRequest {
+  string org_id = 1;
+  string name = 2;
+  string description = 3;
+  string group_type = 4;
+  string owner_id = 5;
+}
+
+message CreateGroupResponse {
+  Group group = 1;
+  string message = 2;
+}
+
+message GetGroupRequest {
+  string group_id = 1;
+}
+
+message GetGroupResponse {
+  Group group = 1;
+}
+
+message ListGroupsRequest {
+  string org_id = 1;
+  string group_type = 2;
+  int32 page = 3;
+  int32 page_size = 4;
+}
+
+message ListGroupsResponse {
+  repeated Group groups = 1;
+  int32 total = 2;
+}
+
+message UpdateGroupRequest {
+  string group_id = 1;
+  string name = 2;
+  string description = 3;
+  string status = 4;
+}
+
+message UpdateGroupResponse {
+  Group group = 1;
+  string message = 2;
+}
+
+message DeleteGroupRequest {
+  string group_id = 1;
+}
+
+message DeleteGroupResponse {
+  string message = 1;
+}
+
+message AddGroupMemberRequest {
+  string group_id = 1;
+  string user_id = 2;
+  string role = 3;
+}
+
+message AddGroupMemberResponse {
+  GroupMember member = 1;
+  string message = 2;
+}
+
+message RemoveGroupMemberRequest {
+  string group_id = 1;
+  string user_id = 2;
+}
+
+message RemoveGroupMemberResponse {
+  string message = 1;
+}
+
+// ============================================================================
+// WORKSPACE MESSAGES
+// ============================================================================
+
+message Workspace {
+  string id = 1;
+  string org_id = 2;
+  string name = 3;
+  string description = 4;
+  string workspace_type = 5;
+  string team_id = 6;
+  string project_id = 7;
+  string owner_id = 8;
+  string settings = 9;
+  bool is_private = 10;
+  google.protobuf.Timestamp created_at = 11;
+  google.protobuf.Timestamp updated_at = 12;
+}
+
+message CreateWorkspaceRequest {
+  string org_id = 1;
+  string name = 2;
+  string description = 3;
+  string workspace_type = 4;
+  string team_id = 5;
+  string project_id = 6;
+  bool is_private = 7;
+}
+
+message CreateWorkspaceResponse {
+  Workspace workspace = 1;
+  string message = 2;
+}
+
+message ListWorkspacesRequest {
+  string org_id = 1;
+  string team_id = 2;
+  string project_id = 3;
+}
+
+message ListWorkspacesResponse {
+  repeated Workspace workspaces = 1;
+}
+
+// ============================================================================
+// ORGANIZATION SERVICE
+// ============================================================================
+
+service OrganizationService {
+  // Team Management
+  rpc CreateTeam(CreateTeamRequest) returns (CreateTeamResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/organizations/{org_id}/teams"
+      body: "*"
+    };
+  }
+  
+  rpc GetTeam(GetTeamRequest) returns (GetTeamResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/teams/{team_id}"
+    };
+  }
+  
+  rpc ListTeams(ListTeamsRequest) returns (ListTeamsResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/organizations/{org_id}/teams"
+    };
+  }
+  
+  rpc UpdateTeam(UpdateTeamRequest) returns (UpdateTeamResponse) {
+    option (google.api.http) = {
+      put: "/api/v1/teams/{team_id}"
+      body: "*"
+    };
+  }
+  
+  rpc DeleteTeam(DeleteTeamRequest) returns (DeleteTeamResponse) {
+    option (google.api.http) = {
+      delete: "/api/v1/teams/{team_id}"
+    };
+  }
+  
+  rpc AddTeamMember(AddTeamMemberRequest) returns (AddTeamMemberResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/teams/{team_id}/members"
+      body: "*"
+    };
+  }
+  
+  rpc RemoveTeamMember(RemoveTeamMemberRequest) returns (RemoveTeamMemberResponse) {
+    option (google.api.http) = {
+      delete: "/api/v1/teams/{team_id}/members/{user_id}"
+    };
+  }
+  
+  rpc ListTeamMembers(ListTeamMembersRequest) returns (ListTeamMembersResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/teams/{team_id}/members"
+    };
+  }
+  
+  // Project Management
+  rpc CreateProject(CreateProjectRequest) returns (CreateProjectResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/organizations/{org_id}/projects"
+      body: "*"
+    };
+  }
+  
+  rpc GetProject(GetProjectRequest) returns (GetProjectResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/projects/{project_id}"
+    };
+  }
+  
+  rpc ListProjects(ListProjectsRequest) returns (ListProjectsResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/organizations/{org_id}/projects"
+    };
+  }
+  
+  rpc UpdateProject(UpdateProjectRequest) returns (UpdateProjectResponse) {
+    option (google.api.http) = {
+      put: "/api/v1/projects/{project_id}"
+      body: "*"
+    };
+  }
+  
+  rpc DeleteProject(DeleteProjectRequest) returns (DeleteProjectResponse) {
+    option (google.api.http) = {
+      delete: "/api/v1/projects/{project_id}"
+    };
+  }
+  
+  rpc AssignTeamToProject(AssignTeamToProjectRequest) returns (AssignTeamToProjectResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/projects/{project_id}/teams"
+      body: "*"
+    };
+  }
+  
+  rpc RemoveTeamFromProject(RemoveTeamFromProjectRequest) returns (RemoveTeamFromProjectResponse) {
+    option (google.api.http) = {
+      delete: "/api/v1/projects/{project_id}/teams/{team_id}"
+    };
+  }
+  
+  rpc AddProjectMember(AddProjectMemberRequest) returns (AddProjectMemberResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/projects/{project_id}/members"
+      body: "*"
+    };
+  }
+  
+  rpc RemoveProjectMember(RemoveProjectMemberRequest) returns (RemoveProjectMemberResponse) {
+    option (google.api.http) = {
+      delete: "/api/v1/projects/{project_id}/members/{user_id}"
+    };
+  }
+  
+  // Group Management
+  rpc CreateGroup(CreateGroupRequest) returns (CreateGroupResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/organizations/{org_id}/groups"
+      body: "*"
+    };
+  }
+  
+  rpc GetGroup(GetGroupRequest) returns (GetGroupResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/groups/{group_id}"
+    };
+  }
+  
+  rpc ListGroups(ListGroupsRequest) returns (ListGroupsResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/organizations/{org_id}/groups"
+    };
+  }
+  
+  rpc UpdateGroup(UpdateGroupRequest) returns (UpdateGroupResponse) {
+    option (google.api.http) = {
+      put: "/api/v1/groups/{group_id}"
+      body: "*"
+    };
+  }
+  
+  rpc DeleteGroup(DeleteGroupRequest) returns (DeleteGroupResponse) {
+    option (google.api.http) = {
+      delete: "/api/v1/groups/{group_id}"
+    };
+  }
+  
+  rpc AddGroupMember(AddGroupMemberRequest) returns (AddGroupMemberResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/groups/{group_id}/members"
+      body: "*"
+    };
+  }
+  
+  rpc RemoveGroupMember(RemoveGroupMemberRequest) returns (RemoveGroupMemberResponse) {
+    option (google.api.http) = {
+      delete: "/api/v1/groups/{group_id}/members/{user_id}"
+    };
+  }
+  
+  // Workspace Management
+  rpc CreateWorkspace(CreateWorkspaceRequest) returns (CreateWorkspaceResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/organizations/{org_id}/workspaces"
+      body: "*"
+    };
+  }
+  
+  rpc ListWorkspaces(ListWorkspacesRequest) returns (ListWorkspacesResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/organizations/{org_id}/workspaces"
+    };
+  }
+}

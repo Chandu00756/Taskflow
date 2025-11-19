@@ -54,6 +54,9 @@ temp/
 *.tmp
 .comment_backup/
 
+# Documentation walkthrough (internal development docs)
+docs/CODE_WALKTHROUGH/
+
 # Database
 *.db
 *.sqlite

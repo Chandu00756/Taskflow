@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
@@ -62,12 +62,41 @@ const priorityColor: Record<TaskPriority, string> = {
 export default function DashboardPage() {
   const router = useRouter();
   const { isAuthenticated, user } = useAuthStore();
+  const [isHydrated, setIsHydrated] = useState(false);
 
   useEffect(() => {
-    if (!isAuthenticated) {
+    setIsHydrated(true);
+  }, []);
+
+  const { actualRole, isSuperAdmin } = useAuthStore();
+
+  useEffect(() => {
+    // Only check auth after hydration to prevent race condition
+    if (isHydrated && !isAuthenticated) {
       router.replace('/login');
+      return;
     }
-  }, [isAuthenticated, router]);
+
+    // Smart role-based routing - redirect to appropriate dashboard
+    if (isHydrated && isAuthenticated) {
+      // Check if user has org_id - if not, they're not part of any organization
+      if (!user?.org_id) {
+        // Users without org should see this general dashboard
+        return;
+      }
+
+      if (actualRole === 'team_lead') {
+        router.replace('/dashboard/team-lead');
+        return;
+      }
+      if (actualRole === 'member' || actualRole === 'org_admin') {
+        // Members and org_admins both use member dashboard for task management
+        router.replace('/dashboard/member');
+        return;
+      }
+      // Fall through to default dashboard for any other roles
+    }
+  }, [isAuthenticated, router, isHydrated, actualRole, isSuperAdmin, user]);
 
   const tasksQuery = useQuery({
     queryKey: ['tasks'],
@@ -96,7 +125,8 @@ export default function DashboardPage() {
     [notifications]
   );
 
-  if (!isAuthenticated) {
+  // Show nothing while hydrating to prevent flash
+  if (!isHydrated || !isAuthenticated) {
     return null;
   }
 

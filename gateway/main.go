@@ -13,12 +13,15 @@ import (
 	"github.com/chanduchitikam/task-management-system/pkg/auth"
 	"github.com/chanduchitikam/task-management-system/pkg/config"
 	notificationpb "github.com/chanduchitikam/task-management-system/proto/notification"
+	organizationpb "github.com/chanduchitikam/task-management-system/proto/organization"
 	taskpb "github.com/chanduchitikam/task-management-system/proto/task"
 	userpb "github.com/chanduchitikam/task-management-system/proto/user"
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/metadata"
+	"google.golang.org/protobuf/encoding/protojson"
 )
 
 // hasScheme reports whether the provided address already contains a URI scheme
@@ -63,8 +66,38 @@ func main() {
 	// 	// 	// Start cleanup for rate limiter
 	rateLimiter.CleanupLimiters(5 * time.Minute)
 
-	// 	// 	// Create gRPC-Gateway mux
-	mux := runtime.NewServeMux()
+	// 	// 	// Create gRPC-Gateway mux with metadata forwarder
+	mux := runtime.NewServeMux(
+		runtime.WithMarshalerOption(runtime.MIMEWildcard, &runtime.JSONPb{
+			MarshalOptions: protojson.MarshalOptions{
+				EmitDefaultValues: true, // Include false boolean values in JSON
+				UseProtoNames:     true, // Use snake_case names from proto
+			},
+		}),
+		runtime.WithIncomingHeaderMatcher(func(key string) (string, bool) {
+			// Forward all X- headers and Grpc-Metadata- headers
+			if strings.HasPrefix(key, "X-") || strings.HasPrefix(key, "Grpc-Metadata-") {
+				return key, true
+			}
+			return runtime.DefaultHeaderMatcher(key)
+		}),
+		runtime.WithMetadata(func(ctx context.Context, req *http.Request) metadata.MD {
+			md := metadata.MD{}
+			// Forward authorization-related headers as metadata
+			if val := req.Header.Get("X-User-Id"); val != "" {
+				md.Set("user_id", val)
+				md.Set("user-id", val)
+			}
+			if val := req.Header.Get("X-Role"); val != "" {
+				md.Set("role", val)
+			}
+			if val := req.Header.Get("X-Org-Id"); val != "" {
+				md.Set("org_id", val)
+				md.Set("org-id", val)
+			}
+			return md
+		}),
+	)
 	opts := []grpc.DialOption{
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	}
@@ -105,6 +138,18 @@ func main() {
 		}
 		if err2 := notificationpb.RegisterNotificationServiceHandlerFromEndpoint(ctx, mux, dnsAddr, opts); err2 != nil {
 			log.Fatalf("Failed to register NotificationService (attempts: %v, %v): %v", err, err2, err2)
+		}
+	}
+
+	// 	// 	// Register OrganizationService with DNS-scheme fallback
+	orgServiceAddr := getEnvOrDefault("ORG_SERVICE_ADDR", fmt.Sprintf("localhost:%d", cfg.Server.GRPCPort+3))
+	if err := organizationpb.RegisterOrganizationServiceHandlerFromEndpoint(ctx, mux, orgServiceAddr, opts); err != nil {
+		dnsAddr := orgServiceAddr
+		if !hasScheme(orgServiceAddr) {
+			dnsAddr = "dns:///" + orgServiceAddr
+		}
+		if err2 := organizationpb.RegisterOrganizationServiceHandlerFromEndpoint(ctx, mux, dnsAddr, opts); err2 != nil {
+			log.Fatalf("Failed to register OrganizationService (attempts: %v, %v): %v", err, err2, err2)
 		}
 	}
 

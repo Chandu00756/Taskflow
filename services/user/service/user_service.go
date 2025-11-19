@@ -14,16 +14,41 @@ import (
 	userpb "github.com/chanduchitikam/task-management-system/proto/user"
 	"github.com/chanduchitikam/task-management-system/services/user/models"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"gorm.io/gorm"
 )
+
+// Helper to get string from context or metadata
+func getStringFromContext(ctx context.Context, key string) string {
+	// Try context value first
+	if val := ctx.Value(key); val != nil {
+		if str, ok := val.(string); ok {
+			return str
+		}
+	}
+
+	// Try metadata
+	if md, ok := metadata.FromIncomingContext(ctx); ok {
+		if vals := md.Get(key); len(vals) > 0 {
+			return vals[0]
+		}
+		// Also try with grpc-metadata- prefix
+		if vals := md.Get("grpc-metadata-" + key); len(vals) > 0 {
+			return vals[0]
+		}
+	}
+
+	return ""
+}
 
 // // // UserService implements the UserService gRPC service
 type UserService struct {
 	userpb.UnimplementedUserServiceServer
 	db         *gorm.DB
 	jwtManager *auth.JWTManager
+	orgService *OrganizationService
 }
 
 // // // NewUserService creates a new UserService instance
@@ -31,6 +56,7 @@ func NewUserService(db *gorm.DB, jwtManager *auth.JWTManager) *UserService {
 	return &UserService{
 		db:         db,
 		jwtManager: jwtManager,
+		orgService: NewOrganizationService(db, jwtManager),
 	}
 }
 
@@ -159,10 +185,34 @@ func (s *UserService) Login(ctx context.Context, req *userpb.LoginRequest) (*use
 		return nil, status.Error(codes.Internal, "failed to find user")
 	}
 
+	// Check if account is locked due to failed attempts (optional: 5 attempts = lock)
+	if user.FailedLoginAttempts >= 5 {
+		return nil, status.Error(codes.PermissionDenied, "account locked due to too many failed login attempts. Contact your administrator.")
+	}
+
 	// 	// 	// Check password
 	if err := auth.CheckPassword(req.Password, user.Password); err != nil {
+		// Increment failed login attempts
+		s.db.Model(&user).Update("failed_login_attempts", gorm.Expr("failed_login_attempts + ?", 1))
 		return nil, status.Error(codes.Unauthenticated, "invalid email or password")
 	}
+
+	// Successful login - update login tracking
+	now := time.Now()
+	updates := map[string]interface{}{
+		"has_logged_in":         true,
+		"last_login":            &now,
+		"failed_login_attempts": 0,
+	}
+	if err := s.db.Model(&user).Updates(updates).Error; err != nil {
+		// Log error but don't fail login
+		fmt.Printf("Failed to update login tracking: %v\n", err)
+	}
+
+	// Check if user needs to set security questions (one-time for all users)
+	mustSetSecurityQuestions := user.SecurityQuestions == "" || user.SecurityQuestions == "null"
+	fmt.Printf("🔐 Login - User: %s, SecurityQuestions value: '%s', IsEmpty: %v, MustSet: %v\n",
+		user.Email, user.SecurityQuestions, user.SecurityQuestions == "", mustSetSecurityQuestions)
 
 	// 	// 	// Generate tokens
 	tokenOrgID := ""
@@ -180,10 +230,12 @@ func (s *UserService) Login(ctx context.Context, req *userpb.LoginRequest) (*use
 	}
 
 	return &userpb.LoginResponse{
-		AccessToken:  accessToken,
-		RefreshToken: refreshToken,
-		User:         s.modelToProto(&user),
-		ExpiresIn:    86400, // 24 hours in seconds
+		AccessToken:              accessToken,
+		RefreshToken:             refreshToken,
+		User:                     s.modelToProto(&user),
+		ExpiresIn:                86400, // 24 hours in seconds
+		MustChangePassword:       user.MustChangePassword,
+		MustSetSecurityQuestions: mustSetSecurityQuestions,
 	}, nil
 }
 
@@ -651,5 +703,224 @@ func (s *UserService) ListInvites(ctx context.Context, req *userpb.ListInvitesRe
 		TotalCount: int32(total),
 		Page:       page,
 		PageSize:   pageSize,
+	}, nil
+}
+
+// RegisterOrganization creates a new organization with admin user
+func (s *UserService) RegisterOrganization(ctx context.Context, req *userpb.RegisterOrganizationRequest) (*userpb.RegisterOrganizationResponse, error) {
+	if req.OrgName == "" || req.AdminEmail == "" || req.AdminPassword == "" {
+		return nil, status.Error(codes.InvalidArgument, "org_name, admin_email and admin_password are required")
+	}
+
+	org, admin, err := s.orgService.RegisterOrganization(req.OrgName, req.Description, req.AdminEmail, req.AdminPassword, req.AdminFullName)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	accessToken, err := s.jwtManager.GenerateAccessToken(admin.ID, admin.Email, admin.Role, org.ID)
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to generate token")
+	}
+
+	description := ""
+	if org.Description != nil {
+		description = *org.Description
+	}
+
+	return &userpb.RegisterOrganizationResponse{
+		Organization: &userpb.Organization{
+			Id:          org.ID,
+			Name:        org.Name,
+			Description: description,
+			CreatedAt:   timestamppb.New(org.CreatedAt),
+		},
+		Admin: &userpb.User{
+			UserId:    admin.ID,
+			Email:     admin.Email,
+			Username:  admin.Username,
+			FullName:  admin.FullName,
+			CreatedAt: timestamppb.New(admin.CreatedAt),
+			UpdatedAt: timestamppb.New(admin.UpdatedAt),
+		},
+		AccessToken: accessToken,
+		Message:     "Organization registered successfully",
+	}, nil
+}
+
+// ListAllOrganizations returns all organizations (super admin only)
+func (s *UserService) ListAllOrganizations(ctx context.Context, req *userpb.ListAllOrganizationsRequest) (*userpb.ListAllOrganizationsResponse, error) {
+	// Check if user is super admin
+	role := getStringFromContext(ctx, "role")
+	if role != "super_admin" {
+		return nil, status.Error(codes.PermissionDenied, "super admin access required")
+	}
+
+	orgs, err := s.orgService.ListAllOrganizations()
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	protoOrgs := make([]*userpb.Organization, 0, len(orgs))
+	for _, org := range orgs {
+		// Count members
+		var memberCount int64
+		s.db.Model(&models.User{}).Where("org_id = ?", org.ID).Count(&memberCount)
+
+		description := ""
+		if org.Description != nil {
+			description = *org.Description
+		}
+
+		protoOrgs = append(protoOrgs, &userpb.Organization{
+			Id:          org.ID,
+			Name:        org.Name,
+			Description: description,
+			CreatedAt:   timestamppb.New(org.CreatedAt),
+			MemberCount: int32(memberCount),
+		})
+	}
+
+	return &userpb.ListAllOrganizationsResponse{
+		Organizations: protoOrgs,
+	}, nil
+}
+
+// GetPlatformAnalytics returns platform-wide statistics (super admin only)
+func (s *UserService) GetPlatformAnalytics(ctx context.Context, req *userpb.GetPlatformAnalyticsRequest) (*userpb.GetPlatformAnalyticsResponse, error) {
+	// Get role from context/metadata
+	role := getStringFromContext(ctx, "role")
+	if role != "super_admin" {
+		return nil, status.Error(codes.PermissionDenied, "super admin access required")
+	}
+
+	analytics, err := s.orgService.GetPlatformAnalytics()
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	return &userpb.GetPlatformAnalyticsResponse{
+		TotalOrganizations: analytics["total_organizations"].(int64),
+		TotalUsers:         analytics["total_users"].(int64),
+		ActiveUsersToday:   analytics["active_users_today"].(int64),
+		TotalTasks:         analytics["total_tasks"].(int64),
+	}, nil
+}
+
+// ListAllUsers returns all users (super admin only)
+func (s *UserService) ListAllUsers(ctx context.Context, req *userpb.ListAllUsersRequest) (*userpb.ListAllUsersResponse, error) {
+	role := getStringFromContext(ctx, "role")
+	if role != "super_admin" {
+		return nil, status.Error(codes.PermissionDenied, "super admin access required")
+	}
+
+	var users []models.User
+	if err := s.db.Find(&users).Error; err != nil {
+		return nil, status.Error(codes.Internal, "failed to list users")
+	}
+
+	protoUsers := make([]*userpb.UserWithOrg, 0, len(users))
+	for _, u := range users {
+		orgID := ""
+		if u.OrgID != nil {
+			orgID = *u.OrgID
+		}
+		protoUsers = append(protoUsers, &userpb.UserWithOrg{
+			Id:        u.ID,
+			Email:     u.Email,
+			Username:  u.Username,
+			FullName:  u.FullName,
+			Role:      u.Role,
+			OrgId:     orgID,
+			CreatedAt: timestamppb.New(u.CreatedAt),
+		})
+	}
+
+	return &userpb.ListAllUsersResponse{
+		Users: protoUsers,
+	}, nil
+}
+
+// DeleteOrganization deletes an organization (super admin only)
+func (s *UserService) DeleteOrganization(ctx context.Context, req *userpb.DeleteOrganizationRequest) (*userpb.DeleteOrganizationResponse, error) {
+	role := getStringFromContext(ctx, "role")
+	if role != "super_admin" {
+		return nil, status.Error(codes.PermissionDenied, "super admin access required")
+	}
+
+	if req.OrgId == "" {
+		return nil, status.Error(codes.InvalidArgument, "org_id required")
+	}
+
+	if err := s.orgService.DeleteOrganization(req.OrgId); err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	return &userpb.DeleteOrganizationResponse{
+		Message: "Organization deleted successfully",
+	}, nil
+}
+
+// ListOrganizationMembers returns members of an organization
+func (s *UserService) ListOrganizationMembers(ctx context.Context, req *userpb.ListOrganizationMembersRequest) (*userpb.ListOrganizationMembersResponse, error) {
+	role := getStringFromContext(ctx, "role")
+	orgID := getStringFromContext(ctx, "org_id")
+
+	// Allow org admin or super admin
+	isOrgAdmin := role == "org_admin" && orgID == req.OrgId
+	isSuperAdmin := role == "super_admin"
+
+	if !isOrgAdmin && !isSuperAdmin {
+		return nil, status.Error(codes.PermissionDenied, "access denied")
+	}
+
+	// Fetch users directly from DB
+	var users []models.User
+	if err := s.db.Where("org_id = ?", req.OrgId).Find(&users).Error; err != nil {
+		return nil, status.Error(codes.Internal, "failed to fetch members")
+	}
+
+	protoMembers := make([]*userpb.OrganizationMember, 0, len(users))
+	for _, user := range users {
+		member := &userpb.OrganizationMember{
+			Id:                   user.ID,
+			Email:                user.Email,
+			Username:             user.Username,
+			FullName:             user.FullName,
+			Role:                 user.Role,
+			CreatedAt:            timestamppb.New(user.CreatedAt),
+			HasLoggedIn:          user.HasLoggedIn,
+			MustChangePassword:   user.MustChangePassword,
+			FailedLoginAttempts:  int32(user.FailedLoginAttempts),
+			HasSecurityQuestions: user.SecurityQuestions != "",
+		}
+		if user.LastLogin != nil {
+			member.LastLogin = timestamppb.New(*user.LastLogin)
+		}
+		protoMembers = append(protoMembers, member)
+	}
+
+	return &userpb.ListOrganizationMembersResponse{
+		Members: protoMembers,
+	}, nil
+}
+
+// RemoveOrganizationMember removes a member from organization
+func (s *UserService) RemoveOrganizationMember(ctx context.Context, req *userpb.RemoveOrganizationMemberRequest) (*userpb.RemoveOrganizationMemberResponse, error) {
+	role := getStringFromContext(ctx, "role")
+	orgID := getStringFromContext(ctx, "org_id")
+
+	isOrgAdmin := role == "org_admin" && orgID == req.OrgId
+	isSuperAdmin := role == "super_admin"
+
+	if !isOrgAdmin && !isSuperAdmin {
+		return nil, status.Error(codes.PermissionDenied, "access denied")
+	}
+
+	if err := s.orgService.RemoveOrganizationMember(req.OrgId, req.UserId); err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	return &userpb.RemoveOrganizationMemberResponse{
+		Message: "Member removed successfully",
 	}, nil
 }

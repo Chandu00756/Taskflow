@@ -79,6 +79,104 @@ service UserService {
       get: "/api/v1/orgs/{org_id}/invites"
     };
   }
+
+  // Register a new organization with admin user (public)
+  rpc RegisterOrganization(RegisterOrganizationRequest) returns (RegisterOrganizationResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/organizations/register"
+      body: "*"
+    };
+  }
+
+  // List all organizations (super admin only)
+  rpc ListAllOrganizations(ListAllOrganizationsRequest) returns (ListAllOrganizationsResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/admin/organizations"
+    };
+  }
+
+  // Get platform analytics (super admin only)
+  rpc GetPlatformAnalytics(GetPlatformAnalyticsRequest) returns (GetPlatformAnalyticsResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/admin/analytics"
+    };
+  }
+
+  // List all users across platform (super admin only)
+  rpc ListAllUsers(ListAllUsersRequest) returns (ListAllUsersResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/admin/users"
+    };
+  }
+
+  // Delete organization (super admin only)
+  rpc DeleteOrganization(DeleteOrganizationRequest) returns (DeleteOrganizationResponse) {
+    option (google.api.http) = {
+      delete: "/api/v1/admin/organizations/{org_id}"
+    };
+  }
+
+  // List organization members (org admin or super admin)
+  rpc ListOrganizationMembers(ListOrganizationMembersRequest) returns (ListOrganizationMembersResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/organizations/{org_id}/members"
+    };
+  }
+
+  // Remove member from organization (org admin or super admin)
+  rpc RemoveOrganizationMember(RemoveOrganizationMemberRequest) returns (RemoveOrganizationMemberResponse) {
+    option (google.api.http) = {
+      delete: "/api/v1/organizations/{org_id}/members/{user_id}"
+    };
+  }
+
+  // Create organization member directly (org admin or super admin)
+  // Auto-generates username and one-time password
+  rpc CreateOrganizationMember(CreateOrganizationMemberRequest) returns (CreateOrganizationMemberResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/organizations/{org_id}/members"
+      body: "*"
+    };
+  }
+
+  // Get organization details (org admin or super admin)
+  rpc GetOrganization(GetOrganizationRequest) returns (GetOrganizationResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/organizations/{org_id}"
+    };
+  }
+
+  // Set security questions (required on first login)
+  rpc SetSecurityQuestions(SetSecurityQuestionsRequest) returns (SetSecurityQuestionsResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/users/{user_id}/security-questions"
+      body: "*"
+    };
+  }
+
+  // Reset password with old password
+  rpc ResetPassword(ResetPasswordRequest) returns (ResetPasswordResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/users/{user_id}/reset-password"
+      body: "*"
+    };
+  }
+
+  // Reset password using security questions
+  rpc ResetPasswordWithQuestions(ResetPasswordWithQuestionsRequest) returns (ResetPasswordWithQuestionsResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/users/{user_id}/reset-password-questions"
+      body: "*"
+    };
+  }
+
+  // Admin force reset password (generates new temp password)
+  rpc AdminResetPassword(AdminResetPasswordRequest) returns (AdminResetPasswordResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/organizations/{org_id}/members/{user_id}/reset-password"
+      body: "*"
+    };
+  }
 }
 
 // User roles
@@ -179,6 +277,8 @@ message LoginResponse {
   string refresh_token = 2;
   User user = 3;
   int64 expires_in = 4;
+  bool must_change_password = 5;       // User must change temp password
+  bool must_set_security_questions = 6; // User must set security questions (one-time)
 }
 
 // Get user request
@@ -242,4 +342,200 @@ message ValidateTokenResponse {
   string user_id = 2;
   UserRole role = 3;
   string message = 4;
+}
+
+// Organization message
+message Organization {
+  string id = 1;
+  string name = 2;
+  string description = 3;
+  google.protobuf.Timestamp created_at = 4;
+  int32 member_count = 5;
+}
+
+// Register organization request
+message RegisterOrganizationRequest {
+  string org_name = 1;
+  string description = 2;
+  string admin_email = 3;
+  string admin_password = 4;
+  string admin_full_name = 5;
+}
+
+// Register organization response
+message RegisterOrganizationResponse {
+  Organization organization = 1;
+  User admin = 2;
+  string access_token = 3;
+  string message = 4;
+}
+
+// List all organizations request
+message ListAllOrganizationsRequest {
+}
+
+// List all organizations response
+message ListAllOrganizationsResponse {
+  repeated Organization organizations = 1;
+}
+
+// Get platform analytics request
+message GetPlatformAnalyticsRequest {
+}
+
+// Get platform analytics response
+message GetPlatformAnalyticsResponse {
+  int64 total_organizations = 1;
+  int64 total_users = 2;
+  int64 active_users_today = 3;
+  int64 total_tasks = 4;
+}
+
+// List all users request
+message ListAllUsersRequest {
+}
+
+// User with org info
+message UserWithOrg {
+  string id = 1;
+  string email = 2;
+  string username = 3;
+  string full_name = 4;
+  string role = 5;
+  string org_id = 6;
+  google.protobuf.Timestamp created_at = 7;
+}
+
+// List all users response
+message ListAllUsersResponse {
+  repeated UserWithOrg users = 1;
+}
+
+// Delete organization request
+message DeleteOrganizationRequest {
+  string org_id = 1;
+}
+
+// Delete organization response
+message DeleteOrganizationResponse {
+  string message = 1;
+}
+
+// List organization members request
+message ListOrganizationMembersRequest {
+  string org_id = 1;
+}
+
+// Organization member
+message OrganizationMember {
+  string id = 1;
+  string email = 2;
+  string username = 3;
+  string full_name = 4;
+  string role = 5;
+  google.protobuf.Timestamp created_at = 6;
+  
+  // Login status tracking
+  bool has_logged_in = 7;
+  google.protobuf.Timestamp last_login = 8;
+  bool must_change_password = 9;
+  int32 failed_login_attempts = 10;
+  bool has_security_questions = 11;
+}
+
+// List organization members response
+message ListOrganizationMembersResponse {
+  repeated OrganizationMember members = 1;
+}
+
+// Remove organization member request
+message RemoveOrganizationMemberRequest {
+  string org_id = 1;
+  string user_id = 2;
+}
+
+// Remove organization member response
+message RemoveOrganizationMemberResponse {
+  string message = 1;
+}
+
+// Create organization member request (admin creates user directly)
+message CreateOrganizationMemberRequest {
+  string org_id = 1;
+  string first_name = 2;
+  string last_name = 3;
+  string email = 4;  // Must match org domain
+  string role = 5;    // Default: "member"
+}
+
+// Create organization member response
+message CreateOrganizationMemberResponse {
+  OrganizationMember member = 1;
+  string generated_username = 2;
+  string one_time_password = 3;  // Admin sees this once to share with user
+  string message = 4;
+}
+
+// Get organization request
+message GetOrganizationRequest {
+  string org_id = 1;
+}
+
+// Get organization response (reuses existing Organization message)
+message GetOrganizationResponse {
+  Organization organization = 1;
+}
+
+// Security question and answer
+message SecurityQuestion {
+  string question = 1;
+  string answer = 2;  // Will be hashed on backend
+}
+
+// Set security questions request (first login)
+message SetSecurityQuestionsRequest {
+  string user_id = 1;
+  repeated SecurityQuestion questions = 2;  // User picks 3 questions
+  string new_password = 3;  // Set permanent password after security questions
+}
+
+// Set security questions response
+message SetSecurityQuestionsResponse {
+  string message = 1;
+}
+
+// Reset password request (with old password)
+message ResetPasswordRequest {
+  string user_id = 1;
+  string old_password = 2;
+  string new_password = 3;
+}
+
+// Reset password response
+message ResetPasswordResponse {
+  string message = 1;
+}
+
+// Reset password with questions request
+message ResetPasswordWithQuestionsRequest {
+  string user_id = 1;
+  repeated SecurityQuestion questions = 2;  // Must answer all 3 correctly
+  string new_password = 3;
+}
+
+// Reset password with questions response
+message ResetPasswordWithQuestionsResponse {
+  string message = 1;
+}
+
+// Admin reset password request (force reset)
+message AdminResetPasswordRequest {
+  string org_id = 1;
+  string user_id = 2;
+}
+
+// Admin reset password response
+message AdminResetPasswordResponse {
+  string new_temp_password = 1;  // Admin sees this to share with user
+  string message = 2;
 }

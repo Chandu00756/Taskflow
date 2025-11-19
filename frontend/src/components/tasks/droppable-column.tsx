@@ -38,7 +38,7 @@ export function DroppableColumn({ id, title, color, tasks, loading, children }: 
               </Badge>
             </div>
           </CardHeader>
-          <CardContent className="space-y-3 p-0 max-h-[calc(100vh-280px)] overflow-y-auto pr-1">
+          <CardContent className="space-y-3 p-0 max-h-[calc(100vh-280px)] overflow-y-auto scrollbar-hide pr-1">
             {loading ? (
               Array.from({ length: 3 }).map((_, i) => (
                 <Skeleton key={i} className="h-32 rounded-3xl" />

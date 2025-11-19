@@ -85,18 +85,18 @@ export const tasksAPI = {
 // // // Transform API response to match frontend types
 function transformTask(task: any): Task {
   return {
-    id: task.taskId || task.id,
+    id: task.task_id || task.taskId || task.id,
     title: task.title,
     description: task.description,
     status: task.status as TaskStatus,
     priority: task.priority as TaskPriority,
-    creator_id: task.createdBy,
-    assignee_id: task.assignedTo,
-    assigned_to: task.assignedTo,
+    creator_id: task.created_by || task.createdBy,
+    assignee_id: task.assigned_to || task.assignedTo,
+    assigned_to: task.assigned_to || task.assignedTo,
     tags: task.tags || [],
-    due_date: task.dueDate,
-    created_at: task.createdAt,
-    updated_at: task.updatedAt,
+    due_date: task.due_date || task.dueDate,
+    created_at: task.created_at || task.createdAt,
+    updated_at: task.updated_at || task.updatedAt,
   };
 }
 
@@ -117,13 +117,13 @@ export const notificationsAPI = {
 // // // Invites / Org admin API
 export const invitesAPI = {
   createInvite: (orgId: string, data: CreateInviteRequest, token?: string) =>
-    apiClient.post(API_ENDPOINTS.INVITES.CREATE + `?org_id=${orgId}`, data),
+    apiClient.post(`${API_ENDPOINTS.INVITES.CREATE}/${orgId}/members`, data),
 
   acceptInvite: (data: AcceptInviteRequest) =>
     apiClient.post(API_ENDPOINTS.INVITES.ACCEPT, data),
 
   listInvites: (orgId: string) =>
-    apiClient.get<ListInvitesResponse>(API_ENDPOINTS.INVITES.LIST + `?org_id=${orgId}`),
+    apiClient.get<ListInvitesResponse>(`${API_ENDPOINTS.INVITES.LIST}/${orgId}/members`),
 };
 
 // // // Export all APIs
@@ -134,3 +134,6 @@ export const api = {
   notifications: notificationsAPI,
   invites: invitesAPI,
 };
+
+// Export apiClient for token management
+export { apiClient } from './client';

@@ -19,16 +19,29 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	UserService_Register_FullMethodName      = "/user.UserService/Register"
-	UserService_Login_FullMethodName         = "/user.UserService/Login"
-	UserService_GetUser_FullMethodName       = "/user.UserService/GetUser"
-	UserService_UpdateUser_FullMethodName    = "/user.UserService/UpdateUser"
-	UserService_DeleteUser_FullMethodName    = "/user.UserService/DeleteUser"
-	UserService_ListUsers_FullMethodName     = "/user.UserService/ListUsers"
-	UserService_ValidateToken_FullMethodName = "/user.UserService/ValidateToken"
-	UserService_InviteUser_FullMethodName    = "/user.UserService/InviteUser"
-	UserService_AcceptInvite_FullMethodName  = "/user.UserService/AcceptInvite"
-	UserService_ListInvites_FullMethodName   = "/user.UserService/ListInvites"
+	UserService_Register_FullMethodName                   = "/user.UserService/Register"
+	UserService_Login_FullMethodName                      = "/user.UserService/Login"
+	UserService_GetUser_FullMethodName                    = "/user.UserService/GetUser"
+	UserService_UpdateUser_FullMethodName                 = "/user.UserService/UpdateUser"
+	UserService_DeleteUser_FullMethodName                 = "/user.UserService/DeleteUser"
+	UserService_ListUsers_FullMethodName                  = "/user.UserService/ListUsers"
+	UserService_ValidateToken_FullMethodName              = "/user.UserService/ValidateToken"
+	UserService_InviteUser_FullMethodName                 = "/user.UserService/InviteUser"
+	UserService_AcceptInvite_FullMethodName               = "/user.UserService/AcceptInvite"
+	UserService_ListInvites_FullMethodName                = "/user.UserService/ListInvites"
+	UserService_RegisterOrganization_FullMethodName       = "/user.UserService/RegisterOrganization"
+	UserService_ListAllOrganizations_FullMethodName       = "/user.UserService/ListAllOrganizations"
+	UserService_GetPlatformAnalytics_FullMethodName       = "/user.UserService/GetPlatformAnalytics"
+	UserService_ListAllUsers_FullMethodName               = "/user.UserService/ListAllUsers"
+	UserService_DeleteOrganization_FullMethodName         = "/user.UserService/DeleteOrganization"
+	UserService_ListOrganizationMembers_FullMethodName    = "/user.UserService/ListOrganizationMembers"
+	UserService_RemoveOrganizationMember_FullMethodName   = "/user.UserService/RemoveOrganizationMember"
+	UserService_CreateOrganizationMember_FullMethodName   = "/user.UserService/CreateOrganizationMember"
+	UserService_GetOrganization_FullMethodName            = "/user.UserService/GetOrganization"
+	UserService_SetSecurityQuestions_FullMethodName       = "/user.UserService/SetSecurityQuestions"
+	UserService_ResetPassword_FullMethodName              = "/user.UserService/ResetPassword"
+	UserService_ResetPasswordWithQuestions_FullMethodName = "/user.UserService/ResetPasswordWithQuestions"
+	UserService_AdminResetPassword_FullMethodName         = "/user.UserService/AdminResetPassword"
 )
 
 // UserServiceClient is the client API for UserService service.
@@ -57,6 +70,33 @@ type UserServiceClient interface {
 	AcceptInvite(ctx context.Context, in *AcceptInviteRequest, opts ...grpc.CallOption) (*AcceptInviteResponse, error)
 	// List invites for an organization (org-admin or global admin)
 	ListInvites(ctx context.Context, in *ListInvitesRequest, opts ...grpc.CallOption) (*ListInvitesResponse, error)
+	// Register a new organization with admin user (public)
+	RegisterOrganization(ctx context.Context, in *RegisterOrganizationRequest, opts ...grpc.CallOption) (*RegisterOrganizationResponse, error)
+	// List all organizations (super admin only)
+	ListAllOrganizations(ctx context.Context, in *ListAllOrganizationsRequest, opts ...grpc.CallOption) (*ListAllOrganizationsResponse, error)
+	// Get platform analytics (super admin only)
+	GetPlatformAnalytics(ctx context.Context, in *GetPlatformAnalyticsRequest, opts ...grpc.CallOption) (*GetPlatformAnalyticsResponse, error)
+	// List all users across platform (super admin only)
+	ListAllUsers(ctx context.Context, in *ListAllUsersRequest, opts ...grpc.CallOption) (*ListAllUsersResponse, error)
+	// Delete organization (super admin only)
+	DeleteOrganization(ctx context.Context, in *DeleteOrganizationRequest, opts ...grpc.CallOption) (*DeleteOrganizationResponse, error)
+	// List organization members (org admin or super admin)
+	ListOrganizationMembers(ctx context.Context, in *ListOrganizationMembersRequest, opts ...grpc.CallOption) (*ListOrganizationMembersResponse, error)
+	// Remove member from organization (org admin or super admin)
+	RemoveOrganizationMember(ctx context.Context, in *RemoveOrganizationMemberRequest, opts ...grpc.CallOption) (*RemoveOrganizationMemberResponse, error)
+	// Create organization member directly (org admin or super admin)
+	// Auto-generates username and one-time password
+	CreateOrganizationMember(ctx context.Context, in *CreateOrganizationMemberRequest, opts ...grpc.CallOption) (*CreateOrganizationMemberResponse, error)
+	// Get organization details (org admin or super admin)
+	GetOrganization(ctx context.Context, in *GetOrganizationRequest, opts ...grpc.CallOption) (*GetOrganizationResponse, error)
+	// Set security questions (required on first login)
+	SetSecurityQuestions(ctx context.Context, in *SetSecurityQuestionsRequest, opts ...grpc.CallOption) (*SetSecurityQuestionsResponse, error)
+	// Reset password with old password
+	ResetPassword(ctx context.Context, in *ResetPasswordRequest, opts ...grpc.CallOption) (*ResetPasswordResponse, error)
+	// Reset password using security questions
+	ResetPasswordWithQuestions(ctx context.Context, in *ResetPasswordWithQuestionsRequest, opts ...grpc.CallOption) (*ResetPasswordWithQuestionsResponse, error)
+	// Admin force reset password (generates new temp password)
+	AdminResetPassword(ctx context.Context, in *AdminResetPasswordRequest, opts ...grpc.CallOption) (*AdminResetPasswordResponse, error)
 }
 
 type userServiceClient struct {
@@ -167,6 +207,136 @@ func (c *userServiceClient) ListInvites(ctx context.Context, in *ListInvitesRequ
 	return out, nil
 }
 
+func (c *userServiceClient) RegisterOrganization(ctx context.Context, in *RegisterOrganizationRequest, opts ...grpc.CallOption) (*RegisterOrganizationResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RegisterOrganizationResponse)
+	err := c.cc.Invoke(ctx, UserService_RegisterOrganization_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *userServiceClient) ListAllOrganizations(ctx context.Context, in *ListAllOrganizationsRequest, opts ...grpc.CallOption) (*ListAllOrganizationsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListAllOrganizationsResponse)
+	err := c.cc.Invoke(ctx, UserService_ListAllOrganizations_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *userServiceClient) GetPlatformAnalytics(ctx context.Context, in *GetPlatformAnalyticsRequest, opts ...grpc.CallOption) (*GetPlatformAnalyticsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetPlatformAnalyticsResponse)
+	err := c.cc.Invoke(ctx, UserService_GetPlatformAnalytics_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *userServiceClient) ListAllUsers(ctx context.Context, in *ListAllUsersRequest, opts ...grpc.CallOption) (*ListAllUsersResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListAllUsersResponse)
+	err := c.cc.Invoke(ctx, UserService_ListAllUsers_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *userServiceClient) DeleteOrganization(ctx context.Context, in *DeleteOrganizationRequest, opts ...grpc.CallOption) (*DeleteOrganizationResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeleteOrganizationResponse)
+	err := c.cc.Invoke(ctx, UserService_DeleteOrganization_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *userServiceClient) ListOrganizationMembers(ctx context.Context, in *ListOrganizationMembersRequest, opts ...grpc.CallOption) (*ListOrganizationMembersResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListOrganizationMembersResponse)
+	err := c.cc.Invoke(ctx, UserService_ListOrganizationMembers_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *userServiceClient) RemoveOrganizationMember(ctx context.Context, in *RemoveOrganizationMemberRequest, opts ...grpc.CallOption) (*RemoveOrganizationMemberResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RemoveOrganizationMemberResponse)
+	err := c.cc.Invoke(ctx, UserService_RemoveOrganizationMember_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *userServiceClient) CreateOrganizationMember(ctx context.Context, in *CreateOrganizationMemberRequest, opts ...grpc.CallOption) (*CreateOrganizationMemberResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreateOrganizationMemberResponse)
+	err := c.cc.Invoke(ctx, UserService_CreateOrganizationMember_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *userServiceClient) GetOrganization(ctx context.Context, in *GetOrganizationRequest, opts ...grpc.CallOption) (*GetOrganizationResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetOrganizationResponse)
+	err := c.cc.Invoke(ctx, UserService_GetOrganization_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *userServiceClient) SetSecurityQuestions(ctx context.Context, in *SetSecurityQuestionsRequest, opts ...grpc.CallOption) (*SetSecurityQuestionsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SetSecurityQuestionsResponse)
+	err := c.cc.Invoke(ctx, UserService_SetSecurityQuestions_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *userServiceClient) ResetPassword(ctx context.Context, in *ResetPasswordRequest, opts ...grpc.CallOption) (*ResetPasswordResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ResetPasswordResponse)
+	err := c.cc.Invoke(ctx, UserService_ResetPassword_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *userServiceClient) ResetPasswordWithQuestions(ctx context.Context, in *ResetPasswordWithQuestionsRequest, opts ...grpc.CallOption) (*ResetPasswordWithQuestionsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ResetPasswordWithQuestionsResponse)
+	err := c.cc.Invoke(ctx, UserService_ResetPasswordWithQuestions_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *userServiceClient) AdminResetPassword(ctx context.Context, in *AdminResetPasswordRequest, opts ...grpc.CallOption) (*AdminResetPasswordResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AdminResetPasswordResponse)
+	err := c.cc.Invoke(ctx, UserService_AdminResetPassword_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // UserServiceServer is the server API for UserService service.
 // All implementations must embed UnimplementedUserServiceServer
 // for forward compatibility.
@@ -193,6 +363,33 @@ type UserServiceServer interface {
 	AcceptInvite(context.Context, *AcceptInviteRequest) (*AcceptInviteResponse, error)
 	// List invites for an organization (org-admin or global admin)
 	ListInvites(context.Context, *ListInvitesRequest) (*ListInvitesResponse, error)
+	// Register a new organization with admin user (public)
+	RegisterOrganization(context.Context, *RegisterOrganizationRequest) (*RegisterOrganizationResponse, error)
+	// List all organizations (super admin only)
+	ListAllOrganizations(context.Context, *ListAllOrganizationsRequest) (*ListAllOrganizationsResponse, error)
+	// Get platform analytics (super admin only)
+	GetPlatformAnalytics(context.Context, *GetPlatformAnalyticsRequest) (*GetPlatformAnalyticsResponse, error)
+	// List all users across platform (super admin only)
+	ListAllUsers(context.Context, *ListAllUsersRequest) (*ListAllUsersResponse, error)
+	// Delete organization (super admin only)
+	DeleteOrganization(context.Context, *DeleteOrganizationRequest) (*DeleteOrganizationResponse, error)
+	// List organization members (org admin or super admin)
+	ListOrganizationMembers(context.Context, *ListOrganizationMembersRequest) (*ListOrganizationMembersResponse, error)
+	// Remove member from organization (org admin or super admin)
+	RemoveOrganizationMember(context.Context, *RemoveOrganizationMemberRequest) (*RemoveOrganizationMemberResponse, error)
+	// Create organization member directly (org admin or super admin)
+	// Auto-generates username and one-time password
+	CreateOrganizationMember(context.Context, *CreateOrganizationMemberRequest) (*CreateOrganizationMemberResponse, error)
+	// Get organization details (org admin or super admin)
+	GetOrganization(context.Context, *GetOrganizationRequest) (*GetOrganizationResponse, error)
+	// Set security questions (required on first login)
+	SetSecurityQuestions(context.Context, *SetSecurityQuestionsRequest) (*SetSecurityQuestionsResponse, error)
+	// Reset password with old password
+	ResetPassword(context.Context, *ResetPasswordRequest) (*ResetPasswordResponse, error)
+	// Reset password using security questions
+	ResetPasswordWithQuestions(context.Context, *ResetPasswordWithQuestionsRequest) (*ResetPasswordWithQuestionsResponse, error)
+	// Admin force reset password (generates new temp password)
+	AdminResetPassword(context.Context, *AdminResetPasswordRequest) (*AdminResetPasswordResponse, error)
 	mustEmbedUnimplementedUserServiceServer()
 }
 
@@ -232,6 +429,45 @@ func (UnimplementedUserServiceServer) AcceptInvite(context.Context, *AcceptInvit
 }
 func (UnimplementedUserServiceServer) ListInvites(context.Context, *ListInvitesRequest) (*ListInvitesResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListInvites not implemented")
+}
+func (UnimplementedUserServiceServer) RegisterOrganization(context.Context, *RegisterOrganizationRequest) (*RegisterOrganizationResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RegisterOrganization not implemented")
+}
+func (UnimplementedUserServiceServer) ListAllOrganizations(context.Context, *ListAllOrganizationsRequest) (*ListAllOrganizationsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListAllOrganizations not implemented")
+}
+func (UnimplementedUserServiceServer) GetPlatformAnalytics(context.Context, *GetPlatformAnalyticsRequest) (*GetPlatformAnalyticsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetPlatformAnalytics not implemented")
+}
+func (UnimplementedUserServiceServer) ListAllUsers(context.Context, *ListAllUsersRequest) (*ListAllUsersResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListAllUsers not implemented")
+}
+func (UnimplementedUserServiceServer) DeleteOrganization(context.Context, *DeleteOrganizationRequest) (*DeleteOrganizationResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteOrganization not implemented")
+}
+func (UnimplementedUserServiceServer) ListOrganizationMembers(context.Context, *ListOrganizationMembersRequest) (*ListOrganizationMembersResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListOrganizationMembers not implemented")
+}
+func (UnimplementedUserServiceServer) RemoveOrganizationMember(context.Context, *RemoveOrganizationMemberRequest) (*RemoveOrganizationMemberResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RemoveOrganizationMember not implemented")
+}
+func (UnimplementedUserServiceServer) CreateOrganizationMember(context.Context, *CreateOrganizationMemberRequest) (*CreateOrganizationMemberResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CreateOrganizationMember not implemented")
+}
+func (UnimplementedUserServiceServer) GetOrganization(context.Context, *GetOrganizationRequest) (*GetOrganizationResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetOrganization not implemented")
+}
+func (UnimplementedUserServiceServer) SetSecurityQuestions(context.Context, *SetSecurityQuestionsRequest) (*SetSecurityQuestionsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SetSecurityQuestions not implemented")
+}
+func (UnimplementedUserServiceServer) ResetPassword(context.Context, *ResetPasswordRequest) (*ResetPasswordResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ResetPassword not implemented")
+}
+func (UnimplementedUserServiceServer) ResetPasswordWithQuestions(context.Context, *ResetPasswordWithQuestionsRequest) (*ResetPasswordWithQuestionsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ResetPasswordWithQuestions not implemented")
+}
+func (UnimplementedUserServiceServer) AdminResetPassword(context.Context, *AdminResetPasswordRequest) (*AdminResetPasswordResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method AdminResetPassword not implemented")
 }
 func (UnimplementedUserServiceServer) mustEmbedUnimplementedUserServiceServer() {}
 func (UnimplementedUserServiceServer) testEmbeddedByValue()                     {}
@@ -434,6 +670,240 @@ func _UserService_ListInvites_Handler(srv interface{}, ctx context.Context, dec 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _UserService_RegisterOrganization_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RegisterOrganizationRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UserServiceServer).RegisterOrganization(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: UserService_RegisterOrganization_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UserServiceServer).RegisterOrganization(ctx, req.(*RegisterOrganizationRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _UserService_ListAllOrganizations_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListAllOrganizationsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UserServiceServer).ListAllOrganizations(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: UserService_ListAllOrganizations_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UserServiceServer).ListAllOrganizations(ctx, req.(*ListAllOrganizationsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _UserService_GetPlatformAnalytics_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetPlatformAnalyticsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UserServiceServer).GetPlatformAnalytics(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: UserService_GetPlatformAnalytics_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UserServiceServer).GetPlatformAnalytics(ctx, req.(*GetPlatformAnalyticsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _UserService_ListAllUsers_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListAllUsersRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UserServiceServer).ListAllUsers(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: UserService_ListAllUsers_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UserServiceServer).ListAllUsers(ctx, req.(*ListAllUsersRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _UserService_DeleteOrganization_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteOrganizationRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UserServiceServer).DeleteOrganization(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: UserService_DeleteOrganization_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UserServiceServer).DeleteOrganization(ctx, req.(*DeleteOrganizationRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _UserService_ListOrganizationMembers_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListOrganizationMembersRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UserServiceServer).ListOrganizationMembers(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: UserService_ListOrganizationMembers_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UserServiceServer).ListOrganizationMembers(ctx, req.(*ListOrganizationMembersRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _UserService_RemoveOrganizationMember_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RemoveOrganizationMemberRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UserServiceServer).RemoveOrganizationMember(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: UserService_RemoveOrganizationMember_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UserServiceServer).RemoveOrganizationMember(ctx, req.(*RemoveOrganizationMemberRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _UserService_CreateOrganizationMember_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateOrganizationMemberRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UserServiceServer).CreateOrganizationMember(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: UserService_CreateOrganizationMember_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UserServiceServer).CreateOrganizationMember(ctx, req.(*CreateOrganizationMemberRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _UserService_GetOrganization_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetOrganizationRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UserServiceServer).GetOrganization(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: UserService_GetOrganization_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UserServiceServer).GetOrganization(ctx, req.(*GetOrganizationRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _UserService_SetSecurityQuestions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetSecurityQuestionsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UserServiceServer).SetSecurityQuestions(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: UserService_SetSecurityQuestions_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UserServiceServer).SetSecurityQuestions(ctx, req.(*SetSecurityQuestionsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _UserService_ResetPassword_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ResetPasswordRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UserServiceServer).ResetPassword(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: UserService_ResetPassword_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UserServiceServer).ResetPassword(ctx, req.(*ResetPasswordRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _UserService_ResetPasswordWithQuestions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ResetPasswordWithQuestionsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UserServiceServer).ResetPasswordWithQuestions(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: UserService_ResetPasswordWithQuestions_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UserServiceServer).ResetPasswordWithQuestions(ctx, req.(*ResetPasswordWithQuestionsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _UserService_AdminResetPassword_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AdminResetPasswordRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UserServiceServer).AdminResetPassword(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: UserService_AdminResetPassword_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UserServiceServer).AdminResetPassword(ctx, req.(*AdminResetPasswordRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // UserService_ServiceDesc is the grpc.ServiceDesc for UserService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -480,6 +950,58 @@ var UserService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListInvites",
 			Handler:    _UserService_ListInvites_Handler,
+		},
+		{
+			MethodName: "RegisterOrganization",
+			Handler:    _UserService_RegisterOrganization_Handler,
+		},
+		{
+			MethodName: "ListAllOrganizations",
+			Handler:    _UserService_ListAllOrganizations_Handler,
+		},
+		{
+			MethodName: "GetPlatformAnalytics",
+			Handler:    _UserService_GetPlatformAnalytics_Handler,
+		},
+		{
+			MethodName: "ListAllUsers",
+			Handler:    _UserService_ListAllUsers_Handler,
+		},
+		{
+			MethodName: "DeleteOrganization",
+			Handler:    _UserService_DeleteOrganization_Handler,
+		},
+		{
+			MethodName: "ListOrganizationMembers",
+			Handler:    _UserService_ListOrganizationMembers_Handler,
+		},
+		{
+			MethodName: "RemoveOrganizationMember",
+			Handler:    _UserService_RemoveOrganizationMember_Handler,
+		},
+		{
+			MethodName: "CreateOrganizationMember",
+			Handler:    _UserService_CreateOrganizationMember_Handler,
+		},
+		{
+			MethodName: "GetOrganization",
+			Handler:    _UserService_GetOrganization_Handler,
+		},
+		{
+			MethodName: "SetSecurityQuestions",
+			Handler:    _UserService_SetSecurityQuestions_Handler,
+		},
+		{
+			MethodName: "ResetPassword",
+			Handler:    _UserService_ResetPassword_Handler,
+		},
+		{
+			MethodName: "ResetPasswordWithQuestions",
+			Handler:    _UserService_ResetPasswordWithQuestions_Handler,
+		},
+		{
+			MethodName: "AdminResetPassword",
+			Handler:    _UserService_AdminResetPassword_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

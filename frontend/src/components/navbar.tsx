@@ -5,14 +5,18 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth';
 import { Button } from './ui/button';
 import { useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 
 export function Navbar() {
   const pathname = usePathname();
   const router = useRouter();
   const { user, logout } = useAuthStore();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const queryClient = useQueryClient();
 
   const handleLogout = () => {
+    // Clear React Query cache to remove old user's data
+    queryClient.clear();
     logout();
     router.push('/login');
   };

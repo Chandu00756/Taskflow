@@ -12,7 +12,7 @@ import type { ConfettiProps } from 'react-confetti';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { authAPI, apiClient } from '@/lib/api';
-import { parseJwt } from '@/lib/jwt';
+import { parseJwt, isSuperAdmin, isOrgAdmin } from '@/lib/jwt';
 import { useAuthStore } from '@/store/auth';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
@@ -45,36 +45,87 @@ export default function LoginPage() {
     },
   });
 
-  useEffect(() => {
-    if (isAuthenticated) {
-      router.replace('/dashboard');
-    }
-  }, [isAuthenticated, router]);
+  // Don't auto-redirect here - let the login mutation handle role-based routing
+  // This prevents the race condition where we redirect to /dashboard before checking role
 
   const loginMutation = useMutation({
     mutationFn: authAPI.login,
     onSuccess: (data) => {
+      console.log('Login success! Data:', data);
+      
       // set auth and extract org_id + role from access token
       // Handle both camelCase (accessToken) and snake_case (access_token) from API
       const access = (data as any).accessToken || data.access_token;
       const refresh = (data as any).refreshToken || data.refresh_token;
+      const mustChangePassword = (data as any).mustChangePassword || (data as any).must_change_password || false;
+      const mustSetSecurityQuestions = (data as any).mustSetSecurityQuestions || (data as any).must_set_security_questions || false;
+      
+      console.log('Tokens extracted:', { hasAccess: !!access, hasRefresh: !!refresh });
+      console.log('Security flags:', { mustChangePassword, mustSetSecurityQuestions });
+      
+      if (!access) {
+        console.error('No access token in response!', data);
+        toast.error('Login failed - no access token');
+        return;
+      }
+      
       const parsed = typeof window !== 'undefined' ? parseJwt(access) : null;
       const userWithClaims = {
         ...data.user,
-        org_id: parsed?.org_id || parsed?.orgId || '',
+        org_id: parsed?.org_id || '',
         role: parsed?.role || '',
       };
 
-      setAuth(userWithClaims, access, refresh);
+      // Save tokens FIRST before navigation to prevent race condition
       apiClient.setAccessToken(access);
       apiClient.setRefreshToken(refresh);
-      toast.success('Welcome back! ✨');
-      setShowCelebration(true);
-      setTimeout(() => {
-        router.push('/dashboard');
-      }, 1200);
+      setAuth(userWithClaims, access, refresh);
+      
+      // Store flags in localStorage for SetSecurityQuestions page
+      if (mustChangePassword) {
+        localStorage.setItem('must_change_password', 'true');
+      }
+      if (mustSetSecurityQuestions) {
+        localStorage.setItem('must_set_security_questions', 'true');
+      }
+      
+      console.log('Auth set successfully');
+      
+      // PRIORITY 1: Security questions (applies to ALL users, one-time)
+      if (mustSetSecurityQuestions) {
+        toast.info('Please set up your security questions', { duration: 3000 });
+        router.push('/set-security-questions');
+        return;
+      }
+      
+      // PRIORITY 2: Password change (new users with temp password)
+      if (mustChangePassword) {
+        toast.info('Please change your temporary password', { duration: 3000 });
+        router.push('/change-password');
+        return;
+      }
+      
+      // Check user role from JWT token (not API response which has proto enum)
+      const isSuperAdminUser = isSuperAdmin(access);
+      const isOrgAdminUser = isOrgAdmin(access);
+      
+      if (isSuperAdminUser) {
+        // Super admin goes directly to global admin portal - no delay to avoid dashboard flash
+        toast.success('Welcome back, Super Admin! 🔐');
+        router.push('/admin/global');
+      } else {
+        // All org users (including org_admin, team_lead, member) go to dashboard
+        // The dashboard will route them appropriately
+        toast.success('Welcome back! ✨');
+        setShowCelebration(true);
+        setTimeout(() => {
+          router.push('/dashboard');
+        }, 1200);
+      }
     },
     onError: (error: any) => {
+      console.error('Login mutation error:', error);
+      console.error('Error response:', error?.response);
       toast.error(error.response?.data?.message || 'Login failed');
     },
   });

@@ -12,7 +12,7 @@ import type { ConfettiProps } from 'react-confetti';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { UserPlus, ShieldCheck, Sparkles } from 'lucide-react';
-import { authAPI, invitesAPI } from '@/lib/api';
+import { authAPI, invitesAPI, apiClient } from '@/lib/api';
 import { parseJwt } from '@/lib/jwt';
 import { useAuthStore } from '@/store/auth';
 import { Input } from '@/components/ui/input';
@@ -91,26 +91,35 @@ export default function RegisterPage() {
 
   const { setAuth } = useAuthStore();
 
-  const registerMutation = useMutation({
+    const registerMutation = useMutation({
     mutationFn: authAPI.register,
     onSuccess: async (data: any, variables: any) => {
       toast.success('Account created! Logging you in...');
       setShowCelebration(true);
-      // Automatically login to obtain tokens and org claims
+      // Automatically login to obtain tokens
       try {
-        const loginResp: any = await authAPI.login({ email: (variables as any).email, password: (variables as any).password });
+        const loginResp: any = await authAPI.login({ 
+          email: (variables as any).email, 
+          password: (variables as any).password 
+        });
         const access = loginResp.access_token;
         const refresh = loginResp.refresh_token;
         const parsed = typeof window !== 'undefined' ? parseJwt(access) : null;
         const userWithClaims = {
           ...loginResp.user,
-          org_id: parsed?.org_id || parsed?.orgId || '',
-          role: parsed?.role || '',
+          org_id: parsed?.org_id || '',
+          role: parsed?.role || 'user',
         };
+        
+        // Properly set auth tokens
+        apiClient.setAccessToken(access);
+        apiClient.setRefreshToken(refresh);
         setAuth(userWithClaims, access, refresh);
+        
         setTimeout(() => router.push('/dashboard'), 1200);
       } catch (e: any) {
         // fallback: redirect to login
+        toast.error('Please login with your new account');
         setTimeout(() => router.push('/login'), 1200);
       }
     },
@@ -164,10 +173,15 @@ export default function RegisterPage() {
               const parsed = typeof window !== 'undefined' ? parseJwt(access) : null;
               const userWithClaims = {
                 ...loginResp.user,
-                org_id: parsed?.org_id || parsed?.orgId || '',
+                org_id: parsed?.org_id || '',
                 role: parsed?.role || '',
               };
+              
+              // Properly set auth tokens
+              apiClient.setAccessToken(access);
+              apiClient.setRefreshToken(refresh);
               setAuth(userWithClaims, access, refresh);
+              
               router.push('/dashboard');
             });
           } else {
@@ -178,24 +192,8 @@ export default function RegisterPage() {
           // handled by mutation onError
         });
     } else {
-      registerMutation.mutate(payload, {
-        onSuccess: (data: any) => {
-          // store org_id and role from token
-          const access = data.access_token;
-          const parsed = typeof window !== 'undefined' ? parseJwt(access) : null;
-          const userWithClaims = {
-            ...data.user,
-            org_id: parsed?.org_id || parsed?.orgId || '',
-            role: parsed?.role || '',
-          };
-          // set auth via store directly to avoid circular import; use localStorage for now
-          if (typeof window !== 'undefined') {
-            localStorage.setItem('access_token', access);
-            localStorage.setItem('refresh_token', data.refresh_token);
-            localStorage.setItem('auth_user', JSON.stringify(userWithClaims));
-          }
-        },
-      });
+      // Individual user registration (not part of any organization)
+      registerMutation.mutate(payload);
     }
   };
 
@@ -425,12 +423,27 @@ export default function RegisterPage() {
                 )}
               </Button>
 
-              <p className="text-center text-sm text-slate-500">
-                Already synced with TaskFlow?{' '}
-                <Link href="/login" className="font-semibold text-sky-500 hover:text-sky-600">
-                  Sign in
-                </Link>
-              </p>
+              <div className="space-y-3">
+                <p className="text-center text-sm text-slate-500">
+                  Already synced with TaskFlow?{' '}
+                  <Link href="/login" className="font-semibold text-sky-500 hover:text-sky-600">
+                    Sign in
+                  </Link>
+                </p>
+                
+                <div className="flex items-center justify-center gap-2">
+                  <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-200 to-transparent" />
+                  <span className="text-xs uppercase tracking-wider text-slate-400">or</span>
+                  <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-200 to-transparent" />
+                </div>
+                
+                <p className="text-center text-sm text-slate-500">
+                  Want to create an organization?{' '}
+                  <Link href="/register/organization" className="font-semibold text-emerald-500 hover:text-emerald-600">
+                    Sign up as organization
+                  </Link>
+                </p>
+              </div>
             </form>
           </div>
         </motion.div>

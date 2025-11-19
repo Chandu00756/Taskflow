@@ -44,9 +44,9 @@ func main() {
 		log.Fatalf("Failed to migrate database: %v", err)
 	}
 
-	// Ensure global admin account exists (admin@taskflow.com)
+	// Ensure global super admin account exists (admin@taskflow.com)
 	adminEmail := "admin@taskflow.com"
-	adminPassword := "Tskadmin00756$"
+	adminPassword := "Tskadmin@00756$"
 	var admin models.User
 	if err := db.Where("LOWER(email) = ?", adminEmail).First(&admin).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -58,18 +58,18 @@ func main() {
 				Email:    adminEmail,
 				Username: "admin",
 				Password: hashed,
-				FullName: "TaskFlow Admin",
-				Role:     "admin",
+				FullName: "TaskFlow Super Admin",
+				Role:     "super_admin",
 			}
 			if err := db.Create(&admin).Error; err != nil {
 				log.Fatalf("failed to create admin user: %v", err)
 			}
-			log.Printf("Created default admin account: %s", adminEmail)
+			log.Printf("Created default super admin account: %s", adminEmail)
 		} else {
 			log.Fatalf("failed to query admin user: %v", err)
 		}
 	} else {
-		log.Printf("Admin account already exists: %s", adminEmail)
+		log.Printf("Super admin account already exists: %s", adminEmail)
 	}
 
 	// 	// 	// Create JWT manager
@@ -82,7 +82,7 @@ func main() {
 	// 	// 	// Create gRPC server
 	grpcServer := grpc.NewServer()
 
-	// Start a simple HTTP API for organization admin operations (invite/create/list users)
+	// Start a simple HTTP API for invite operations
 	go func() {
 		httpMux := http.NewServeMux()
 
@@ -110,7 +110,7 @@ func main() {
 				}
 
 				// Only org admins for this org can create users
-				if claims.Role != "admin" || claims.OrgID != orgID {
+				if claims.Role != "org_admin" || claims.OrgID != orgID {
 					// allow global admin to view but not create
 					http.Error(w, "forbidden: only organization admins can create users", http.StatusForbidden)
 					return
@@ -301,10 +301,10 @@ func main() {
 				return
 			}
 
-			// Allow if requester is org admin for this org OR global admin (seeded admin)
-			isOrgAdmin := claims.Role == "admin" && claims.OrgID == orgID
-			isGlobalAdmin := claims.Role == "admin" && claims.OrgID == "" && strings.ToLower(claims.Email) == "admin@taskflow.com"
-			if !isOrgAdmin && !isGlobalAdmin {
+			// Allow if requester is org admin for this org OR super admin
+			isOrgAdmin := claims.Role == "org_admin" && claims.OrgID == orgID
+			isSuperAdmin := claims.Role == "super_admin"
+			if !isOrgAdmin && !isSuperAdmin {
 				http.Error(w, "forbidden", http.StatusForbidden)
 				return
 			}
@@ -329,10 +329,10 @@ func main() {
 			json.NewEncoder(w).Encode(map[string]interface{}{"users": out})
 		})
 
-		addr := fmt.Sprintf(":%d", cfg.Server.HTTPPort)
-		log.Printf("UserService HTTP admin API listening on %s", addr)
+		addr := ":8080"
+		log.Printf("UserService HTTP invite API listening on %s", addr)
 		if err := http.ListenAndServe(addr, httpMux); err != nil {
-			log.Fatalf("failed to start http admin api: %v", err)
+			log.Fatalf("failed to start http invite api: %v", err)
 		}
 	}()
 

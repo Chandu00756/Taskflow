@@ -40,6 +40,12 @@ if [ "$MODE" = "docker" ] && command -v docker > /dev/null 2>&1 && [ -f docker-c
 
 # # # Start frontend locally (frontend not in compose)
     echo "Starting Frontend (local Next.js)..."
+    
+    # Kill any existing process on port 3000
+    echo "Checking for existing process on port 3000..."
+    lsof -ti:3000 | xargs kill -9 2>/dev/null || true
+    sleep 1
+    
     cd frontend
     if [ ! -d "node_modules" ]; then
         echo -e "${YELLOW}node_modules not found. Installing dependencies...${NC}"
@@ -108,6 +114,12 @@ else
 
 # # # Start frontend
     echo "[5/5] Starting Frontend..."
+    
+    # Kill any existing process on port 3000
+    echo "Checking for existing process on port 3000..."
+    lsof -ti:3000 | xargs kill -9 2>/dev/null || true
+    sleep 1
+    
     cd frontend
     if [ ! -d "node_modules" ]; then
         echo -e "${YELLOW}node_modules not found. Installing dependencies...${NC}"

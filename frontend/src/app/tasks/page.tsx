@@ -58,6 +58,7 @@ export default function TasksPage() {
   const [searchParamsClient, setSearchParamsClient] = useState<URLSearchParams | null>(null);
   const { isAuthenticated, user } = useAuthStore();
   const queryClient = useQueryClient();
+  const [isHydrated, setIsHydrated] = useState(false);
   
   const [searchQuery, setSearchQuery] = useState('');
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -83,10 +84,14 @@ export default function TasksPage() {
   );
 
   useEffect(() => {
-    if (!isAuthenticated) {
+    setIsHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (isHydrated && !isAuthenticated) {
       router.replace('/login');
     }
-  }, [isAuthenticated, router]);
+  }, [isAuthenticated, router, isHydrated]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -313,7 +318,7 @@ export default function TasksPage() {
 
   const activeTask = activeId ? tasks.find((t) => t.id === activeId) : null;
 
-  if (!isAuthenticated) {
+  if (!isHydrated || !isAuthenticated) {
     return null;
   }
 
@@ -534,7 +539,7 @@ export default function TasksPage() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="fixed inset-0 bg-black/50 z-50"
+                className="fixed inset-0 bg-black/50 z-40"
                 onClick={() => setSelectedTask(null)}
               />
               <motion.div
@@ -582,6 +587,8 @@ export default function TasksPage() {
                         aria-label="Task title"
                         className="w-full rounded-xl border border-slate-200 px-4 py-3 text-slate-900 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none"
                       />
+                    </div>
+
                     {/* Description */}
                     <div>
                       <label htmlFor="task-description" className="block text-sm font-semibold text-slate-700 mb-2">
@@ -683,7 +690,6 @@ export default function TasksPage() {
                         aria-label="Task due date"
                         className="w-full rounded-xl border border-slate-200 px-4 py-3 text-slate-900 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none"
                       />
-                    </div>
                     </div>
 
                     {/* Metadata */}

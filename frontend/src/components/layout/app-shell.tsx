@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { AdvancedSearch } from "@/components/search/advanced-search";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -22,6 +23,7 @@ export function AppShell({ children, unreadNotifications = 0 }: AppShellProps) {
   const router = useRouter();
   const { user, logout } = useAuthStore();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const queryClient = useQueryClient();
 
   const navItems = useMemo(
     () => [
@@ -35,6 +37,8 @@ export function AppShell({ children, unreadNotifications = 0 }: AppShellProps) {
   );
 
   const handleLogout = () => {
+    // Clear React Query cache to remove old user's data
+    queryClient.clear();
     logout();
     router.push("/login");
   };
@@ -61,7 +65,7 @@ export function AppShell({ children, unreadNotifications = 0 }: AppShellProps) {
           layout
           transition={{ type: "spring", stiffness: 260, damping: 26 }}
           className={cn(
-            "sticky top-6 z-30 hidden h-[calc(100vh-3rem)] flex-col overflow-y-auto rounded-[32px] border border-white/80 bg-white/90 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.15)] backdrop-blur-2xl md:flex",
+            "sticky top-6 z-30 hidden h-[calc(100vh-3rem)] flex-col overflow-y-auto rounded-[32px] border border-white/80 bg-white/90 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.15)] backdrop-blur-2xl md:flex scrollbar-hide",
             isSidebarCollapsed ? "w-[92px]" : "w-[280px]"
           )}
         >

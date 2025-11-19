@@ -223,8 +223,15 @@ func (s *TaskService) UpdateTask(ctx context.Context, req *taskpb.UpdateTaskRequ
 
 	var task models.Task
 	query := s.db.Where("id = ?", req.TaskId)
+
+	// Authorization logic: Users can access tasks they created OR tasks in their org
 	if orgID != "" {
-		query = query.Where("org_id = ?", orgID)
+		// User is part of an org: allow access to org tasks OR personal tasks they created
+		if userID != "" {
+			query = query.Where("(org_id = ? OR (org_id IS NULL AND created_by = ?))", orgID, userID)
+		} else {
+			query = query.Where("org_id = ?", orgID)
+		}
 	} else {
 		if role == "admin" {
 			query = query.Where("org_id IS NULL")

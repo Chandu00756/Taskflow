@@ -34,9 +34,9 @@ export const API_ENDPOINTS = {
   },
 // // // Invites / Org admin
   INVITES: {
-    CREATE: '/api/v1/orgs/users', // POST ?org_id=
+    CREATE: '/api/v1/organizations', // POST /{org_id}/members
     ACCEPT: '/api/v1/invite/accept', // POST
-    LIST: '/api/v1/orgs/users/list', // GET ?org_id=
+    LIST: '/api/v1/organizations', // GET /{org_id}/members
   },
 // // // WebSocket
   WEBSOCKET: {
