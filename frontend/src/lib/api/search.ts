@@ -10,6 +10,18 @@ import type {
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
+// Helper to get org_id from localStorage auth
+const getOrgIdFromAuth = (): string | null => {
+  try {
+    const authStorage = localStorage.getItem('auth-storage');
+    if (!authStorage) return null;
+    const parsed = JSON.parse(authStorage);
+    return parsed?.state?.user?.org_id || null;
+  } catch {
+    return null;
+  }
+};
+
 // // // ==================== UNIVERSAL SEARCH API ====================
 
 export const searchAPI = {
@@ -67,28 +79,62 @@ export const searchAPI = {
     roles?: string[];
     limit?: number;
   }): Promise<UserProfile[]> => {
-    const params = new URLSearchParams({ q: query });
-    
-    if (filters?.workspace_id) params.append('workspace_id', filters.workspace_id);
-    if (filters?.team_id) params.append('team_id', filters.team_id);
-    if (filters?.limit) params.append('limit', String(filters.limit));
-    if (filters?.exclude_ids?.length) {
-      params.append('exclude_ids', filters.exclude_ids.join(','));
-    }
-    if (filters?.roles?.length) {
-      params.append('roles', filters.roles.join(','));
-    }
+    try {
+      // Get org_id from auth storage
+      const orgId = getOrgIdFromAuth();
+      
+      if (!orgId) {
+        console.error('No org_id found in auth storage');
+        return [];
+      }
 
-    const response = await fetch(`${API_BASE_URL}/api/users/search?${params}`, {
-      credentials: 'include',
-    });
+      // Fetch all organization members
+      const response = await fetch(`${API_BASE_URL}/api/v1/organizations/${orgId}/members`, {
+        credentials: 'include',
+      });
 
-    if (!response.ok) {
-      throw new Error('User search failed');
+      if (!response.ok) {
+        throw new Error('Failed to fetch organization members');
+      }
+
+      const data = await response.json();
+      let users: UserProfile[] = (data.members || []).map((member: any) => ({
+        id: member.id,
+        username: member.username,
+        email: member.email,
+        full_name: member.full_name,
+        display_name: member.full_name,
+        role: member.role,
+        created_at: member.created_at,
+      }));
+
+      // Filter by search query
+      if (query) {
+        const lowerQuery = query.toLowerCase().replace('@', '');
+        users = users.filter(user => 
+          user.full_name?.toLowerCase().includes(lowerQuery) ||
+          user.username?.toLowerCase().includes(lowerQuery) ||
+          user.email?.toLowerCase().includes(lowerQuery)
+        );
+      }
+
+      // Filter by exclude_ids
+      if (filters?.exclude_ids?.length) {
+        users = users.filter(user => !filters.exclude_ids!.includes(user.id));
+      }
+
+      // Filter by roles
+      if (filters?.roles?.length) {
+        users = users.filter(user => filters.roles!.includes(user.role || ''));
+      }
+
+      // Apply limit
+      const limit = filters?.limit || 10;
+      return users.slice(0, limit);
+    } catch (error) {
+      console.error('User search failed:', error);
+      return [];
     }
-
-    const data = await response.json();
-    return data.users || [];
   },
 
   /**

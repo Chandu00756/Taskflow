@@ -418,6 +418,28 @@ message RemoveGroupMemberResponse {
 }
 
 // ============================================================================
+// ORGANIZATION MEMBER MESSAGES
+// ============================================================================
+
+message OrgMember {
+  string id = 1;
+  string full_name = 2;
+  string email = 3;
+  string username = 4;
+  string role = 5;
+  google.protobuf.Timestamp created_at = 6;
+}
+
+message ListOrgMembersRequest {
+  string org_id = 1;
+}
+
+message ListOrgMembersResponse {
+  repeated OrgMember members = 1;
+  int32 total = 2;
+}
+
+// ============================================================================
 // WORKSPACE MESSAGES
 // ============================================================================
 
@@ -461,11 +483,47 @@ message ListWorkspacesResponse {
   repeated Workspace workspaces = 1;
 }
 
+message GetWorkspaceRequest {
+  string workspace_id = 1;
+}
+
+message GetWorkspaceResponse {
+  Workspace workspace = 1;
+}
+
+message UpdateWorkspaceRequest {
+  string workspace_id = 1;
+  string name = 2;
+  string description = 3;
+  string workspace_type = 4;
+  string settings = 5;
+}
+
+message UpdateWorkspaceResponse {
+  Workspace workspace = 1;
+  string message = 2;
+}
+
+message DeleteWorkspaceRequest {
+  string workspace_id = 1;
+}
+
+message DeleteWorkspaceResponse {
+  string message = 1;
+}
+
 // ============================================================================
 // ORGANIZATION SERVICE
 // ============================================================================
 
 service OrganizationService {
+  // Organization Member Management
+  rpc ListOrgMembers(ListOrgMembersRequest) returns (ListOrgMembersResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/organizations/{org_id}/members"
+    };
+  }
+
   // Team Management
   rpc CreateTeam(CreateTeamRequest) returns (CreateTeamResponse) {
     option (google.api.http) = {
@@ -631,9 +689,28 @@ service OrganizationService {
     };
   }
   
+  rpc GetWorkspace(GetWorkspaceRequest) returns (GetWorkspaceResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/workspaces/{workspace_id}"
+    };
+  }
+  
   rpc ListWorkspaces(ListWorkspacesRequest) returns (ListWorkspacesResponse) {
     option (google.api.http) = {
       get: "/api/v1/organizations/{org_id}/workspaces"
+    };
+  }
+  
+  rpc UpdateWorkspace(UpdateWorkspaceRequest) returns (UpdateWorkspaceResponse) {
+    option (google.api.http) = {
+      put: "/api/v1/workspaces/{workspace_id}"
+      body: "*"
+    };
+  }
+  
+  rpc DeleteWorkspace(DeleteWorkspaceRequest) returns (DeleteWorkspaceResponse) {
+    option (google.api.http) = {
+      delete: "/api/v1/workspaces/{workspace_id}"
     };
   }
 }

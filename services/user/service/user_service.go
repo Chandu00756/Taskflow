@@ -185,7 +185,7 @@ func (s *UserService) Login(ctx context.Context, req *userpb.LoginRequest) (*use
 		return nil, status.Error(codes.Internal, "failed to find user")
 	}
 
-	// Check if account is locked due to failed attempts (optional: 5 attempts = lock)
+	// Check if account is locked due to failed attempts 5 attempts = lock
 	if user.FailedLoginAttempts >= 5 {
 		return nil, status.Error(codes.PermissionDenied, "account locked due to too many failed login attempts. Contact your administrator.")
 	}

@@ -9,6 +9,7 @@ The Task Management System is designed for organizations that need a scalable, s
 ## Key Features
 
 ### Task Management
+
 - Complete task lifecycle management (create, read, update, delete)
 - Advanced task organization with priorities, statuses, and due dates
 - Intelligent search with filters, tags, and natural language queries
@@ -17,6 +18,7 @@ The Task Management System is designed for organizations that need a scalable, s
 - Bulk operations and batch updates
 
 ### Multi-Tenancy & Organizations
+
 - Complete organization isolation with row-level security
 - Hierarchical team structures with parent-child relationships
 - Project-based task grouping
@@ -25,6 +27,7 @@ The Task Management System is designed for organizations that need a scalable, s
 - Secure invite system with expirable tokens
 
 ### Real-Time Collaboration
+
 - WebSocket-based live updates
 - Instant notifications for task changes
 - Real-time presence indicators
@@ -32,6 +35,7 @@ The Task Management System is designed for organizations that need a scalable, s
 - Activity streams and audit logs
 
 ### Security & Authentication
+
 - JWT-based authentication with refresh tokens
 - Role-based access control (RBAC) with granular permissions
 - Multi-tenant data isolation
@@ -40,6 +44,7 @@ The Task Management System is designed for organizations that need a scalable, s
 - Rate limiting and DDoS protection
 
 ### Search & Filtering
+
 - Intelligent search parser with mention extraction (@user)
 - Tag-based filtering (#urgent)
 - Status and priority filters
@@ -48,6 +53,7 @@ The Task Management System is designed for organizations that need a scalable, s
 - Client-side and server-side filtering
 
 ### Search & Filtering
+
 - Intelligent search parser with mention extraction (@user)
 - Tag-based filtering (#urgent)
 - Status and priority filters
@@ -83,6 +89,7 @@ Infrastructure Layer
 ### Microservices Overview
 
 **User Service** - Port 50051
+
 - User authentication and authorization
 - Profile management
 - JWT token generation and validation
@@ -90,6 +97,7 @@ Infrastructure Layer
 - Role and permission management
 
 **Task Service** - Port 50052
+
 - Task CRUD operations
 - Intelligent search and filtering
 - Task assignments and updates
@@ -97,6 +105,7 @@ Infrastructure Layer
 - Due date tracking
 
 **Organization Service** - Port 50054
+
 - Multi-tenant organization management
 - Team hierarchy and structure
 - Project management
@@ -104,12 +113,14 @@ Infrastructure Layer
 - Invite system for user onboarding
 
 **Notification Service** - Port 50053
+
 - Real-time WebSocket notifications
 - Notification history and management
 - Event broadcasting
 - User presence tracking
 
 **API Gateway** - Port 8080
+
 - HTTP/REST to gRPC translation
 - WebSocket connection management
 - Authentication middleware
@@ -122,18 +133,21 @@ Infrastructure Layer
 ### Backend Technologies
 
 **Language & Framework**
+
 - Go 1.24+ - Primary programming language
 - gRPC - High-performance RPC framework
 - Protocol Buffers - Efficient data serialization
 - gRPC-Gateway - REST to gRPC transcoding
 
 **Database & Caching**
+
 - PostgreSQL 14+ - Primary relational database
 - GORM - Go ORM for database operations
 - Redis 6+ - In-memory caching and session storage
 - Row-Level Security (RLS) for multi-tenancy
 
 **Authentication & Security**
+
 - JWT (JSON Web Tokens) - Token-based authentication
 - golang-jwt/jwt/v5 - JWT implementation
 - bcrypt - Password hashing
@@ -141,6 +155,7 @@ Infrastructure Layer
 - Blacklist management
 
 **Observability & Monitoring**
+
 - Prometheus - Metrics collection and storage
 - Grafana - Metrics visualization
 - Zap - Structured logging
@@ -148,6 +163,7 @@ Infrastructure Layer
 - Health check endpoints
 
 **Infrastructure**
+
 - Docker - Containerization
 - Docker Compose - Local development orchestration
 - Kubernetes - Production container orchestration
@@ -156,42 +172,50 @@ Infrastructure Layer
 ### Frontend Technologies
 
 **Core Framework**
+
 - Next.js 14.2.0 - React framework with App Router
 - React 18.3.0 - UI library
 - TypeScript 5 - Type-safe JavaScript
 
 **State Management**
+
 - Zustand 4.5.2 - Lightweight state management
 - TanStack Query 5.28.0 - Server state management
 - React Query Devtools - State debugging
 
 **UI & Styling**
+
 - Tailwind CSS 3.4.1 - Utility-first CSS framework
 - Framer Motion 11.18.2 - Animation library
 - Lucide React - Icon library
 - next-themes - Dark mode support
 
 **Data Fetching & Real-Time**
+
 - Axios 1.6.8 - HTTP client with interceptors
 - Native WebSocket API - Real-time communication
 - Automatic token refresh
 - Request/response interceptors
 
 **Forms & Validation**
+
 - React Hook Form 7.51.2 - Form management
 - Zod 3.22.4 - Schema validation
 - @hookform/resolvers - Form validation integration
 
 **Drag & Drop**
+
 - @dnd-kit/core 6.3.1 - Drag and drop primitives
 - @dnd-kit/sortable 10.0.0 - Sortable lists
 - @dnd-kit/utilities 3.2.2 - Helper utilities
 
 **Data Visualization**
+
 - Recharts 2.15.4 - Chart library
 - react-confetti 6.4.0 - Celebration effects
 
 **Utilities**
+
 - date-fns 3.6.0 - Date manipulation
 - clsx 2.1.0 - Conditional classNames
 - class-variance-authority 0.7.1 - CSS variants
@@ -421,6 +445,7 @@ task-management-system/
 ### Authentication Endpoints
 
 **Register User**
+
 ```
 POST /api/v1/auth/register
 Content-Type: application/json
@@ -434,6 +459,7 @@ Content-Type: application/json
 ```
 
 **Login**
+
 ```
 POST /api/v1/auth/login
 Content-Type: application/json
@@ -452,6 +478,7 @@ Response:
 ```
 
 **Refresh Token**
+
 ```
 POST /api/v1/auth/refresh
 Content-Type: application/json
@@ -464,6 +491,7 @@ Content-Type: application/json
 ### Task Management Endpoints
 
 **Create Task**
+
 ```
 POST /api/v1/tasks
 Authorization: Bearer <access_token>
@@ -481,12 +509,14 @@ Content-Type: application/json
 ```
 
 **List Tasks**
+
 ```
 GET /api/v1/tasks?status=TODO&priority=HIGH&assigned_to=user-uuid
 Authorization: Bearer <access_token>
 ```
 
 **Update Task**
+
 ```
 PUT /api/v1/tasks/{task_id}
 Authorization: Bearer <access_token>
@@ -499,12 +529,14 @@ Content-Type: application/json
 ```
 
 **Delete Task**
+
 ```
 DELETE /api/v1/tasks/{task_id}
 Authorization: Bearer <access_token>
 ```
 
 **Search Tasks**
+
 ```
 GET /api/v1/tasks/search?q=@john #urgent status:in_progress created:>7d
 Authorization: Bearer <access_token>
@@ -513,6 +545,7 @@ Authorization: Bearer <access_token>
 ### Organization Endpoints
 
 **Create Organization**
+
 ```
 POST /api/v1/organizations
 Authorization: Bearer <access_token>
@@ -526,6 +559,7 @@ Content-Type: application/json
 ```
 
 **Invite User to Organization**
+
 ```
 POST /api/v1/organizations/{org_id}/invites
 Authorization: Bearer <access_token>
@@ -538,6 +572,7 @@ Content-Type: application/json
 ```
 
 **List Teams**
+
 ```
 GET /api/v1/organizations/{org_id}/teams
 Authorization: Bearer <access_token>
@@ -546,12 +581,14 @@ Authorization: Bearer <access_token>
 ### Notification Endpoints
 
 **Get User Notifications**
+
 ```
 GET /api/v1/notifications/user/{user_id}
 Authorization: Bearer <access_token>
 ```
 
 **Mark as Read**
+
 ```
 PUT /api/v1/notifications/{notification_id}/read
 Authorization: Bearer <access_token>
@@ -560,11 +597,13 @@ Authorization: Bearer <access_token>
 ### WebSocket Connection
 
 **Connect**
+
 ```
 WS ws://localhost:8080/ws?token=<access_token>
 ```
 
 **Message Format**
+
 ```json
 {
   "type": "task.created",
@@ -677,6 +716,7 @@ kubectl logs -f deployment/task-service -n task-management
 ### Production Considerations
 
 **Security**
+
 - Use strong JWT secrets (256-bit minimum)
 - Enable HTTPS/TLS for all communications
 - Implement API rate limiting
@@ -685,6 +725,7 @@ kubectl logs -f deployment/task-service -n task-management
 - Keep dependencies updated
 
 **Performance**
+
 - Enable connection pooling (10-20 connections per service)
 - Configure Redis caching appropriately
 - Use CDN for frontend assets
@@ -693,6 +734,7 @@ kubectl logs -f deployment/task-service -n task-management
 - Monitor query performance
 
 **Scalability**
+
 - Horizontal pod autoscaling (2-10 replicas)
 - Database read replicas for read-heavy workloads
 - Redis cluster for high availability
@@ -700,6 +742,7 @@ kubectl logs -f deployment/task-service -n task-management
 - CDN for static assets
 
 **Monitoring**
+
 - Prometheus for metrics collection
 - Grafana for visualization
 - Alert manager for critical alerts
@@ -758,6 +801,7 @@ curl http://localhost:50053/health  # Notification Service
 ### Core Tables
 
 **organizations** - Multi-tenant organization data
+
 - `id` (UUID, PK)
 - `name` (VARCHAR)
 - `domain` (VARCHAR)
@@ -765,6 +809,7 @@ curl http://localhost:50053/health  # Notification Service
 - `created_at`, `updated_at`
 
 **users** - User accounts
+
 - `id` (UUID, PK)
 - `org_id` (UUID, FK → organizations.id)
 - `email` (VARCHAR, UNIQUE)
@@ -774,6 +819,7 @@ curl http://localhost:50053/health  # Notification Service
 - `created_at`, `updated_at`
 
 **tasks** - Task management
+
 - `id` (UUID, PK)
 - `org_id` (UUID, FK → organizations.id)
 - `title` (VARCHAR)
@@ -790,6 +836,7 @@ curl http://localhost:50053/health  # Notification Service
 - `created_at`, `updated_at`
 
 **teams** - Hierarchical team structure
+
 - `id` (UUID, PK)
 - `org_id` (UUID, FK → organizations.id)
 - `name` (VARCHAR)
@@ -799,6 +846,7 @@ curl http://localhost:50053/health  # Notification Service
 - `created_at`, `updated_at`
 
 **invites** - User invitation system
+
 - `id` (UUID, PK)
 - `org_id` (UUID, FK → organizations.id)
 - `email` (VARCHAR)
@@ -810,6 +858,7 @@ curl http://localhost:50053/health  # Notification Service
 - `created_at`
 
 **notifications** - Notification history
+
 - `id` (UUID, PK)
 - `user_id` (UUID, FK → users.id)
 - `org_id` (UUID, FK → organizations.id)
@@ -828,6 +877,7 @@ All tables include `org_id` for complete data isolation. Row-level security (RLS
 ### Common Issues
 
 **Service won't start**
+
 ```bash
 # Check if port is already in use
 lsof -i :8080
@@ -837,6 +887,7 @@ kill -9 $(lsof -t -i:8080)
 ```
 
 **Database connection errors**
+
 ```bash
 # Verify PostgreSQL is running
 pg_isready
@@ -849,6 +900,7 @@ psql -h localhost -U postgres -d taskmanagement
 ```
 
 **Redis connection errors**
+
 ```bash
 # Check Redis status
 redis-cli ping
@@ -857,6 +909,7 @@ redis-cli ping
 ```
 
 **Proto compilation errors**
+
 ```bash
 # Install protoc compiler
 # macOS
@@ -871,6 +924,7 @@ go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
 ```
 
 **Frontend build errors**
+
 ```bash
 # Clear Next.js cache
 cd frontend
@@ -914,6 +968,7 @@ footer
 Types: feat, fix, docs, style, refactor, test, chore
 
 Example:
+
 ```
 feat(task-service): add intelligent search parsing
 
@@ -933,13 +988,14 @@ This project is licensed under the MIT License. See the LICENSE file for details
 - **Documentation**: Check the `/docs` directory for comprehensive guides
 - **Issues**: Report bugs or request features via GitHub Issues
 - **Discussions**: Join community discussions on GitHub Discussions
-- **Security**: Report security vulnerabilities to security@example.com
+- **Security**: Report security vulnerabilities to <security@example.com>
 
 ## Acknowledgments
 
 This project leverages several excellent open-source technologies:
 
 **Backend**
+
 - gRPC - High-performance RPC framework by Google
 - Protocol Buffers - Efficient data serialization
 - GORM - Feature-rich Go ORM
@@ -947,6 +1003,7 @@ This project leverages several excellent open-source technologies:
 - Gorilla WebSocket - WebSocket implementation
 
 **Frontend**
+
 - Next.js - React framework by Vercel
 - TanStack Query - Powerful data synchronization
 - Tailwind CSS - Utility-first CSS framework
@@ -954,6 +1011,7 @@ This project leverages several excellent open-source technologies:
 - Zustand - Lightweight state management
 
 **Infrastructure**
+
 - PostgreSQL - Advanced open-source database
 - Redis - In-memory data structure store
 - Prometheus - Monitoring and alerting toolkit

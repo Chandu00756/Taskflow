@@ -19,6 +19,7 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
+	OrganizationService_ListOrgMembers_FullMethodName        = "/organization.OrganizationService/ListOrgMembers"
 	OrganizationService_CreateTeam_FullMethodName            = "/organization.OrganizationService/CreateTeam"
 	OrganizationService_GetTeam_FullMethodName               = "/organization.OrganizationService/GetTeam"
 	OrganizationService_ListTeams_FullMethodName             = "/organization.OrganizationService/ListTeams"
@@ -44,13 +45,18 @@ const (
 	OrganizationService_AddGroupMember_FullMethodName        = "/organization.OrganizationService/AddGroupMember"
 	OrganizationService_RemoveGroupMember_FullMethodName     = "/organization.OrganizationService/RemoveGroupMember"
 	OrganizationService_CreateWorkspace_FullMethodName       = "/organization.OrganizationService/CreateWorkspace"
+	OrganizationService_GetWorkspace_FullMethodName          = "/organization.OrganizationService/GetWorkspace"
 	OrganizationService_ListWorkspaces_FullMethodName        = "/organization.OrganizationService/ListWorkspaces"
+	OrganizationService_UpdateWorkspace_FullMethodName       = "/organization.OrganizationService/UpdateWorkspace"
+	OrganizationService_DeleteWorkspace_FullMethodName       = "/organization.OrganizationService/DeleteWorkspace"
 )
 
 // OrganizationServiceClient is the client API for OrganizationService service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type OrganizationServiceClient interface {
+	// Organization Member Management
+	ListOrgMembers(ctx context.Context, in *ListOrgMembersRequest, opts ...grpc.CallOption) (*ListOrgMembersResponse, error)
 	// Team Management
 	CreateTeam(ctx context.Context, in *CreateTeamRequest, opts ...grpc.CallOption) (*CreateTeamResponse, error)
 	GetTeam(ctx context.Context, in *GetTeamRequest, opts ...grpc.CallOption) (*GetTeamResponse, error)
@@ -80,7 +86,10 @@ type OrganizationServiceClient interface {
 	RemoveGroupMember(ctx context.Context, in *RemoveGroupMemberRequest, opts ...grpc.CallOption) (*RemoveGroupMemberResponse, error)
 	// Workspace Management
 	CreateWorkspace(ctx context.Context, in *CreateWorkspaceRequest, opts ...grpc.CallOption) (*CreateWorkspaceResponse, error)
+	GetWorkspace(ctx context.Context, in *GetWorkspaceRequest, opts ...grpc.CallOption) (*GetWorkspaceResponse, error)
 	ListWorkspaces(ctx context.Context, in *ListWorkspacesRequest, opts ...grpc.CallOption) (*ListWorkspacesResponse, error)
+	UpdateWorkspace(ctx context.Context, in *UpdateWorkspaceRequest, opts ...grpc.CallOption) (*UpdateWorkspaceResponse, error)
+	DeleteWorkspace(ctx context.Context, in *DeleteWorkspaceRequest, opts ...grpc.CallOption) (*DeleteWorkspaceResponse, error)
 }
 
 type organizationServiceClient struct {
@@ -89,6 +98,16 @@ type organizationServiceClient struct {
 
 func NewOrganizationServiceClient(cc grpc.ClientConnInterface) OrganizationServiceClient {
 	return &organizationServiceClient{cc}
+}
+
+func (c *organizationServiceClient) ListOrgMembers(ctx context.Context, in *ListOrgMembersRequest, opts ...grpc.CallOption) (*ListOrgMembersResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListOrgMembersResponse)
+	err := c.cc.Invoke(ctx, OrganizationService_ListOrgMembers_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (c *organizationServiceClient) CreateTeam(ctx context.Context, in *CreateTeamRequest, opts ...grpc.CallOption) (*CreateTeamResponse, error) {
@@ -341,6 +360,16 @@ func (c *organizationServiceClient) CreateWorkspace(ctx context.Context, in *Cre
 	return out, nil
 }
 
+func (c *organizationServiceClient) GetWorkspace(ctx context.Context, in *GetWorkspaceRequest, opts ...grpc.CallOption) (*GetWorkspaceResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetWorkspaceResponse)
+	err := c.cc.Invoke(ctx, OrganizationService_GetWorkspace_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *organizationServiceClient) ListWorkspaces(ctx context.Context, in *ListWorkspacesRequest, opts ...grpc.CallOption) (*ListWorkspacesResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ListWorkspacesResponse)
@@ -351,10 +380,32 @@ func (c *organizationServiceClient) ListWorkspaces(ctx context.Context, in *List
 	return out, nil
 }
 
+func (c *organizationServiceClient) UpdateWorkspace(ctx context.Context, in *UpdateWorkspaceRequest, opts ...grpc.CallOption) (*UpdateWorkspaceResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UpdateWorkspaceResponse)
+	err := c.cc.Invoke(ctx, OrganizationService_UpdateWorkspace_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *organizationServiceClient) DeleteWorkspace(ctx context.Context, in *DeleteWorkspaceRequest, opts ...grpc.CallOption) (*DeleteWorkspaceResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeleteWorkspaceResponse)
+	err := c.cc.Invoke(ctx, OrganizationService_DeleteWorkspace_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // OrganizationServiceServer is the server API for OrganizationService service.
 // All implementations must embed UnimplementedOrganizationServiceServer
 // for forward compatibility.
 type OrganizationServiceServer interface {
+	// Organization Member Management
+	ListOrgMembers(context.Context, *ListOrgMembersRequest) (*ListOrgMembersResponse, error)
 	// Team Management
 	CreateTeam(context.Context, *CreateTeamRequest) (*CreateTeamResponse, error)
 	GetTeam(context.Context, *GetTeamRequest) (*GetTeamResponse, error)
@@ -384,7 +435,10 @@ type OrganizationServiceServer interface {
 	RemoveGroupMember(context.Context, *RemoveGroupMemberRequest) (*RemoveGroupMemberResponse, error)
 	// Workspace Management
 	CreateWorkspace(context.Context, *CreateWorkspaceRequest) (*CreateWorkspaceResponse, error)
+	GetWorkspace(context.Context, *GetWorkspaceRequest) (*GetWorkspaceResponse, error)
 	ListWorkspaces(context.Context, *ListWorkspacesRequest) (*ListWorkspacesResponse, error)
+	UpdateWorkspace(context.Context, *UpdateWorkspaceRequest) (*UpdateWorkspaceResponse, error)
+	DeleteWorkspace(context.Context, *DeleteWorkspaceRequest) (*DeleteWorkspaceResponse, error)
 	mustEmbedUnimplementedOrganizationServiceServer()
 }
 
@@ -395,6 +449,9 @@ type OrganizationServiceServer interface {
 // pointer dereference when methods are called.
 type UnimplementedOrganizationServiceServer struct{}
 
+func (UnimplementedOrganizationServiceServer) ListOrgMembers(context.Context, *ListOrgMembersRequest) (*ListOrgMembersResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListOrgMembers not implemented")
+}
 func (UnimplementedOrganizationServiceServer) CreateTeam(context.Context, *CreateTeamRequest) (*CreateTeamResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateTeam not implemented")
 }
@@ -470,8 +527,17 @@ func (UnimplementedOrganizationServiceServer) RemoveGroupMember(context.Context,
 func (UnimplementedOrganizationServiceServer) CreateWorkspace(context.Context, *CreateWorkspaceRequest) (*CreateWorkspaceResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateWorkspace not implemented")
 }
+func (UnimplementedOrganizationServiceServer) GetWorkspace(context.Context, *GetWorkspaceRequest) (*GetWorkspaceResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetWorkspace not implemented")
+}
 func (UnimplementedOrganizationServiceServer) ListWorkspaces(context.Context, *ListWorkspacesRequest) (*ListWorkspacesResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListWorkspaces not implemented")
+}
+func (UnimplementedOrganizationServiceServer) UpdateWorkspace(context.Context, *UpdateWorkspaceRequest) (*UpdateWorkspaceResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UpdateWorkspace not implemented")
+}
+func (UnimplementedOrganizationServiceServer) DeleteWorkspace(context.Context, *DeleteWorkspaceRequest) (*DeleteWorkspaceResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteWorkspace not implemented")
 }
 func (UnimplementedOrganizationServiceServer) mustEmbedUnimplementedOrganizationServiceServer() {}
 func (UnimplementedOrganizationServiceServer) testEmbeddedByValue()                             {}
@@ -492,6 +558,24 @@ func RegisterOrganizationServiceServer(s grpc.ServiceRegistrar, srv Organization
 		t.testEmbeddedByValue()
 	}
 	s.RegisterService(&OrganizationService_ServiceDesc, srv)
+}
+
+func _OrganizationService_ListOrgMembers_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListOrgMembersRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(OrganizationServiceServer).ListOrgMembers(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: OrganizationService_ListOrgMembers_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(OrganizationServiceServer).ListOrgMembers(ctx, req.(*ListOrgMembersRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _OrganizationService_CreateTeam_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -944,6 +1028,24 @@ func _OrganizationService_CreateWorkspace_Handler(srv interface{}, ctx context.C
 	return interceptor(ctx, in, info, handler)
 }
 
+func _OrganizationService_GetWorkspace_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetWorkspaceRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(OrganizationServiceServer).GetWorkspace(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: OrganizationService_GetWorkspace_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(OrganizationServiceServer).GetWorkspace(ctx, req.(*GetWorkspaceRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _OrganizationService_ListWorkspaces_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ListWorkspacesRequest)
 	if err := dec(in); err != nil {
@@ -962,6 +1064,42 @@ func _OrganizationService_ListWorkspaces_Handler(srv interface{}, ctx context.Co
 	return interceptor(ctx, in, info, handler)
 }
 
+func _OrganizationService_UpdateWorkspace_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateWorkspaceRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(OrganizationServiceServer).UpdateWorkspace(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: OrganizationService_UpdateWorkspace_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(OrganizationServiceServer).UpdateWorkspace(ctx, req.(*UpdateWorkspaceRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _OrganizationService_DeleteWorkspace_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteWorkspaceRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(OrganizationServiceServer).DeleteWorkspace(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: OrganizationService_DeleteWorkspace_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(OrganizationServiceServer).DeleteWorkspace(ctx, req.(*DeleteWorkspaceRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // OrganizationService_ServiceDesc is the grpc.ServiceDesc for OrganizationService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -969,6 +1107,10 @@ var OrganizationService_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "organization.OrganizationService",
 	HandlerType: (*OrganizationServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "ListOrgMembers",
+			Handler:    _OrganizationService_ListOrgMembers_Handler,
+		},
 		{
 			MethodName: "CreateTeam",
 			Handler:    _OrganizationService_CreateTeam_Handler,
@@ -1070,8 +1212,20 @@ var OrganizationService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _OrganizationService_CreateWorkspace_Handler,
 		},
 		{
+			MethodName: "GetWorkspace",
+			Handler:    _OrganizationService_GetWorkspace_Handler,
+		},
+		{
 			MethodName: "ListWorkspaces",
 			Handler:    _OrganizationService_ListWorkspaces_Handler,
+		},
+		{
+			MethodName: "UpdateWorkspace",
+			Handler:    _OrganizationService_UpdateWorkspace_Handler,
+		},
+		{
+			MethodName: "DeleteWorkspace",
+			Handler:    _OrganizationService_DeleteWorkspace_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

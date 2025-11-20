@@ -3798,6 +3798,186 @@ func (x *RemoveGroupMemberResponse) GetMessage() string {
 	return ""
 }
 
+type OrgMember struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	FullName      string                 `protobuf:"bytes,2,opt,name=full_name,json=fullName,proto3" json:"full_name,omitempty"`
+	Email         string                 `protobuf:"bytes,3,opt,name=email,proto3" json:"email,omitempty"`
+	Username      string                 `protobuf:"bytes,4,opt,name=username,proto3" json:"username,omitempty"`
+	Role          string                 `protobuf:"bytes,5,opt,name=role,proto3" json:"role,omitempty"`
+	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *OrgMember) Reset() {
+	*x = OrgMember{}
+	mi := &file_organization_proto_msgTypes[58]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *OrgMember) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*OrgMember) ProtoMessage() {}
+
+func (x *OrgMember) ProtoReflect() protoreflect.Message {
+	mi := &file_organization_proto_msgTypes[58]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use OrgMember.ProtoReflect.Descriptor instead.
+func (*OrgMember) Descriptor() ([]byte, []int) {
+	return file_organization_proto_rawDescGZIP(), []int{58}
+}
+
+func (x *OrgMember) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *OrgMember) GetFullName() string {
+	if x != nil {
+		return x.FullName
+	}
+	return ""
+}
+
+func (x *OrgMember) GetEmail() string {
+	if x != nil {
+		return x.Email
+	}
+	return ""
+}
+
+func (x *OrgMember) GetUsername() string {
+	if x != nil {
+		return x.Username
+	}
+	return ""
+}
+
+func (x *OrgMember) GetRole() string {
+	if x != nil {
+		return x.Role
+	}
+	return ""
+}
+
+func (x *OrgMember) GetCreatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return nil
+}
+
+type ListOrgMembersRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	OrgId         string                 `protobuf:"bytes,1,opt,name=org_id,json=orgId,proto3" json:"org_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListOrgMembersRequest) Reset() {
+	*x = ListOrgMembersRequest{}
+	mi := &file_organization_proto_msgTypes[59]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListOrgMembersRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListOrgMembersRequest) ProtoMessage() {}
+
+func (x *ListOrgMembersRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_organization_proto_msgTypes[59]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListOrgMembersRequest.ProtoReflect.Descriptor instead.
+func (*ListOrgMembersRequest) Descriptor() ([]byte, []int) {
+	return file_organization_proto_rawDescGZIP(), []int{59}
+}
+
+func (x *ListOrgMembersRequest) GetOrgId() string {
+	if x != nil {
+		return x.OrgId
+	}
+	return ""
+}
+
+type ListOrgMembersResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Members       []*OrgMember           `protobuf:"bytes,1,rep,name=members,proto3" json:"members,omitempty"`
+	Total         int32                  `protobuf:"varint,2,opt,name=total,proto3" json:"total,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListOrgMembersResponse) Reset() {
+	*x = ListOrgMembersResponse{}
+	mi := &file_organization_proto_msgTypes[60]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListOrgMembersResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListOrgMembersResponse) ProtoMessage() {}
+
+func (x *ListOrgMembersResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_organization_proto_msgTypes[60]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListOrgMembersResponse.ProtoReflect.Descriptor instead.
+func (*ListOrgMembersResponse) Descriptor() ([]byte, []int) {
+	return file_organization_proto_rawDescGZIP(), []int{60}
+}
+
+func (x *ListOrgMembersResponse) GetMembers() []*OrgMember {
+	if x != nil {
+		return x.Members
+	}
+	return nil
+}
+
+func (x *ListOrgMembersResponse) GetTotal() int32 {
+	if x != nil {
+		return x.Total
+	}
+	return 0
+}
+
 type Workspace struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
@@ -3818,7 +3998,7 @@ type Workspace struct {
 
 func (x *Workspace) Reset() {
 	*x = Workspace{}
-	mi := &file_organization_proto_msgTypes[58]
+	mi := &file_organization_proto_msgTypes[61]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3830,7 +4010,7 @@ func (x *Workspace) String() string {
 func (*Workspace) ProtoMessage() {}
 
 func (x *Workspace) ProtoReflect() protoreflect.Message {
-	mi := &file_organization_proto_msgTypes[58]
+	mi := &file_organization_proto_msgTypes[61]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3843,7 +4023,7 @@ func (x *Workspace) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Workspace.ProtoReflect.Descriptor instead.
 func (*Workspace) Descriptor() ([]byte, []int) {
-	return file_organization_proto_rawDescGZIP(), []int{58}
+	return file_organization_proto_rawDescGZIP(), []int{61}
 }
 
 func (x *Workspace) GetId() string {
@@ -3945,7 +4125,7 @@ type CreateWorkspaceRequest struct {
 
 func (x *CreateWorkspaceRequest) Reset() {
 	*x = CreateWorkspaceRequest{}
-	mi := &file_organization_proto_msgTypes[59]
+	mi := &file_organization_proto_msgTypes[62]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3957,7 +4137,7 @@ func (x *CreateWorkspaceRequest) String() string {
 func (*CreateWorkspaceRequest) ProtoMessage() {}
 
 func (x *CreateWorkspaceRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_organization_proto_msgTypes[59]
+	mi := &file_organization_proto_msgTypes[62]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3970,7 +4150,7 @@ func (x *CreateWorkspaceRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateWorkspaceRequest.ProtoReflect.Descriptor instead.
 func (*CreateWorkspaceRequest) Descriptor() ([]byte, []int) {
-	return file_organization_proto_rawDescGZIP(), []int{59}
+	return file_organization_proto_rawDescGZIP(), []int{62}
 }
 
 func (x *CreateWorkspaceRequest) GetOrgId() string {
@@ -4032,7 +4212,7 @@ type CreateWorkspaceResponse struct {
 
 func (x *CreateWorkspaceResponse) Reset() {
 	*x = CreateWorkspaceResponse{}
-	mi := &file_organization_proto_msgTypes[60]
+	mi := &file_organization_proto_msgTypes[63]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4044,7 +4224,7 @@ func (x *CreateWorkspaceResponse) String() string {
 func (*CreateWorkspaceResponse) ProtoMessage() {}
 
 func (x *CreateWorkspaceResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_organization_proto_msgTypes[60]
+	mi := &file_organization_proto_msgTypes[63]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4057,7 +4237,7 @@ func (x *CreateWorkspaceResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateWorkspaceResponse.ProtoReflect.Descriptor instead.
 func (*CreateWorkspaceResponse) Descriptor() ([]byte, []int) {
-	return file_organization_proto_rawDescGZIP(), []int{60}
+	return file_organization_proto_rawDescGZIP(), []int{63}
 }
 
 func (x *CreateWorkspaceResponse) GetWorkspace() *Workspace {
@@ -4085,7 +4265,7 @@ type ListWorkspacesRequest struct {
 
 func (x *ListWorkspacesRequest) Reset() {
 	*x = ListWorkspacesRequest{}
-	mi := &file_organization_proto_msgTypes[61]
+	mi := &file_organization_proto_msgTypes[64]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4097,7 +4277,7 @@ func (x *ListWorkspacesRequest) String() string {
 func (*ListWorkspacesRequest) ProtoMessage() {}
 
 func (x *ListWorkspacesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_organization_proto_msgTypes[61]
+	mi := &file_organization_proto_msgTypes[64]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4110,7 +4290,7 @@ func (x *ListWorkspacesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListWorkspacesRequest.ProtoReflect.Descriptor instead.
 func (*ListWorkspacesRequest) Descriptor() ([]byte, []int) {
-	return file_organization_proto_rawDescGZIP(), []int{61}
+	return file_organization_proto_rawDescGZIP(), []int{64}
 }
 
 func (x *ListWorkspacesRequest) GetOrgId() string {
@@ -4143,7 +4323,7 @@ type ListWorkspacesResponse struct {
 
 func (x *ListWorkspacesResponse) Reset() {
 	*x = ListWorkspacesResponse{}
-	mi := &file_organization_proto_msgTypes[62]
+	mi := &file_organization_proto_msgTypes[65]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4155,7 +4335,7 @@ func (x *ListWorkspacesResponse) String() string {
 func (*ListWorkspacesResponse) ProtoMessage() {}
 
 func (x *ListWorkspacesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_organization_proto_msgTypes[62]
+	mi := &file_organization_proto_msgTypes[65]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4168,7 +4348,7 @@ func (x *ListWorkspacesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListWorkspacesResponse.ProtoReflect.Descriptor instead.
 func (*ListWorkspacesResponse) Descriptor() ([]byte, []int) {
-	return file_organization_proto_rawDescGZIP(), []int{62}
+	return file_organization_proto_rawDescGZIP(), []int{65}
 }
 
 func (x *ListWorkspacesResponse) GetWorkspaces() []*Workspace {
@@ -4176,6 +4356,310 @@ func (x *ListWorkspacesResponse) GetWorkspaces() []*Workspace {
 		return x.Workspaces
 	}
 	return nil
+}
+
+type GetWorkspaceRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	WorkspaceId   string                 `protobuf:"bytes,1,opt,name=workspace_id,json=workspaceId,proto3" json:"workspace_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetWorkspaceRequest) Reset() {
+	*x = GetWorkspaceRequest{}
+	mi := &file_organization_proto_msgTypes[66]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetWorkspaceRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetWorkspaceRequest) ProtoMessage() {}
+
+func (x *GetWorkspaceRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_organization_proto_msgTypes[66]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetWorkspaceRequest.ProtoReflect.Descriptor instead.
+func (*GetWorkspaceRequest) Descriptor() ([]byte, []int) {
+	return file_organization_proto_rawDescGZIP(), []int{66}
+}
+
+func (x *GetWorkspaceRequest) GetWorkspaceId() string {
+	if x != nil {
+		return x.WorkspaceId
+	}
+	return ""
+}
+
+type GetWorkspaceResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Workspace     *Workspace             `protobuf:"bytes,1,opt,name=workspace,proto3" json:"workspace,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetWorkspaceResponse) Reset() {
+	*x = GetWorkspaceResponse{}
+	mi := &file_organization_proto_msgTypes[67]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetWorkspaceResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetWorkspaceResponse) ProtoMessage() {}
+
+func (x *GetWorkspaceResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_organization_proto_msgTypes[67]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetWorkspaceResponse.ProtoReflect.Descriptor instead.
+func (*GetWorkspaceResponse) Descriptor() ([]byte, []int) {
+	return file_organization_proto_rawDescGZIP(), []int{67}
+}
+
+func (x *GetWorkspaceResponse) GetWorkspace() *Workspace {
+	if x != nil {
+		return x.Workspace
+	}
+	return nil
+}
+
+type UpdateWorkspaceRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	WorkspaceId   string                 `protobuf:"bytes,1,opt,name=workspace_id,json=workspaceId,proto3" json:"workspace_id,omitempty"`
+	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Description   string                 `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
+	WorkspaceType string                 `protobuf:"bytes,4,opt,name=workspace_type,json=workspaceType,proto3" json:"workspace_type,omitempty"`
+	Settings      string                 `protobuf:"bytes,5,opt,name=settings,proto3" json:"settings,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateWorkspaceRequest) Reset() {
+	*x = UpdateWorkspaceRequest{}
+	mi := &file_organization_proto_msgTypes[68]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateWorkspaceRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateWorkspaceRequest) ProtoMessage() {}
+
+func (x *UpdateWorkspaceRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_organization_proto_msgTypes[68]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateWorkspaceRequest.ProtoReflect.Descriptor instead.
+func (*UpdateWorkspaceRequest) Descriptor() ([]byte, []int) {
+	return file_organization_proto_rawDescGZIP(), []int{68}
+}
+
+func (x *UpdateWorkspaceRequest) GetWorkspaceId() string {
+	if x != nil {
+		return x.WorkspaceId
+	}
+	return ""
+}
+
+func (x *UpdateWorkspaceRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *UpdateWorkspaceRequest) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
+func (x *UpdateWorkspaceRequest) GetWorkspaceType() string {
+	if x != nil {
+		return x.WorkspaceType
+	}
+	return ""
+}
+
+func (x *UpdateWorkspaceRequest) GetSettings() string {
+	if x != nil {
+		return x.Settings
+	}
+	return ""
+}
+
+type UpdateWorkspaceResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Workspace     *Workspace             `protobuf:"bytes,1,opt,name=workspace,proto3" json:"workspace,omitempty"`
+	Message       string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateWorkspaceResponse) Reset() {
+	*x = UpdateWorkspaceResponse{}
+	mi := &file_organization_proto_msgTypes[69]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateWorkspaceResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateWorkspaceResponse) ProtoMessage() {}
+
+func (x *UpdateWorkspaceResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_organization_proto_msgTypes[69]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateWorkspaceResponse.ProtoReflect.Descriptor instead.
+func (*UpdateWorkspaceResponse) Descriptor() ([]byte, []int) {
+	return file_organization_proto_rawDescGZIP(), []int{69}
+}
+
+func (x *UpdateWorkspaceResponse) GetWorkspace() *Workspace {
+	if x != nil {
+		return x.Workspace
+	}
+	return nil
+}
+
+func (x *UpdateWorkspaceResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+type DeleteWorkspaceRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	WorkspaceId   string                 `protobuf:"bytes,1,opt,name=workspace_id,json=workspaceId,proto3" json:"workspace_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteWorkspaceRequest) Reset() {
+	*x = DeleteWorkspaceRequest{}
+	mi := &file_organization_proto_msgTypes[70]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteWorkspaceRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteWorkspaceRequest) ProtoMessage() {}
+
+func (x *DeleteWorkspaceRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_organization_proto_msgTypes[70]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteWorkspaceRequest.ProtoReflect.Descriptor instead.
+func (*DeleteWorkspaceRequest) Descriptor() ([]byte, []int) {
+	return file_organization_proto_rawDescGZIP(), []int{70}
+}
+
+func (x *DeleteWorkspaceRequest) GetWorkspaceId() string {
+	if x != nil {
+		return x.WorkspaceId
+	}
+	return ""
+}
+
+type DeleteWorkspaceResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Message       string                 `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteWorkspaceResponse) Reset() {
+	*x = DeleteWorkspaceResponse{}
+	mi := &file_organization_proto_msgTypes[71]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteWorkspaceResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteWorkspaceResponse) ProtoMessage() {}
+
+func (x *DeleteWorkspaceResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_organization_proto_msgTypes[71]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteWorkspaceResponse.ProtoReflect.Descriptor instead.
+func (*DeleteWorkspaceResponse) Descriptor() ([]byte, []int) {
+	return file_organization_proto_rawDescGZIP(), []int{71}
+}
+
+func (x *DeleteWorkspaceResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
 }
 
 var File_organization_proto protoreflect.FileDescriptor
@@ -4485,7 +4969,20 @@ const file_organization_proto_rawDesc = "" +
 	"\bgroup_id\x18\x01 \x01(\tR\agroupId\x12\x17\n" +
 	"\auser_id\x18\x02 \x01(\tR\x06userId\"5\n" +
 	"\x19RemoveGroupMemberResponse\x12\x18\n" +
-	"\amessage\x18\x01 \x01(\tR\amessage\"\x93\x03\n" +
+	"\amessage\x18\x01 \x01(\tR\amessage\"\xb9\x01\n" +
+	"\tOrgMember\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
+	"\tfull_name\x18\x02 \x01(\tR\bfullName\x12\x14\n" +
+	"\x05email\x18\x03 \x01(\tR\x05email\x12\x1a\n" +
+	"\busername\x18\x04 \x01(\tR\busername\x12\x12\n" +
+	"\x04role\x18\x05 \x01(\tR\x04role\x129\n" +
+	"\n" +
+	"created_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\".\n" +
+	"\x15ListOrgMembersRequest\x12\x15\n" +
+	"\x06org_id\x18\x01 \x01(\tR\x05orgId\"a\n" +
+	"\x16ListOrgMembersResponse\x121\n" +
+	"\amembers\x18\x01 \x03(\v2\x17.organization.OrgMemberR\amembers\x12\x14\n" +
+	"\x05total\x18\x02 \x01(\x05R\x05total\"\x93\x03\n" +
 	"\tWorkspace\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x15\n" +
 	"\x06org_id\x18\x02 \x01(\tR\x05orgId\x12\x12\n" +
@@ -4525,8 +5022,26 @@ const file_organization_proto_rawDesc = "" +
 	"\x16ListWorkspacesResponse\x127\n" +
 	"\n" +
 	"workspaces\x18\x01 \x03(\v2\x17.organization.WorkspaceR\n" +
-	"workspaces2\xdb\x1b\n" +
-	"\x13OrganizationService\x12\x80\x01\n" +
+	"workspaces\"8\n" +
+	"\x13GetWorkspaceRequest\x12!\n" +
+	"\fworkspace_id\x18\x01 \x01(\tR\vworkspaceId\"M\n" +
+	"\x14GetWorkspaceResponse\x125\n" +
+	"\tworkspace\x18\x01 \x01(\v2\x17.organization.WorkspaceR\tworkspace\"\xb4\x01\n" +
+	"\x16UpdateWorkspaceRequest\x12!\n" +
+	"\fworkspace_id\x18\x01 \x01(\tR\vworkspaceId\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12 \n" +
+	"\vdescription\x18\x03 \x01(\tR\vdescription\x12%\n" +
+	"\x0eworkspace_type\x18\x04 \x01(\tR\rworkspaceType\x12\x1a\n" +
+	"\bsettings\x18\x05 \x01(\tR\bsettings\"j\n" +
+	"\x17UpdateWorkspaceResponse\x125\n" +
+	"\tworkspace\x18\x01 \x01(\v2\x17.organization.WorkspaceR\tworkspace\x12\x18\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\";\n" +
+	"\x16DeleteWorkspaceRequest\x12!\n" +
+	"\fworkspace_id\x18\x01 \x01(\tR\vworkspaceId\"3\n" +
+	"\x17DeleteWorkspaceResponse\x12\x18\n" +
+	"\amessage\x18\x01 \x01(\tR\amessage2\x87 \n" +
+	"\x13OrganizationService\x12\x8b\x01\n" +
+	"\x0eListOrgMembers\x12#.organization.ListOrgMembersRequest\x1a$.organization.ListOrgMembersResponse\".\x82\xd3\xe4\x93\x02(\x12&/api/v1/organizations/{org_id}/members\x12\x80\x01\n" +
 	"\n" +
 	"CreateTeam\x12\x1f.organization.CreateTeamRequest\x1a .organization.CreateTeamResponse\"/\x82\xd3\xe4\x93\x02):\x01*\"$/api/v1/organizations/{org_id}/teams\x12g\n" +
 	"\aGetTeam\x12\x1c.organization.GetTeamRequest\x1a\x1d.organization.GetTeamResponse\"\x1f\x82\xd3\xe4\x93\x02\x19\x12\x17/api/v1/teams/{team_id}\x12z\n" +
@@ -4556,8 +5071,11 @@ const file_organization_proto_rawDesc = "" +
 	"\vDeleteGroup\x12 .organization.DeleteGroupRequest\x1a!.organization.DeleteGroupResponse\"!\x82\xd3\xe4\x93\x02\x1b*\x19/api/v1/groups/{group_id}\x12\x89\x01\n" +
 	"\x0eAddGroupMember\x12#.organization.AddGroupMemberRequest\x1a$.organization.AddGroupMemberResponse\",\x82\xd3\xe4\x93\x02&:\x01*\"!/api/v1/groups/{group_id}/members\x12\x99\x01\n" +
 	"\x11RemoveGroupMember\x12&.organization.RemoveGroupMemberRequest\x1a'.organization.RemoveGroupMemberResponse\"3\x82\xd3\xe4\x93\x02-*+/api/v1/groups/{group_id}/members/{user_id}\x12\x94\x01\n" +
-	"\x0fCreateWorkspace\x12$.organization.CreateWorkspaceRequest\x1a%.organization.CreateWorkspaceResponse\"4\x82\xd3\xe4\x93\x02.:\x01*\")/api/v1/organizations/{org_id}/workspaces\x12\x8e\x01\n" +
-	"\x0eListWorkspaces\x12#.organization.ListWorkspacesRequest\x1a$.organization.ListWorkspacesResponse\"1\x82\xd3\xe4\x93\x02+\x12)/api/v1/organizations/{org_id}/workspacesBEZCgithub.com/chanduchitikam/task-management-system/proto/organizationb\x06proto3"
+	"\x0fCreateWorkspace\x12$.organization.CreateWorkspaceRequest\x1a%.organization.CreateWorkspaceResponse\"4\x82\xd3\xe4\x93\x02.:\x01*\")/api/v1/organizations/{org_id}/workspaces\x12\x80\x01\n" +
+	"\fGetWorkspace\x12!.organization.GetWorkspaceRequest\x1a\".organization.GetWorkspaceResponse\")\x82\xd3\xe4\x93\x02#\x12!/api/v1/workspaces/{workspace_id}\x12\x8e\x01\n" +
+	"\x0eListWorkspaces\x12#.organization.ListWorkspacesRequest\x1a$.organization.ListWorkspacesResponse\"1\x82\xd3\xe4\x93\x02+\x12)/api/v1/organizations/{org_id}/workspaces\x12\x8c\x01\n" +
+	"\x0fUpdateWorkspace\x12$.organization.UpdateWorkspaceRequest\x1a%.organization.UpdateWorkspaceResponse\",\x82\xd3\xe4\x93\x02&:\x01*\x1a!/api/v1/workspaces/{workspace_id}\x12\x89\x01\n" +
+	"\x0fDeleteWorkspace\x12$.organization.DeleteWorkspaceRequest\x1a%.organization.DeleteWorkspaceResponse\")\x82\xd3\xe4\x93\x02#*!/api/v1/workspaces/{workspace_id}BEZCgithub.com/chanduchitikam/task-management-system/proto/organizationb\x06proto3"
 
 var (
 	file_organization_proto_rawDescOnce sync.Once
@@ -4571,7 +5089,7 @@ func file_organization_proto_rawDescGZIP() []byte {
 	return file_organization_proto_rawDescData
 }
 
-var file_organization_proto_msgTypes = make([]protoimpl.MessageInfo, 63)
+var file_organization_proto_msgTypes = make([]protoimpl.MessageInfo, 72)
 var file_organization_proto_goTypes = []any{
 	(*Team)(nil),                          // 0: organization.Team
 	(*TeamLead)(nil),                      // 1: organization.TeamLead
@@ -4631,109 +5149,130 @@ var file_organization_proto_goTypes = []any{
 	(*AddGroupMemberResponse)(nil),        // 55: organization.AddGroupMemberResponse
 	(*RemoveGroupMemberRequest)(nil),      // 56: organization.RemoveGroupMemberRequest
 	(*RemoveGroupMemberResponse)(nil),     // 57: organization.RemoveGroupMemberResponse
-	(*Workspace)(nil),                     // 58: organization.Workspace
-	(*CreateWorkspaceRequest)(nil),        // 59: organization.CreateWorkspaceRequest
-	(*CreateWorkspaceResponse)(nil),       // 60: organization.CreateWorkspaceResponse
-	(*ListWorkspacesRequest)(nil),         // 61: organization.ListWorkspacesRequest
-	(*ListWorkspacesResponse)(nil),        // 62: organization.ListWorkspacesResponse
-	(*timestamppb.Timestamp)(nil),         // 63: google.protobuf.Timestamp
+	(*OrgMember)(nil),                     // 58: organization.OrgMember
+	(*ListOrgMembersRequest)(nil),         // 59: organization.ListOrgMembersRequest
+	(*ListOrgMembersResponse)(nil),        // 60: organization.ListOrgMembersResponse
+	(*Workspace)(nil),                     // 61: organization.Workspace
+	(*CreateWorkspaceRequest)(nil),        // 62: organization.CreateWorkspaceRequest
+	(*CreateWorkspaceResponse)(nil),       // 63: organization.CreateWorkspaceResponse
+	(*ListWorkspacesRequest)(nil),         // 64: organization.ListWorkspacesRequest
+	(*ListWorkspacesResponse)(nil),        // 65: organization.ListWorkspacesResponse
+	(*GetWorkspaceRequest)(nil),           // 66: organization.GetWorkspaceRequest
+	(*GetWorkspaceResponse)(nil),          // 67: organization.GetWorkspaceResponse
+	(*UpdateWorkspaceRequest)(nil),        // 68: organization.UpdateWorkspaceRequest
+	(*UpdateWorkspaceResponse)(nil),       // 69: organization.UpdateWorkspaceResponse
+	(*DeleteWorkspaceRequest)(nil),        // 70: organization.DeleteWorkspaceRequest
+	(*DeleteWorkspaceResponse)(nil),       // 71: organization.DeleteWorkspaceResponse
+	(*timestamppb.Timestamp)(nil),         // 72: google.protobuf.Timestamp
 }
 var file_organization_proto_depIdxs = []int32{
-	63, // 0: organization.Team.created_at:type_name -> google.protobuf.Timestamp
-	63, // 1: organization.Team.updated_at:type_name -> google.protobuf.Timestamp
+	72, // 0: organization.Team.created_at:type_name -> google.protobuf.Timestamp
+	72, // 1: organization.Team.updated_at:type_name -> google.protobuf.Timestamp
 	1,  // 2: organization.Team.team_lead:type_name -> organization.TeamLead
 	2,  // 3: organization.Team.members:type_name -> organization.TeamMember
-	63, // 4: organization.TeamMember.joined_at:type_name -> google.protobuf.Timestamp
+	72, // 4: organization.TeamMember.joined_at:type_name -> google.protobuf.Timestamp
 	0,  // 5: organization.CreateTeamResponse.team:type_name -> organization.Team
 	0,  // 6: organization.GetTeamResponse.team:type_name -> organization.Team
 	0,  // 7: organization.ListTeamsResponse.teams:type_name -> organization.Team
 	0,  // 8: organization.UpdateTeamResponse.team:type_name -> organization.Team
 	2,  // 9: organization.AddTeamMemberResponse.member:type_name -> organization.TeamMember
 	2,  // 10: organization.ListTeamMembersResponse.members:type_name -> organization.TeamMember
-	63, // 11: organization.Project.created_at:type_name -> google.protobuf.Timestamp
-	63, // 12: organization.Project.updated_at:type_name -> google.protobuf.Timestamp
+	72, // 11: organization.Project.created_at:type_name -> google.protobuf.Timestamp
+	72, // 12: organization.Project.updated_at:type_name -> google.protobuf.Timestamp
 	20, // 13: organization.Project.project_manager:type_name -> organization.ProjectManager
 	21, // 14: organization.Project.teams:type_name -> organization.ProjectTeam
 	22, // 15: organization.Project.members:type_name -> organization.ProjectMember
-	63, // 16: organization.ProjectTeam.assigned_at:type_name -> google.protobuf.Timestamp
-	63, // 17: organization.ProjectMember.joined_at:type_name -> google.protobuf.Timestamp
+	72, // 16: organization.ProjectTeam.assigned_at:type_name -> google.protobuf.Timestamp
+	72, // 17: organization.ProjectMember.joined_at:type_name -> google.protobuf.Timestamp
 	19, // 18: organization.CreateProjectResponse.project:type_name -> organization.Project
 	19, // 19: organization.GetProjectResponse.project:type_name -> organization.Project
 	19, // 20: organization.ListProjectsResponse.projects:type_name -> organization.Project
 	19, // 21: organization.UpdateProjectResponse.project:type_name -> organization.Project
 	21, // 22: organization.AssignTeamToProjectResponse.project_team:type_name -> organization.ProjectTeam
 	22, // 23: organization.AddProjectMemberResponse.member:type_name -> organization.ProjectMember
-	63, // 24: organization.Group.created_at:type_name -> google.protobuf.Timestamp
-	63, // 25: organization.Group.updated_at:type_name -> google.protobuf.Timestamp
+	72, // 24: organization.Group.created_at:type_name -> google.protobuf.Timestamp
+	72, // 25: organization.Group.updated_at:type_name -> google.protobuf.Timestamp
 	42, // 26: organization.Group.owner:type_name -> organization.GroupOwner
 	43, // 27: organization.Group.members:type_name -> organization.GroupMember
-	63, // 28: organization.GroupMember.joined_at:type_name -> google.protobuf.Timestamp
+	72, // 28: organization.GroupMember.joined_at:type_name -> google.protobuf.Timestamp
 	41, // 29: organization.CreateGroupResponse.group:type_name -> organization.Group
 	41, // 30: organization.GetGroupResponse.group:type_name -> organization.Group
 	41, // 31: organization.ListGroupsResponse.groups:type_name -> organization.Group
 	41, // 32: organization.UpdateGroupResponse.group:type_name -> organization.Group
 	43, // 33: organization.AddGroupMemberResponse.member:type_name -> organization.GroupMember
-	63, // 34: organization.Workspace.created_at:type_name -> google.protobuf.Timestamp
-	63, // 35: organization.Workspace.updated_at:type_name -> google.protobuf.Timestamp
-	58, // 36: organization.CreateWorkspaceResponse.workspace:type_name -> organization.Workspace
-	58, // 37: organization.ListWorkspacesResponse.workspaces:type_name -> organization.Workspace
-	3,  // 38: organization.OrganizationService.CreateTeam:input_type -> organization.CreateTeamRequest
-	5,  // 39: organization.OrganizationService.GetTeam:input_type -> organization.GetTeamRequest
-	7,  // 40: organization.OrganizationService.ListTeams:input_type -> organization.ListTeamsRequest
-	9,  // 41: organization.OrganizationService.UpdateTeam:input_type -> organization.UpdateTeamRequest
-	11, // 42: organization.OrganizationService.DeleteTeam:input_type -> organization.DeleteTeamRequest
-	13, // 43: organization.OrganizationService.AddTeamMember:input_type -> organization.AddTeamMemberRequest
-	15, // 44: organization.OrganizationService.RemoveTeamMember:input_type -> organization.RemoveTeamMemberRequest
-	17, // 45: organization.OrganizationService.ListTeamMembers:input_type -> organization.ListTeamMembersRequest
-	23, // 46: organization.OrganizationService.CreateProject:input_type -> organization.CreateProjectRequest
-	25, // 47: organization.OrganizationService.GetProject:input_type -> organization.GetProjectRequest
-	27, // 48: organization.OrganizationService.ListProjects:input_type -> organization.ListProjectsRequest
-	29, // 49: organization.OrganizationService.UpdateProject:input_type -> organization.UpdateProjectRequest
-	31, // 50: organization.OrganizationService.DeleteProject:input_type -> organization.DeleteProjectRequest
-	33, // 51: organization.OrganizationService.AssignTeamToProject:input_type -> organization.AssignTeamToProjectRequest
-	35, // 52: organization.OrganizationService.RemoveTeamFromProject:input_type -> organization.RemoveTeamFromProjectRequest
-	37, // 53: organization.OrganizationService.AddProjectMember:input_type -> organization.AddProjectMemberRequest
-	39, // 54: organization.OrganizationService.RemoveProjectMember:input_type -> organization.RemoveProjectMemberRequest
-	44, // 55: organization.OrganizationService.CreateGroup:input_type -> organization.CreateGroupRequest
-	46, // 56: organization.OrganizationService.GetGroup:input_type -> organization.GetGroupRequest
-	48, // 57: organization.OrganizationService.ListGroups:input_type -> organization.ListGroupsRequest
-	50, // 58: organization.OrganizationService.UpdateGroup:input_type -> organization.UpdateGroupRequest
-	52, // 59: organization.OrganizationService.DeleteGroup:input_type -> organization.DeleteGroupRequest
-	54, // 60: organization.OrganizationService.AddGroupMember:input_type -> organization.AddGroupMemberRequest
-	56, // 61: organization.OrganizationService.RemoveGroupMember:input_type -> organization.RemoveGroupMemberRequest
-	59, // 62: organization.OrganizationService.CreateWorkspace:input_type -> organization.CreateWorkspaceRequest
-	61, // 63: organization.OrganizationService.ListWorkspaces:input_type -> organization.ListWorkspacesRequest
-	4,  // 64: organization.OrganizationService.CreateTeam:output_type -> organization.CreateTeamResponse
-	6,  // 65: organization.OrganizationService.GetTeam:output_type -> organization.GetTeamResponse
-	8,  // 66: organization.OrganizationService.ListTeams:output_type -> organization.ListTeamsResponse
-	10, // 67: organization.OrganizationService.UpdateTeam:output_type -> organization.UpdateTeamResponse
-	12, // 68: organization.OrganizationService.DeleteTeam:output_type -> organization.DeleteTeamResponse
-	14, // 69: organization.OrganizationService.AddTeamMember:output_type -> organization.AddTeamMemberResponse
-	16, // 70: organization.OrganizationService.RemoveTeamMember:output_type -> organization.RemoveTeamMemberResponse
-	18, // 71: organization.OrganizationService.ListTeamMembers:output_type -> organization.ListTeamMembersResponse
-	24, // 72: organization.OrganizationService.CreateProject:output_type -> organization.CreateProjectResponse
-	26, // 73: organization.OrganizationService.GetProject:output_type -> organization.GetProjectResponse
-	28, // 74: organization.OrganizationService.ListProjects:output_type -> organization.ListProjectsResponse
-	30, // 75: organization.OrganizationService.UpdateProject:output_type -> organization.UpdateProjectResponse
-	32, // 76: organization.OrganizationService.DeleteProject:output_type -> organization.DeleteProjectResponse
-	34, // 77: organization.OrganizationService.AssignTeamToProject:output_type -> organization.AssignTeamToProjectResponse
-	36, // 78: organization.OrganizationService.RemoveTeamFromProject:output_type -> organization.RemoveTeamFromProjectResponse
-	38, // 79: organization.OrganizationService.AddProjectMember:output_type -> organization.AddProjectMemberResponse
-	40, // 80: organization.OrganizationService.RemoveProjectMember:output_type -> organization.RemoveProjectMemberResponse
-	45, // 81: organization.OrganizationService.CreateGroup:output_type -> organization.CreateGroupResponse
-	47, // 82: organization.OrganizationService.GetGroup:output_type -> organization.GetGroupResponse
-	49, // 83: organization.OrganizationService.ListGroups:output_type -> organization.ListGroupsResponse
-	51, // 84: organization.OrganizationService.UpdateGroup:output_type -> organization.UpdateGroupResponse
-	53, // 85: organization.OrganizationService.DeleteGroup:output_type -> organization.DeleteGroupResponse
-	55, // 86: organization.OrganizationService.AddGroupMember:output_type -> organization.AddGroupMemberResponse
-	57, // 87: organization.OrganizationService.RemoveGroupMember:output_type -> organization.RemoveGroupMemberResponse
-	60, // 88: organization.OrganizationService.CreateWorkspace:output_type -> organization.CreateWorkspaceResponse
-	62, // 89: organization.OrganizationService.ListWorkspaces:output_type -> organization.ListWorkspacesResponse
-	64, // [64:90] is the sub-list for method output_type
-	38, // [38:64] is the sub-list for method input_type
-	38, // [38:38] is the sub-list for extension type_name
-	38, // [38:38] is the sub-list for extension extendee
-	0,  // [0:38] is the sub-list for field type_name
+	72, // 34: organization.OrgMember.created_at:type_name -> google.protobuf.Timestamp
+	58, // 35: organization.ListOrgMembersResponse.members:type_name -> organization.OrgMember
+	72, // 36: organization.Workspace.created_at:type_name -> google.protobuf.Timestamp
+	72, // 37: organization.Workspace.updated_at:type_name -> google.protobuf.Timestamp
+	61, // 38: organization.CreateWorkspaceResponse.workspace:type_name -> organization.Workspace
+	61, // 39: organization.ListWorkspacesResponse.workspaces:type_name -> organization.Workspace
+	61, // 40: organization.GetWorkspaceResponse.workspace:type_name -> organization.Workspace
+	61, // 41: organization.UpdateWorkspaceResponse.workspace:type_name -> organization.Workspace
+	59, // 42: organization.OrganizationService.ListOrgMembers:input_type -> organization.ListOrgMembersRequest
+	3,  // 43: organization.OrganizationService.CreateTeam:input_type -> organization.CreateTeamRequest
+	5,  // 44: organization.OrganizationService.GetTeam:input_type -> organization.GetTeamRequest
+	7,  // 45: organization.OrganizationService.ListTeams:input_type -> organization.ListTeamsRequest
+	9,  // 46: organization.OrganizationService.UpdateTeam:input_type -> organization.UpdateTeamRequest
+	11, // 47: organization.OrganizationService.DeleteTeam:input_type -> organization.DeleteTeamRequest
+	13, // 48: organization.OrganizationService.AddTeamMember:input_type -> organization.AddTeamMemberRequest
+	15, // 49: organization.OrganizationService.RemoveTeamMember:input_type -> organization.RemoveTeamMemberRequest
+	17, // 50: organization.OrganizationService.ListTeamMembers:input_type -> organization.ListTeamMembersRequest
+	23, // 51: organization.OrganizationService.CreateProject:input_type -> organization.CreateProjectRequest
+	25, // 52: organization.OrganizationService.GetProject:input_type -> organization.GetProjectRequest
+	27, // 53: organization.OrganizationService.ListProjects:input_type -> organization.ListProjectsRequest
+	29, // 54: organization.OrganizationService.UpdateProject:input_type -> organization.UpdateProjectRequest
+	31, // 55: organization.OrganizationService.DeleteProject:input_type -> organization.DeleteProjectRequest
+	33, // 56: organization.OrganizationService.AssignTeamToProject:input_type -> organization.AssignTeamToProjectRequest
+	35, // 57: organization.OrganizationService.RemoveTeamFromProject:input_type -> organization.RemoveTeamFromProjectRequest
+	37, // 58: organization.OrganizationService.AddProjectMember:input_type -> organization.AddProjectMemberRequest
+	39, // 59: organization.OrganizationService.RemoveProjectMember:input_type -> organization.RemoveProjectMemberRequest
+	44, // 60: organization.OrganizationService.CreateGroup:input_type -> organization.CreateGroupRequest
+	46, // 61: organization.OrganizationService.GetGroup:input_type -> organization.GetGroupRequest
+	48, // 62: organization.OrganizationService.ListGroups:input_type -> organization.ListGroupsRequest
+	50, // 63: organization.OrganizationService.UpdateGroup:input_type -> organization.UpdateGroupRequest
+	52, // 64: organization.OrganizationService.DeleteGroup:input_type -> organization.DeleteGroupRequest
+	54, // 65: organization.OrganizationService.AddGroupMember:input_type -> organization.AddGroupMemberRequest
+	56, // 66: organization.OrganizationService.RemoveGroupMember:input_type -> organization.RemoveGroupMemberRequest
+	62, // 67: organization.OrganizationService.CreateWorkspace:input_type -> organization.CreateWorkspaceRequest
+	66, // 68: organization.OrganizationService.GetWorkspace:input_type -> organization.GetWorkspaceRequest
+	64, // 69: organization.OrganizationService.ListWorkspaces:input_type -> organization.ListWorkspacesRequest
+	68, // 70: organization.OrganizationService.UpdateWorkspace:input_type -> organization.UpdateWorkspaceRequest
+	70, // 71: organization.OrganizationService.DeleteWorkspace:input_type -> organization.DeleteWorkspaceRequest
+	60, // 72: organization.OrganizationService.ListOrgMembers:output_type -> organization.ListOrgMembersResponse
+	4,  // 73: organization.OrganizationService.CreateTeam:output_type -> organization.CreateTeamResponse
+	6,  // 74: organization.OrganizationService.GetTeam:output_type -> organization.GetTeamResponse
+	8,  // 75: organization.OrganizationService.ListTeams:output_type -> organization.ListTeamsResponse
+	10, // 76: organization.OrganizationService.UpdateTeam:output_type -> organization.UpdateTeamResponse
+	12, // 77: organization.OrganizationService.DeleteTeam:output_type -> organization.DeleteTeamResponse
+	14, // 78: organization.OrganizationService.AddTeamMember:output_type -> organization.AddTeamMemberResponse
+	16, // 79: organization.OrganizationService.RemoveTeamMember:output_type -> organization.RemoveTeamMemberResponse
+	18, // 80: organization.OrganizationService.ListTeamMembers:output_type -> organization.ListTeamMembersResponse
+	24, // 81: organization.OrganizationService.CreateProject:output_type -> organization.CreateProjectResponse
+	26, // 82: organization.OrganizationService.GetProject:output_type -> organization.GetProjectResponse
+	28, // 83: organization.OrganizationService.ListProjects:output_type -> organization.ListProjectsResponse
+	30, // 84: organization.OrganizationService.UpdateProject:output_type -> organization.UpdateProjectResponse
+	32, // 85: organization.OrganizationService.DeleteProject:output_type -> organization.DeleteProjectResponse
+	34, // 86: organization.OrganizationService.AssignTeamToProject:output_type -> organization.AssignTeamToProjectResponse
+	36, // 87: organization.OrganizationService.RemoveTeamFromProject:output_type -> organization.RemoveTeamFromProjectResponse
+	38, // 88: organization.OrganizationService.AddProjectMember:output_type -> organization.AddProjectMemberResponse
+	40, // 89: organization.OrganizationService.RemoveProjectMember:output_type -> organization.RemoveProjectMemberResponse
+	45, // 90: organization.OrganizationService.CreateGroup:output_type -> organization.CreateGroupResponse
+	47, // 91: organization.OrganizationService.GetGroup:output_type -> organization.GetGroupResponse
+	49, // 92: organization.OrganizationService.ListGroups:output_type -> organization.ListGroupsResponse
+	51, // 93: organization.OrganizationService.UpdateGroup:output_type -> organization.UpdateGroupResponse
+	53, // 94: organization.OrganizationService.DeleteGroup:output_type -> organization.DeleteGroupResponse
+	55, // 95: organization.OrganizationService.AddGroupMember:output_type -> organization.AddGroupMemberResponse
+	57, // 96: organization.OrganizationService.RemoveGroupMember:output_type -> organization.RemoveGroupMemberResponse
+	63, // 97: organization.OrganizationService.CreateWorkspace:output_type -> organization.CreateWorkspaceResponse
+	67, // 98: organization.OrganizationService.GetWorkspace:output_type -> organization.GetWorkspaceResponse
+	65, // 99: organization.OrganizationService.ListWorkspaces:output_type -> organization.ListWorkspacesResponse
+	69, // 100: organization.OrganizationService.UpdateWorkspace:output_type -> organization.UpdateWorkspaceResponse
+	71, // 101: organization.OrganizationService.DeleteWorkspace:output_type -> organization.DeleteWorkspaceResponse
+	72, // [72:102] is the sub-list for method output_type
+	42, // [42:72] is the sub-list for method input_type
+	42, // [42:42] is the sub-list for extension type_name
+	42, // [42:42] is the sub-list for extension extendee
+	0,  // [0:42] is the sub-list for field type_name
 }
 
 func init() { file_organization_proto_init() }
@@ -4747,7 +5286,7 @@ func file_organization_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_organization_proto_rawDesc), len(file_organization_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   63,
+			NumMessages:   72,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

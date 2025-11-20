@@ -291,13 +291,13 @@
     },
     "/api/v1/organizations/{orgId}/members": {
       "get": {
-        "summary": "List organization members (org admin or super admin)",
-        "operationId": "UserService_ListOrganizationMembers",
+        "summary": "Organization Member Management",
+        "operationId": "OrganizationService_ListOrgMembers",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/userListOrganizationMembersResponse"
+              "$ref": "#/definitions/organizationListOrgMembersResponse"
             }
           },
           "default": {
@@ -316,44 +316,7 @@
           }
         ],
         "tags": [
-          "UserService"
-        ]
-      },
-      "post": {
-        "summary": "Create organization member directly (org admin or super admin)\nAuto-generates username and one-time password",
-        "operationId": "UserService_CreateOrganizationMember",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/userCreateOrganizationMemberResponse"
-            }
-          },
-          "default": {
-            "description": "An unexpected error response.",
-            "schema": {
-              "$ref": "#/definitions/rpcStatus"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "orgId",
-            "in": "path",
-            "required": true,
-            "type": "string"
-          },
-          {
-            "name": "body",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "$ref": "#/definitions/UserServiceCreateOrganizationMemberBody"
-            }
-          }
-        ],
-        "tags": [
-          "UserService"
+          "OrganizationService"
         ]
       }
     },
@@ -2207,6 +2170,100 @@
           "OrganizationService"
         ]
       }
+    },
+    "/api/v1/workspaces/{workspaceId}": {
+      "get": {
+        "operationId": "OrganizationService_GetWorkspace",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/organizationGetWorkspaceResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "OrganizationService"
+        ]
+      },
+      "delete": {
+        "operationId": "OrganizationService_DeleteWorkspace",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/organizationDeleteWorkspaceResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "OrganizationService"
+        ]
+      },
+      "put": {
+        "operationId": "OrganizationService_UpdateWorkspace",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/organizationUpdateWorkspaceResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/OrganizationServiceUpdateWorkspaceBody"
+            }
+          }
+        ],
+        "tags": [
+          "OrganizationService"
+        ]
+      }
     }
   },
   "definitions": {
@@ -3509,6 +3566,23 @@
         }
       }
     },
+    "OrganizationServiceUpdateWorkspaceBody": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "workspaceType": {
+          "type": "string"
+        },
+        "settings": {
+          "type": "string"
+        }
+      }
+    },
     "organizationAddGroupMemberResponse": {
       "type": "object",
       "properties": {
@@ -3621,6 +3695,14 @@
         }
       }
     },
+    "organizationDeleteWorkspaceResponse": {
+      "type": "object",
+      "properties": {
+        "message": {
+          "type": "string"
+        }
+      }
+    },
     "organizationGetGroupResponse": {
       "type": "object",
       "properties": {
@@ -3642,6 +3724,14 @@
       "properties": {
         "team": {
           "$ref": "#/definitions/organizationTeam"
+        }
+      }
+    },
+    "organizationGetWorkspaceResponse": {
+      "type": "object",
+      "properties": {
+        "workspace": {
+          "$ref": "#/definitions/organizationWorkspace"
         }
       }
     },
@@ -3772,6 +3862,22 @@
         }
       }
     },
+    "organizationListOrgMembersResponse": {
+      "type": "object",
+      "properties": {
+        "members": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/organizationOrgMember"
+          }
+        },
+        "total": {
+          "type": "integer",
+          "format": "int32"
+        }
+      }
+    },
     "organizationListProjectsResponse": {
       "type": "object",
       "properties": {
@@ -3841,6 +3947,30 @@
             "type": "object",
             "$ref": "#/definitions/organizationWorkspace"
           }
+        }
+      }
+    },
+    "organizationOrgMember": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "fullName": {
+          "type": "string"
+        },
+        "email": {
+          "type": "string"
+        },
+        "username": {
+          "type": "string"
+        },
+        "role": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
         }
       }
     },
@@ -4176,6 +4306,17 @@
       "properties": {
         "team": {
           "$ref": "#/definitions/organizationTeam"
+        },
+        "message": {
+          "type": "string"
+        }
+      }
+    },
+    "organizationUpdateWorkspaceResponse": {
+      "type": "object",
+      "properties": {
+        "workspace": {
+          "$ref": "#/definitions/organizationWorkspace"
         },
         "message": {
           "type": "string"

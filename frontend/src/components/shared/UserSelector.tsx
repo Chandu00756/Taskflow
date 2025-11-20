@@ -34,16 +34,29 @@ export function UserSelector({
 }: UserSelectorProps) {
     const [searchQuery, setSearchQuery] = useState('');
 
-    const { data: membersData, isLoading } = useQuery({
+    const { data: membersData, isLoading, error } = useQuery({
         queryKey: ['org-members', orgId],
         queryFn: async () => {
+            if (!orgId) {
+                throw new Error('No organization ID provided');
+            }
             const response = await apiClient.get(`/api/v1/organizations/${orgId}/members`);
             return response as { members: User[] };
         },
         enabled: !!orgId,
+        retry: false,
     });
 
     const members = membersData?.members || [];
+
+    if (error) {
+        return (
+            <div className="py-4 text-center">
+                <p className="text-red-500 font-medium">Failed to load users</p>
+                <p className="text-sm text-slate-500 mt-1">{error instanceof Error ? error.message : 'Unknown error'}</p>
+            </div>
+        );
+    }
 
     // Filter out excluded users and apply search
     const filteredUsers = members.filter(user => {
@@ -108,9 +121,18 @@ export function UserSelector({
                 </AnimatePresence>
             </div>
 
-            {filteredUsers.length === 0 && (
+            {filteredUsers.length === 0 && !isLoading && (
                 <div className="text-center py-8 text-slate-500">
-                    {searchQuery ? 'No users found matching your search' : 'No available users'}
+                    {searchQuery ? (
+                        <p>No users found matching your search</p>
+                    ) : excludeUserIds.length > 0 && members.length > 0 ? (
+                        <>
+                            <p className="font-medium">All organization members are already assigned</p>
+                            <p className="text-sm mt-1">Invite new users to add more members</p>
+                        </>
+                    ) : (
+                        <p>No available users</p>
+                    )}
                 </div>
             )}
 

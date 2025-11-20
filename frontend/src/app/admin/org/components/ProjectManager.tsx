@@ -308,6 +308,7 @@ export function ProjectManager({ orgId }: ProjectManagerProps) {
                                 {project.end_date && <div><span className="font-medium">End:</span> {project.end_date}</div>}
                                 {project.budget && <div><span className="font-medium">Budget:</span> ${project.budget.toLocaleString()}</div>}
                                 <div className="flex items-center gap-1"><TrendingUp className="h-4 w-4" />{project.team_count} teams</div>
+                                <div className="flex items-center gap-1"><UserPlus className="h-4 w-4" />{project.member_count || 0} members</div>
                             </div>
                         </CardContent>
                     </Card>
