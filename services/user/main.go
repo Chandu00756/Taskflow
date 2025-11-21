@@ -21,6 +21,7 @@ import (
 	userpb "github.com/chanduchitikam/task-management-system/proto/user"
 	"github.com/chanduchitikam/task-management-system/services/user/models"
 	"github.com/chanduchitikam/task-management-system/services/user/service"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 	"gorm.io/gorm"
@@ -85,6 +86,9 @@ func main() {
 	// Start a simple HTTP API for invite operations
 	go func() {
 		httpMux := http.NewServeMux()
+
+		// Metrics endpoint
+		httpMux.Handle("/metrics", promhttp.Handler())
 
 		// Create org user (org admin only) -> create invite (secure)
 		httpMux.HandleFunc("/api/v1/orgs/users", func(w http.ResponseWriter, r *http.Request) {

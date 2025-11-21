@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"net/http"
 
 	"github.com/chanduchitikam/task-management-system/pkg/cache"
 	"github.com/chanduchitikam/task-management-system/pkg/config"
@@ -11,6 +12,7 @@ import (
 	taskpb "github.com/chanduchitikam/task-management-system/proto/task"
 	"github.com/chanduchitikam/task-management-system/services/task/models"
 	"github.com/chanduchitikam/task-management-system/services/task/service"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 )
@@ -52,6 +54,17 @@ func main() {
 
 	// 	// 	// Register reflection
 	reflection.Register(grpcServer)
+
+	// Start HTTP server for metrics
+	go func() {
+		mux := http.NewServeMux()
+		mux.Handle("/metrics", promhttp.Handler())
+		metricsAddr := ":9093"
+		log.Printf("TaskService metrics server listening on %s", metricsAddr)
+		if err := http.ListenAndServe(metricsAddr, mux); err != nil {
+			log.Fatalf("Failed to start metrics server: %v", err)
+		}
+	}()
 
 	// 	// 	// Start listening (use different port from UserService)
 	port := cfg.Server.GRPCPort + 1 // 50052

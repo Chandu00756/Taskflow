@@ -17,6 +17,7 @@ import (
 	taskpb "github.com/chanduchitikam/task-management-system/proto/task"
 	userpb "github.com/chanduchitikam/task-management-system/proto/user"
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -151,6 +152,13 @@ func main() {
 		if err2 := organizationpb.RegisterOrganizationServiceHandlerFromEndpoint(ctx, mux, dnsAddr, opts); err2 != nil {
 			log.Fatalf("Failed to register OrganizationService (attempts: %v, %v): %v", err, err2, err2)
 		}
+	}
+
+	// Register metrics endpoint
+	if err := mux.HandlePath("GET", "/metrics", func(w http.ResponseWriter, r *http.Request, pathParams map[string]string) {
+		promhttp.Handler().ServeHTTP(w, r)
+	}); err != nil {
+		log.Fatalf("Failed to register /metrics endpoint: %v", err)
 	}
 
 	// 	// 	// Add CORS middleware
