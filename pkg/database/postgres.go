@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 
 	_ "github.com/lib/pq"
 	"gorm.io/driver/postgres"
@@ -32,9 +33,10 @@ func NewPostgresConnection(dsn string) (*gorm.DB, error) {
 		return nil, fmt.Errorf("failed to get database instance: %w", err)
 	}
 
-	// 	// 	// Set connection pool settings
-	sqlDB.SetMaxIdleConns(10)
-	sqlDB.SetMaxOpenConns(100)
+	// Pool sizes are configurable so several services can share one
+	// Postgres without exhausting max_connections.
+	sqlDB.SetMaxIdleConns(EnvInt("DB_MAX_IDLE_CONNS", 10))
+	sqlDB.SetMaxOpenConns(EnvInt("DB_MAX_OPEN_CONNS", 100))
 
 	log.Println("Database connection established successfully")
 	return db, nil
@@ -53,8 +55,10 @@ func Connect() (*sql.DB, error) {
 	password := getEnv("DB_PASSWORD", "postgres")
 	dbname := getEnv("DB_NAME", "taskmanagement")
 
-	dsn := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
-		host, port, user, password, dbname)
+	sslmode := getEnv("DB_SSLMODE", "disable")
+
+	dsn := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=%s",
+		host, port, user, password, dbname, sslmode)
 
 	db, err := sql.Open("postgres", dsn)
 	if err != nil {
@@ -65,8 +69,8 @@ func Connect() (*sql.DB, error) {
 		return nil, fmt.Errorf("failed to ping database: %w", err)
 	}
 
-	db.SetMaxIdleConns(10)
-	db.SetMaxOpenConns(100)
+	db.SetMaxIdleConns(EnvInt("DB_MAX_IDLE_CONNS", 10))
+	db.SetMaxOpenConns(EnvInt("DB_MAX_OPEN_CONNS", 100))
 
 	log.Println("Database connection established successfully")
 	return db, nil
@@ -77,4 +81,12 @@ func getEnv(key, defaultValue string) string {
 		return value
 	}
 	return defaultValue
+}
+
+// EnvInt reads a positive integer setting, falling back when unset or invalid.
+func EnvInt(key string, fallback int) int {
+	if n, err := strconv.Atoi(os.Getenv(key)); err == nil && n > 0 {
+		return n
+	}
+	return fallback
 }

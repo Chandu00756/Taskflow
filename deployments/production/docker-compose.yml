@@ -1,0 +1,244 @@
+# Production stack for a single server (e.g. Oracle Cloud Always Free).
+#
+#   cd deployments/production
+#   cp .env.example .env   # then fill it in (setup-server.sh does this for you)
+#   docker compose up -d --build
+#
+# Only Caddy is reachable from the internet. It obtains HTTPS certificates
+# automatically and routes /api to the gateway and everything else to the
+# web app. Postgres, Redis and the services stay on the private network.
+name: taskflow
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+x-db-env: &db-env
+  DB_HOST: postgres
+  DB_PORT: "5432"
+  DB_USER: taskflow
+  DB_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+  DB_NAME: taskflow
+  DB_SSLMODE: disable
+  JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
+  ENVIRONMENT: production
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: taskflow
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: taskflow
+    # Five services share this database; keep the pools below max_connections.
+    command: ["postgres", "-c", "max_connections=200", "-c", "shared_buffers=512MB", "-c", "effective_cache_size=2GB"]
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U taskflow -d taskflow"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+    logging: *logging
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    logging: *logging
+
+  user-service:
+    build:
+      context: ../..
+      dockerfile: deployments/docker/Dockerfile.user
+    environment:
+      <<: *db-env
+      GRPC_PORT: "50051"
+      DB_MAX_OPEN_CONNS: "25"
+      SUPER_ADMIN_EMAIL: ${SUPER_ADMIN_EMAIL:?set SUPER_ADMIN_EMAIL in .env}
+      SUPER_ADMIN_PASSWORD: ${SUPER_ADMIN_PASSWORD:?set SUPER_ADMIN_PASSWORD in .env}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    logging: *logging
+
+  task-service:
+    build:
+      context: ../..
+      dockerfile: deployments/docker/Dockerfile.task
+    environment:
+      <<: *db-env
+      GRPC_PORT: "50051"
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      DB_MAX_OPEN_CONNS: "20"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    logging: *logging
+
+  notification-service:
+    build:
+      context: ../..
+      dockerfile: deployments/docker/Dockerfile.notification
+    environment:
+      <<: *db-env
+      GRPC_PORT: "50051"
+      HTTP_PORT: "8080"
+      DB_MAX_OPEN_CONNS: "20"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    logging: *logging
+
+  org-service:
+    build:
+      context: ../..
+      dockerfile: deployments/docker/Dockerfile.org
+    environment:
+      <<: *db-env
+      GRPC_PORT: "50054"
+      DB_MAX_OPEN_CONNS: "20"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    logging: *logging
+
+  itsm-service:
+    build:
+      context: ../..
+      dockerfile: deployments/docker/Dockerfile.itsm
+    environment:
+      <<: *db-env
+      ITSM_HTTP_PORT: "8090"
+      DB_MAX_OPEN_CONNS: "40"
+      PUBLIC_URL: https://${DOMAIN:?set DOMAIN in .env}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+      MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-15}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      user-service:
+        condition: service_started
+    restart: unless-stopped
+    logging: *logging
+
+  api-gateway:
+    build:
+      context: ../..
+      dockerfile: deployments/docker/Dockerfile.gateway
+    environment:
+      HTTP_PORT: "8080"
+      USER_SERVICE_ADDR: user-service:50051
+      TASK_SERVICE_ADDR: task-service:50052
+      NOTIFICATION_SERVICE_ADDR: notification-service:50053
+      ORG_SERVICE_ADDR: org-service:50054
+      ITSM_SERVICE_URL: http://itsm-service:8090
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
+      CORS_ALLOWED_ORIGINS: https://${DOMAIN}
+      # Caddy sets X-Forwarded-For, so rate limits apply per real client.
+      TRUST_PROXY_HEADERS: "true"
+      RATE_LIMIT_RPS: ${RATE_LIMIT_RPS:-50}
+      RATE_LIMIT_BURST: ${RATE_LIMIT_BURST:-100}
+    depends_on:
+      - user-service
+      - task-service
+      - notification-service
+      - org-service
+      - itsm-service
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+    restart: unless-stopped
+    logging: *logging
+
+  web:
+    build:
+      context: ../../frontend
+      args:
+        # The browser calls the API on the same origin; Caddy routes /api.
+        NEXT_PUBLIC_API_URL: https://${DOMAIN}
+        NEXT_PUBLIC_WS_URL: wss://${DOMAIN}
+    depends_on:
+      - api-gateway
+    restart: unless-stopped
+    logging: *logging
+
+  caddy:
+    image: caddy:2-alpine
+    environment:
+      DOMAIN: ${DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL:?set ACME_EMAIL in .env}
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+      - "${HTTPS_PORT:-443}:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      api-gateway:
+        condition: service_healthy
+      web:
+        condition: service_started
+    restart: unless-stopped
+    logging: *logging
+
+  # Nightly compressed database dump into ./backups, kept for 14 days.
+  db-backup:
+    image: postgres:16-alpine
+    environment:
+      PGHOST: postgres
+      PGUSER: taskflow
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      PGDATABASE: taskflow
+      KEEP_DAYS: ${BACKUP_KEEP_DAYS:-14}
+    volumes:
+      - ./backups:/backups
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        while true; do
+          f=/backups/taskflow-$$(date +%Y%m%d-%H%M%S).sql.gz
+          if pg_dump --no-owner --clean --if-exists | gzip > "$$f.tmp"; then
+            mv "$$f.tmp" "$$f" && echo "backup written: $$f"
+          else
+            rm -f "$$f.tmp"; echo "backup FAILED" >&2
+          fi
+          find /backups -name 'taskflow-*.sql.gz' -mtime +$$KEEP_DAYS -delete
+          sleep 86400
+        done
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    logging: *logging
+
+volumes:
+  postgres_data:
+  redis_data:
+  caddy_data:
+  caddy_config:

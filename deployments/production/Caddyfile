@@ -1,0 +1,25 @@
+# Caddy obtains and renews HTTPS certificates for {$DOMAIN} automatically
+# (Let's Encrypt). DNS for the domain must point at this server first.
+{
+	email {$ACME_EMAIL}
+}
+
+{$DOMAIN} {
+	encode zstd gzip
+
+	# API, health checks and avatars go to the gateway; the gateway's
+	# /metrics endpoint is deliberately not exposed.
+	@api path /api/* /health /healthz /ready
+	handle @api {
+		reverse_proxy api-gateway:8080
+	}
+
+	handle {
+		reverse_proxy web:3000
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		-Server
+	}
+}

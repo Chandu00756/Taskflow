@@ -15,6 +15,7 @@ import (
 
 	"github.com/chanduchitikam/task-management-system/pkg/auth"
 	"github.com/chanduchitikam/task-management-system/pkg/config"
+	"github.com/chanduchitikam/task-management-system/pkg/database"
 	"github.com/chanduchitikam/task-management-system/services/itsm/app"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -62,8 +63,8 @@ func main() {
 	if err != nil {
 		log.Fatalf("database handle: %v", err)
 	}
-	sqlDB.SetMaxOpenConns(50)
-	sqlDB.SetMaxIdleConns(10)
+	sqlDB.SetMaxOpenConns(database.EnvInt("DB_MAX_OPEN_CONNS", 50))
+	sqlDB.SetMaxIdleConns(database.EnvInt("DB_MAX_IDLE_CONNS", 10))
 	sqlDB.SetConnMaxLifetime(30 * time.Minute)
 
 	// The users table is owned by the user service; wait for it on fresh databases.

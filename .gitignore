@@ -66,3 +66,7 @@ docs/CODE_WALKTHROUGH/
 # OS generated files
 Thumbs.db
 third_party/googleapis/
+
+# Production secrets and database dumps
+deployments/production/.env
+deployments/production/backups/

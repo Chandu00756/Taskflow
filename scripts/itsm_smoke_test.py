@@ -15,6 +15,7 @@ existing organizations.
 import argparse
 import json
 import os
+import ssl
 import sys
 import time
 import urllib.error
@@ -23,6 +24,7 @@ import urllib.request
 import uuid
 
 BASE = "http://localhost:8080"
+SSL_CONTEXT = None
 FAILURES = []
 PASSES = 0
 
@@ -38,7 +40,7 @@ def call(method, path, token=None, body=None, headers=None, expect=None, raw=Fal
         req.add_header(k, v)
     for attempt in range(6):
         try:
-            with urllib.request.urlopen(req, timeout=30) as resp:
+            with urllib.request.urlopen(req, timeout=30, context=SSL_CONTEXT) as resp:
                 status, payload = resp.status, resp.read()
         except urllib.error.HTTPError as e:
             status, payload = e.code, e.read()
@@ -80,11 +82,14 @@ def login(email, password):
 
 
 def main():
-    global BASE
+    global BASE, SSL_CONTEXT
     ap = argparse.ArgumentParser()
     ap.add_argument("--base", default=BASE)
+    ap.add_argument("--insecure", action="store_true", help="accept self-signed HTTPS certificates (local trial runs)")
     args = ap.parse_args()
     BASE = args.base.rstrip("/")
+    if args.insecure:
+        SSL_CONTEXT = ssl._create_unverified_context()
     suffix = uuid.uuid4().hex[:8]
     domain = f"acme{suffix}.test"
     admin_email = f"admin@{domain}"

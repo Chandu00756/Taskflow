@@ -9,6 +9,10 @@ A production-ready, enterprise-grade task management platform built with microse
 > self-service portal. See **[docs/SERVICE_DESK.md](docs/SERVICE_DESK.md)** for
 > features, architecture, configuration, API and verification.
 >
+> Going live: **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)** puts the whole stack on
+> a free Oracle Cloud server at `https://taskflow.portalvii.com` with automatic
+> HTTPS and nightly backups (`deployments/production`).
+>
 > Quick start: `cp .env.example .env && docker compose up -d --build`, then
 > `cd frontend && npm install && npm run dev` and open http://localhost:3000.
 > Load demo data with `python3 scripts/seed_demo.py`; run the end-to-end check
