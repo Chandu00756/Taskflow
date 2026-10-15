@@ -111,7 +111,11 @@ func TestGetUser(t *testing.T) {
 	authCtx = context.WithValue(authCtx, "email", registerResp.User.Email)
 	authCtx = context.WithValue(authCtx, "role", roleStr)
 	// Use the actual OrgID created by registration (may be empty for no-org scenarios)
-	authCtx = context.WithValue(authCtx, "org_id", created.OrgID)
+	orgID := ""
+	if created.OrgID != nil {
+		orgID = *created.OrgID
+	}
+	authCtx = context.WithValue(authCtx, "org_id", orgID)
 
 	resp, err := service.GetUser(authCtx, getReq)
 	require.NoError(t, err)

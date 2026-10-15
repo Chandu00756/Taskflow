@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -30,6 +31,14 @@ func (s *UserService) SetSecurityQuestions(ctx context.Context, req *userpb.SetS
 	if len(req.Questions) != 3 {
 		return nil, status.Error(codes.InvalidArgument, "exactly 3 security questions required")
 	}
+	if caller := getStringFromContext(ctx, "user_id"); caller == "" || caller != req.UserId {
+		return nil, status.Error(codes.PermissionDenied, "you can only set your own security questions")
+	}
+	for _, q := range req.Questions {
+		if len(strings.TrimSpace(q.Answer)) < 2 {
+			return nil, status.Error(codes.InvalidArgument, "security answers must be at least 2 characters")
+		}
+	}
 
 	// Validate questions are from predefined list
 	questionTexts := make([]string, len(req.Questions))
@@ -49,7 +58,7 @@ func (s *UserService) SetSecurityQuestions(ctx context.Context, req *userpb.SetS
 	// Hash answers
 	securityQA := make([]SecurityQuestionAnswer, 3)
 	for i, q := range req.Questions {
-		answerHash, err := auth.HashPassword(q.Answer)
+		answerHash, err := auth.HashPassword(normalizeAnswer(q.Answer))
 		if err != nil {
 			return nil, status.Error(codes.Internal, "failed to hash security answer")
 		}
@@ -72,6 +81,9 @@ func (s *UserService) SetSecurityQuestions(ctx context.Context, req *userpb.SetS
 
 	// If user has temp password (must_change_password=true), set new permanent password
 	if user.MustChangePassword && req.NewPassword != "" {
+		if len(req.NewPassword) < 8 {
+			return nil, status.Error(codes.InvalidArgument, "new password must be at least 8 characters")
+		}
 		hashedPassword, err := auth.HashPassword(req.NewPassword)
 		if err != nil {
 			return nil, status.Error(codes.Internal, "failed to hash password")
@@ -102,6 +114,12 @@ func (s *UserService) ResetPassword(ctx context.Context, req *userpb.ResetPasswo
 	if req.OldPassword == "" || req.NewPassword == "" {
 		return nil, status.Error(codes.InvalidArgument, "old_password and new_password are required")
 	}
+	if caller := getStringFromContext(ctx, "user_id"); caller == "" || caller != req.UserId {
+		return nil, status.Error(codes.PermissionDenied, "you can only change your own password")
+	}
+	if len(req.NewPassword) < 8 {
+		return nil, status.Error(codes.InvalidArgument, "new password must be at least 8 characters")
+	}
 
 	// Get user
 	var user models.User
@@ -126,7 +144,7 @@ func (s *UserService) ResetPassword(ctx context.Context, req *userpb.ResetPasswo
 	}
 
 	// Update password
-	if err := s.db.Model(&user).Update("password", hashedPassword).Error; err != nil {
+	if err := s.db.Model(&user).Updates(map[string]interface{}{"password": hashedPassword, "must_change_password": false}).Error; err != nil {
 		return nil, status.Error(codes.Internal, "failed to update password")
 	}
 
@@ -176,8 +194,8 @@ func (s *UserService) ResetPasswordWithQuestions(ctx context.Context, req *userp
 			return nil, status.Error(codes.InvalidArgument, "missing security question answer")
 		}
 
-		// Verify answer
-		if err := auth.CheckPassword(answer, stored.AnswerHash); err != nil {
+		// Verify answer (answers are stored normalized; accept legacy exact-case hashes too)
+		if err := auth.CheckPassword(normalizeAnswer(answer), stored.AnswerHash); err != nil && auth.CheckPassword(answer, stored.AnswerHash) != nil {
 			// Increment failed attempts
 			s.db.Model(&user).Update("failed_login_attempts", gorm.Expr("failed_login_attempts + ?", 1))
 			return nil, status.Error(codes.Unauthenticated, "incorrect security answer")
@@ -210,6 +228,11 @@ func (s *UserService) ResetPasswordWithQuestions(ctx context.Context, req *userp
 func (s *UserService) AdminResetPassword(ctx context.Context, req *userpb.AdminResetPasswordRequest) (*userpb.AdminResetPasswordResponse, error) {
 	if req.OrgId == "" || req.UserId == "" {
 		return nil, status.Error(codes.InvalidArgument, "org_id and user_id are required")
+	}
+	callerRole := getStringFromContext(ctx, "role")
+	callerOrg := getStringFromContext(ctx, "org_id")
+	if !auth.IsPlatformAdmin(callerRole) && !(auth.IsOrgAdminRole(callerRole) && callerOrg == req.OrgId) {
+		return nil, status.Error(codes.PermissionDenied, "organization admin access required")
 	}
 
 	// Get user
@@ -255,4 +278,9 @@ func (s *UserService) AdminResetPassword(ctx context.Context, req *userpb.AdminR
 		NewTempPassword: tempPassword,
 		Message:         fmt.Sprintf("Password reset successfully for %s. Share the temporary password with the user.", user.FullName),
 	}, nil
+}
+
+// normalizeAnswer makes security answers case- and whitespace-insensitive.
+func normalizeAnswer(a string) string {
+	return strings.ToLower(strings.Join(strings.Fields(a), " "))
 }

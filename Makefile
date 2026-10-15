@@ -15,6 +15,10 @@ case "$1" in
     echo "Running tests..."
     ./scripts/test.sh
     ;;
+  smoke)
+    echo "Running end-to-end smoke test against ${2:-http://localhost:8080}..."
+    python3 scripts/itsm_smoke_test.py --base "${2:-http://localhost:8080}"
+    ;;
   load-test)
     echo "Running load tests..."
     ./scripts/load-test.sh
@@ -24,7 +28,10 @@ case "$1" in
     docker build -t task-management/user-service:latest -f deployments/docker/Dockerfile.user .
     docker build -t task-management/task-service:latest -f deployments/docker/Dockerfile.task .
     docker build -t task-management/notification-service:latest -f deployments/docker/Dockerfile.notification .
+    docker build -t task-management/org-service:latest -f deployments/docker/Dockerfile.org .
+    docker build -t task-management/itsm-service:latest -f deployments/docker/Dockerfile.itsm .
     docker build -t task-management/gateway:latest -f deployments/docker/Dockerfile.gateway .
+    docker build -t task-management/web:latest frontend
     ;;
   docker-up)
     echo "Starting services with Docker Compose..."
@@ -50,7 +57,7 @@ case "$1" in
     find . -name "*.pb.go" -delete
     ;;
   *)
-    echo "Usage: $0 {proto|build|test|load-test|docker-build|docker-up|docker-down|k8s-deploy|k8s-delete|clean}"
+    echo "Usage: $0 {proto|build|test|smoke [base-url]|load-test|docker-build|docker-up|docker-down|k8s-deploy|k8s-delete|clean}"
     exit 1
     ;;
 esac

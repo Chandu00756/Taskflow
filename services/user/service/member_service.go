@@ -87,7 +87,7 @@ func (s *UserService) validateOrgEmailDomain(email, orgID string) error {
 		return status.Error(codes.NotFound, "organization not found")
 	}
 
-	if org.Domain == "" {
+	if org.Domain == nil || *org.Domain == "" {
 		// If org doesn't have a domain set, allow any email
 		return nil
 	}
@@ -98,7 +98,7 @@ func (s *UserService) validateOrgEmailDomain(email, orgID string) error {
 		return status.Error(codes.InvalidArgument, "invalid email format")
 	}
 	emailDomain := strings.ToLower(parts[1])
-	orgDomain := strings.ToLower(org.Domain)
+	orgDomain := strings.ToLower(*org.Domain)
 
 	if emailDomain != orgDomain {
 		return status.Errorf(codes.InvalidArgument,

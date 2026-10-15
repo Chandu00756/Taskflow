@@ -43,6 +43,11 @@ func getStringFromContext(ctx context.Context, key string) string {
 	return ""
 }
 
+const (
+	maxFailedLogins = 5
+	lockoutDuration = 15 * time.Minute
+)
+
 // // // UserService implements the UserService gRPC service
 type UserService struct {
 	userpb.UnimplementedUserServiceServer
@@ -100,7 +105,7 @@ func (s *UserService) Register(ctx context.Context, req *userpb.RegisterRequest)
 				// No org exists: create one (unless DB doesn't have organizations table)
 				org = models.Organization{
 					Name:   strings.Split(domain, ".")[0],
-					Domain: domain,
+					Domain: &domain,
 				}
 				if err := s.db.Create(&org).Error; err != nil {
 					// If migrations not applied (tests), skip org creation
@@ -185,15 +190,31 @@ func (s *UserService) Login(ctx context.Context, req *userpb.LoginRequest) (*use
 		return nil, status.Error(codes.Internal, "failed to find user")
 	}
 
-	// Check if account is locked due to failed attempts 5 attempts = lock
-	if user.FailedLoginAttempts >= 5 {
-		return nil, status.Error(codes.PermissionDenied, "account locked due to too many failed login attempts. Contact your administrator.")
+	if !user.IsActive {
+		return nil, status.Error(codes.PermissionDenied, "this account has been deactivated. Contact your administrator.")
+	}
+	if user.OrgID != nil {
+		var org models.Organization
+		if err := s.db.Select("is_suspended").Where("id = ?", *user.OrgID).First(&org).Error; err == nil && org.IsSuspended {
+			return nil, status.Error(codes.PermissionDenied, "your organization has been suspended. Contact support.")
+		}
+	}
+
+	// Lock the account for a cooling-off period after repeated failures.
+	if user.LockedUntil != nil && user.LockedUntil.After(time.Now()) {
+		return nil, status.Errorf(codes.PermissionDenied, "account temporarily locked after too many failed attempts. Try again after %s or contact your administrator.", user.LockedUntil.UTC().Format(time.RFC1123))
 	}
 
 	// 	// 	// Check password
 	if err := auth.CheckPassword(req.Password, user.Password); err != nil {
-		// Increment failed login attempts
-		s.db.Model(&user).Update("failed_login_attempts", gorm.Expr("failed_login_attempts + ?", 1))
+		attempts := user.FailedLoginAttempts + 1
+		updates := map[string]interface{}{"failed_login_attempts": attempts}
+		if attempts >= maxFailedLogins {
+			until := time.Now().Add(lockoutDuration)
+			updates["locked_until"] = &until
+			updates["failed_login_attempts"] = 0
+		}
+		s.db.Model(&user).Updates(updates)
 		return nil, status.Error(codes.Unauthenticated, "invalid email or password")
 	}
 
@@ -203,6 +224,7 @@ func (s *UserService) Login(ctx context.Context, req *userpb.LoginRequest) (*use
 		"has_logged_in":         true,
 		"last_login":            &now,
 		"failed_login_attempts": 0,
+		"locked_until":          nil,
 	}
 	if err := s.db.Model(&user).Updates(updates).Error; err != nil {
 		// Log error but don't fail login
@@ -211,8 +233,6 @@ func (s *UserService) Login(ctx context.Context, req *userpb.LoginRequest) (*use
 
 	// Check if user needs to set security questions (one-time for all users)
 	mustSetSecurityQuestions := user.SecurityQuestions == "" || user.SecurityQuestions == "null"
-	fmt.Printf("🔐 Login - User: %s, SecurityQuestions value: '%s', IsEmpty: %v, MustSet: %v\n",
-		user.Email, user.SecurityQuestions, user.SecurityQuestions == "", mustSetSecurityQuestions)
 
 	// 	// 	// Generate tokens
 	tokenOrgID := ""
@@ -259,13 +279,13 @@ func (s *UserService) GetUser(ctx context.Context, req *userpb.GetUserRequest) (
 	var user models.User
 	var err error
 	// Global admin (seeded) allowed to fetch any user
-	isGlobalAdmin := roleStr == "admin" && callerOrg == "" && strings.ToLower(ctx.Value("email").(string)) == "admin@taskflow.com"
+	isGlobalAdmin := auth.IsPlatformAdmin(roleStr)
 	if isGlobalAdmin {
 		err = s.db.Where("id = ?", req.UserId).First(&user).Error
 	} else {
 		// Org admin or member: scope by org
 		// Org admins can fetch any user in their org; members only their own record
-		if roleStr == "admin" && callerOrg != "" {
+		if auth.IsOrgAdminRole(roleStr) && callerOrg != "" {
 			err = s.db.Where("id = ? AND org_id = ?", req.UserId, callerOrg).First(&user).Error
 		} else {
 			// member
@@ -307,11 +327,11 @@ func (s *UserService) UpdateUser(ctx context.Context, req *userpb.UpdateUserRequ
 
 	var user models.User
 	var err error
-	isGlobalAdmin := roleStr == "admin" && callerOrg == "" && strings.ToLower(ctx.Value("email").(string)) == "admin@taskflow.com"
+	isGlobalAdmin := auth.IsPlatformAdmin(roleStr)
 	if isGlobalAdmin {
 		err = s.db.Where("id = ?", req.UserId).First(&user).Error
 	} else {
-		if roleStr == "admin" && callerOrg != "" {
+		if auth.IsOrgAdminRole(roleStr) && callerOrg != "" {
 			// org admin may update users in same org
 			err = s.db.Where("id = ? AND org_id = ?", req.UserId, callerOrg).First(&user).Error
 		} else {
@@ -365,7 +385,6 @@ func (s *UserService) DeleteUser(ctx context.Context, req *userpb.DeleteUserRequ
 	// Require authentication context
 	roleVal := ctx.Value("role")
 	orgVal := ctx.Value("org_id")
-	emailVal := ctx.Value("email")
 	callerIDVal := ctx.Value("user_id")
 	if roleVal == nil || orgVal == nil || callerIDVal == nil {
 		return nil, status.Error(codes.Unauthenticated, "missing authentication context")
@@ -374,12 +393,12 @@ func (s *UserService) DeleteUser(ctx context.Context, req *userpb.DeleteUserRequ
 	callerOrg, _ := orgVal.(string)
 	callerID, _ := callerIDVal.(string)
 
-	isGlobalAdmin := roleStr == "admin" && callerOrg == "" && strings.ToLower(emailVal.(string)) == "admin@taskflow.com"
+	isGlobalAdmin := auth.IsPlatformAdmin(roleStr)
 
 	var result *gorm.DB
 	if isGlobalAdmin {
 		result = s.db.Where("id = ?", req.UserId).Delete(&models.User{})
-	} else if roleStr == "admin" && callerOrg != "" {
+	} else if auth.IsOrgAdminRole(roleStr) && callerOrg != "" {
 		result = s.db.Where("id = ? AND org_id = ?", req.UserId, callerOrg).Delete(&models.User{})
 	} else {
 		// member may delete only themselves
@@ -419,18 +438,16 @@ func (s *UserService) ListUsers(ctx context.Context, req *userpb.ListUsersReques
 	// Require authentication context and scope by org unless global admin
 	roleVal := ctx.Value("role")
 	orgVal := ctx.Value("org_id")
-	emailVal := ctx.Value("email")
 	if roleVal == nil || orgVal == nil {
 		return nil, status.Error(codes.Unauthenticated, "missing authentication context")
 	}
 	roleStr, _ := roleVal.(string)
 	callerOrg, _ := orgVal.(string)
-	emailStr, _ := emailVal.(string)
 
 	var users []models.User
 	query := s.db.Model(&models.User{})
 
-	isGlobalAdmin := roleStr == "admin" && callerOrg == "" && strings.ToLower(emailStr) == "admin@taskflow.com"
+	isGlobalAdmin := auth.IsPlatformAdmin(roleStr)
 	if !isGlobalAdmin {
 		// only list users in caller's org
 		query = query.Where("org_id = ?", callerOrg)
@@ -481,7 +498,7 @@ func (s *UserService) ValidateToken(ctx context.Context, req *userpb.ValidateTok
 	}
 
 	role := userpb.UserRole_USER_ROLE_MEMBER
-	if claims.Role == "admin" {
+	if auth.IsOrgAdminRole(claims.Role) || auth.IsPlatformAdmin(claims.Role) {
 		role = userpb.UserRole_USER_ROLE_ADMIN
 	}
 
@@ -496,7 +513,7 @@ func (s *UserService) ValidateToken(ctx context.Context, req *userpb.ValidateTok
 // // // Helper function to convert model to proto
 func (s *UserService) modelToProto(user *models.User) *userpb.User {
 	role := userpb.UserRole_USER_ROLE_MEMBER
-	if user.Role == "admin" {
+	if auth.IsOrgAdminRole(user.Role) || auth.IsPlatformAdmin(user.Role) {
 		role = userpb.UserRole_USER_ROLE_ADMIN
 	}
 
@@ -543,7 +560,7 @@ func (s *UserService) InviteUser(ctx context.Context, req *userpb.InviteRequest)
 	callerOrg, _ := orgVal.(string)
 	callerID, _ := userIDVal.(string)
 
-	if roleStr != "admin" || callerOrg != req.OrgId {
+	if !auth.IsOrgAdminRole(roleStr) || callerOrg != req.OrgId {
 		return nil, status.Error(codes.PermissionDenied, "only organization admins may invite users for this org")
 	}
 
@@ -646,16 +663,14 @@ func (s *UserService) ListInvites(ctx context.Context, req *userpb.ListInvitesRe
 	// permission check: caller must be org admin or global admin
 	roleVal := ctx.Value("role")
 	orgVal := ctx.Value("org_id")
-	emailVal := ctx.Value("email")
 	if roleVal == nil || orgVal == nil {
 		return nil, status.Error(codes.Unauthenticated, "missing authentication context")
 	}
 	roleStr, _ := roleVal.(string)
 	callerOrg, _ := orgVal.(string)
-	emailStr, _ := emailVal.(string)
 
-	isOrgAdmin := roleStr == "admin" && callerOrg == req.OrgId
-	isGlobalAdmin := roleStr == "admin" && callerOrg == "" && strings.ToLower(emailStr) == "admin@taskflow.com"
+	isOrgAdmin := auth.IsOrgAdminRole(roleStr) && callerOrg == req.OrgId
+	isGlobalAdmin := auth.IsPlatformAdmin(roleStr)
 	if !isOrgAdmin && !isGlobalAdmin {
 		return nil, status.Error(codes.PermissionDenied, "forbidden")
 	}
@@ -866,7 +881,7 @@ func (s *UserService) ListOrganizationMembers(ctx context.Context, req *userpb.L
 	orgID := getStringFromContext(ctx, "org_id")
 
 	// Allow org admin or super admin
-	isOrgAdmin := role == "org_admin" && orgID == req.OrgId
+	isOrgAdmin := auth.IsOrgAdminRole(role) && orgID == req.OrgId
 	isSuperAdmin := role == "super_admin"
 
 	if !isOrgAdmin && !isSuperAdmin {
@@ -909,7 +924,7 @@ func (s *UserService) RemoveOrganizationMember(ctx context.Context, req *userpb.
 	role := getStringFromContext(ctx, "role")
 	orgID := getStringFromContext(ctx, "org_id")
 
-	isOrgAdmin := role == "org_admin" && orgID == req.OrgId
+	isOrgAdmin := auth.IsOrgAdminRole(role) && orgID == req.OrgId
 	isSuperAdmin := role == "super_admin"
 
 	if !isOrgAdmin && !isSuperAdmin {

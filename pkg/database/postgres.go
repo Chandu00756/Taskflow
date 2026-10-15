@@ -14,8 +14,14 @@ import (
 
 // // // NewPostgresConnection creates a new PostgreSQL database connection
 func NewPostgresConnection(dsn string) (*gorm.DB, error) {
+	// SQL statements can contain credentials and personal data; only log them
+	// when explicitly requested.
+	level := logger.Warn
+	if os.Getenv("DB_LOG_QUERIES") == "true" {
+		level = logger.Info
+	}
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
-		Logger: logger.Default.LogMode(logger.Info),
+		Logger: logger.Default.LogMode(level),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to database: %w", err)

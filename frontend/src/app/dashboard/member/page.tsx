@@ -300,7 +300,7 @@ export default function MemberDashboard() {
                                             </div>
                                         ))}
                                         {myTeams.length === 0 && (
-                                            <p className="text-center py-8 text-slate-500">You haven't been assigned to any teams yet.</p>
+                                            <p className="text-center py-8 text-slate-500">You haven&apos;t been assigned to any teams yet.</p>
                                         )}
                                     </div>
                                 </CardContent>
@@ -319,7 +319,7 @@ export default function MemberDashboard() {
                                             </div>
                                         ))}
                                         {myProjects.length === 0 && (
-                                            <p className="text-center py-8 text-slate-500">You haven't been assigned to any projects yet.</p>
+                                            <p className="text-center py-8 text-slate-500">You haven&apos;t been assigned to any projects yet.</p>
                                         )}
                                     </div>
                                 </CardContent>
@@ -374,7 +374,7 @@ export default function MemberDashboard() {
                             <div className="col-span-2 text-center py-12">
                                 <FolderKanban className="mx-auto h-12 w-12 text-slate-300" />
                                 <h3 className="mt-4 text-lg font-medium text-slate-900">No projects yet</h3>
-                                <p className="mt-2 text-sm text-slate-500">You haven't been assigned to any projects</p>
+                                <p className="mt-2 text-sm text-slate-500">You haven&apos;t been assigned to any projects</p>
                             </div>
                         )}
                     </div>
@@ -401,7 +401,7 @@ export default function MemberDashboard() {
                             <div className="col-span-3 text-center py-12">
                                 <Users2 className="mx-auto h-12 w-12 text-slate-300" />
                                 <h3 className="mt-4 text-lg font-medium text-slate-900">No groups yet</h3>
-                                <p className="mt-2 text-sm text-slate-500">You haven't been added to any groups</p>
+                                <p className="mt-2 text-sm text-slate-500">You haven&apos;t been added to any groups</p>
                             </div>
                         )}
                     </div>
@@ -451,7 +451,7 @@ export default function MemberDashboard() {
                             <div className="col-span-3 text-center py-12">
                                 <Layers className="mx-auto h-12 w-12 text-slate-300" />
                                 <h3 className="mt-4 text-lg font-medium text-slate-900">No workspaces yet</h3>
-                                <p className="mt-2 text-sm text-slate-500">You don't have access to any workspaces</p>
+                                <p className="mt-2 text-sm text-slate-500">You don&apos;t have access to any workspaces</p>
                             </div>
                         )}
                     </div>
@@ -476,7 +476,7 @@ export default function MemberDashboard() {
                             <div className="text-center py-12">
                                 <CheckCircle2 className="mx-auto h-12 w-12 text-slate-300" />
                                 <h3 className="mt-4 text-lg font-medium text-slate-900">No tasks yet</h3>
-                                <p className="mt-2 text-sm text-slate-500">You don't have any assigned tasks</p>
+                                <p className="mt-2 text-sm text-slate-500">You don&apos;t have any assigned tasks</p>
                             </div>
                         )}
                     </div>

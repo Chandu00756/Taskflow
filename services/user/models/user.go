@@ -22,6 +22,10 @@ type User struct {
 	HasLoggedIn         bool       `gorm:"default:false" json:"has_logged_in"`
 	LastLogin           *time.Time `json:"last_login"`
 	FailedLoginAttempts int        `gorm:"default:0" json:"failed_login_attempts"`
+	LockedUntil         *time.Time `json:"locked_until,omitempty"`
+
+	// IsActive is false for deactivated accounts, which can no longer sign in.
+	IsActive bool `gorm:"not null;default:true" json:"is_active"`
 
 	// Security questions (JSON: [{question: "Q1", answer_hash: "hash1"}, ...])
 	SecurityQuestions string `gorm:"type:text" json:"security_questions,omitempty"`

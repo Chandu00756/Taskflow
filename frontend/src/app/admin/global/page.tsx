@@ -6,10 +6,12 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { 
   Building2, Users, Activity, TrendingUp, Shield, Search,
-  MoreVertical, UserCheck, Ban, Trash2, Eye, Server, BarChart3
+  UserCheck, Ban, Trash2, Eye, Server, BarChart3, CheckCircle2, Unlock, UserX, X, LogOut
 } from 'lucide-react';
 import { useAuthStore } from '@/store/auth';
 import { apiClient } from '@/lib/api';
+import { v2, parseApiError } from '@/lib/itsm/api';
+import { signOutState, useHydrated, useIdleLogout, useSignOut } from '@/components/desk/session';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -22,12 +24,15 @@ import { SystemHealthMonitor } from '@/components/admin/SystemHealth';
 interface Organization {
   id: string;
   name: string;
-  description?: string;
-  admin_count: number;
+  domain?: string | null;
+  description?: string | null;
   member_count: number;
-  task_count: number;
+  agent_count: number;
+  ticket_count: number;
+  open_tickets: number;
+  last_login?: string | null;
   created_at: string;
-  status: 'active' | 'suspended' | 'inactive';
+  status: 'active' | 'suspended';
 }
 
 interface GlobalUser {
@@ -36,23 +41,32 @@ interface GlobalUser {
   email: string;
   full_name: string;
   role: string;
-  org_id?: string;
-  org_name?: string;
+  org_id?: string | null;
+  org_name?: string | null;
+  last_login?: string | null;
   created_at: string;
-  status: 'active' | 'suspended';
+  status: 'active' | 'locked' | 'deactivated';
 }
+
+type UserAction = 'deactivate' | 'reactivate' | 'unlock';
 
 export default function GlobalAdminPage() {
   const router = useRouter();
+  const hydrated = useHydrated();
+  const signOut = useSignOut();
+  useIdleLogout(30);
   const { user, isAuthenticated, isSuperAdmin: isSuper, actualRole } = useAuthStore();
   const queryClient = useQueryClient();
   const [searchOrg, setSearchOrg] = useState('');
   const [searchUser, setSearchUser] = useState('');
+  const [userOrgFilter, setUserOrgFilter] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'overview' | 'organizations' | 'users' | 'analytics' | 'system'>('overview');
 
   useEffect(() => {
+    // The persisted session is only available after the first client render.
+    if (!hydrated) return;
     if (!isAuthenticated) {
-      router.replace('/login');
+      if (!signOutState.active) router.replace('/login?next=%2Fadmin%2Fglobal');
       return;
     }
     
@@ -62,20 +76,20 @@ export default function GlobalAdminPage() {
       toast.error('Unauthorized: Super Admin access only');
       router.replace('/dashboard');
     }
-  }, [isAuthenticated, isSuper, actualRole, router]);
+  }, [hydrated, isAuthenticated, isSuper, actualRole, router]);
 
   // Fetch organizations
   const orgsQuery = useQuery({
     queryKey: ['admin-organizations'],
-    queryFn: () => apiClient.get<{ organizations: Organization[] }>('/api/v1/admin/organizations'),
-    enabled: isAuthenticated && isSuper,
+    queryFn: () => v2.items<Organization>('/platform/organizations'),
+    enabled: hydrated && isAuthenticated && isSuper,
   });
 
   // Fetch all users
   const usersQuery = useQuery({
     queryKey: ['admin-users'],
-    queryFn: () => apiClient.get<{ users: GlobalUser[] }>('/api/v1/admin/users'),
-    enabled: isAuthenticated && isSuper,
+    queryFn: () => v2.items<GlobalUser>('/platform/users'),
+    enabled: hydrated && isAuthenticated && isSuper,
   });
 
   // Analytics
@@ -87,11 +101,11 @@ export default function GlobalAdminPage() {
       active_users_today: number;
       total_tasks: number;
     }>('/api/v1/admin/analytics'),
-    enabled: isAuthenticated && isSuper,
+    enabled: hydrated && isAuthenticated && isSuper,
   });
 
-  const organizations = orgsQuery.data?.organizations || [];
-  const users = usersQuery.data?.users || [];
+  const organizations = orgsQuery.data || [];
+  const users = usersQuery.data || [];
   const analytics = analyticsQuery.data || {
     total_organizations: organizations.length,
     total_users: users.length,
@@ -109,18 +123,32 @@ export default function GlobalAdminPage() {
   );
 
   const filteredUsers = users.filter(u =>
-    u.username.toLowerCase().includes(searchUser.toLowerCase()) ||
-    u.email.toLowerCase().includes(searchUser.toLowerCase()) ||
-    u.full_name.toLowerCase().includes(searchUser.toLowerCase())
+    (!userOrgFilter || u.org_id === userOrgFilter) && (
+      u.username.toLowerCase().includes(searchUser.toLowerCase()) ||
+      u.email.toLowerCase().includes(searchUser.toLowerCase()) ||
+      u.full_name.toLowerCase().includes(searchUser.toLowerCase())
+    )
   );
+  const filterOrgName = organizations.find((o) => o.id === userOrgFilter)?.name;
 
   const suspendOrgMutation = useMutation({
-    mutationFn: (orgId: string) => apiClient.post(`/api/v1/admin/organizations/${orgId}/suspend`, {}),
-    onSuccess: () => {
-      toast.success('Organization suspended');
+    mutationFn: ({ orgId, suspend }: { orgId: string; suspend: boolean }) =>
+      v2.post(`/platform/organizations/${orgId}/${suspend ? 'suspend' : 'activate'}`),
+    onSuccess: (_data, { suspend }) => {
+      toast.success(suspend ? 'Organization suspended' : 'Organization reactivated');
       queryClient.invalidateQueries({ queryKey: ['admin-organizations'] });
     },
-    onError: () => toast.error('Failed to suspend organization'),
+    onError: (err) => toast.error(parseApiError(err).message),
+  });
+
+  const userActionMutation = useMutation({
+    mutationFn: ({ userId, action }: { userId: string; action: UserAction }) =>
+      v2.post(`/platform/users/${userId}/${action}`),
+    onSuccess: (_data, { action }) => {
+      toast.success({ deactivate: 'User deactivated', reactivate: 'User reactivated', unlock: 'User unlocked' }[action]);
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+    },
+    onError: (err) => toast.error(parseApiError(err).message),
   });
 
   const deleteOrgMutation = useMutation({
@@ -128,11 +156,12 @@ export default function GlobalAdminPage() {
     onSuccess: () => {
       toast.success('Organization deleted');
       queryClient.invalidateQueries({ queryKey: ['admin-organizations'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
     },
-    onError: () => toast.error('Failed to delete organization'),
+    onError: (err) => toast.error(parseApiError(err).message),
   });
 
-  if (!isAuthenticated || !isSuper) {
+  if (!hydrated || !isAuthenticated || !isSuper) {
     return null;
   }
 
@@ -151,7 +180,13 @@ export default function GlobalAdminPage() {
                 <p className="text-sm text-slate-500">TaskFlow System Administration</p>
               </div>
             </div>
-            {/* Super admin doesn't need "Exit Admin Mode" - this IS their main interface */}
+            <div className="flex items-center gap-3">
+              {user?.email && <span className="hidden text-sm text-slate-500 sm:inline">{user.email}</span>}
+              <Button variant="outline" size="sm" onClick={() => signOut()}>
+                <LogOut className="mr-2 h-4 w-4" />
+                Sign out
+              </Button>
+            </div>
           </div>
         </div>
       </div>
@@ -273,11 +308,13 @@ export default function GlobalAdminPage() {
                       </div>
                       <div>
                         <h3 className="font-semibold text-slate-900">{org.name}</h3>
-                        <p className="text-sm text-slate-500">{org.description || 'No description'}</p>
-                        <div className="mt-1 flex gap-4 text-xs text-slate-400">
+                        <p className="text-sm text-slate-500">{org.description || org.domain || 'No description'}</p>
+                        <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-400">
                           <span>{org.member_count} members</span>
-                          <span>{org.task_count} tasks</span>
+                          <span>{org.agent_count} agents</span>
+                          <span>{org.ticket_count} tickets ({org.open_tickets} open)</span>
                           <span>Created {new Date(org.created_at).toLocaleDateString()}</span>
+                          {org.last_login && <span>Last sign-in {new Date(org.last_login).toLocaleDateString()}</span>}
                         </div>
                       </div>
                     </div>
@@ -285,19 +322,50 @@ export default function GlobalAdminPage() {
                       <Badge variant={org.status === 'active' ? 'default' : 'destructive'}>
                         {org.status}
                       </Badge>
-                      <Button variant="ghost" size="sm">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        title="View members"
+                        aria-label={`View members of ${org.name}`}
+                        onClick={() => {
+                          setUserOrgFilter(org.id);
+                          setActiveTab('users');
+                        }}
+                      >
                         <Eye className="h-4 w-4" />
                       </Button>
-                      <Button 
-                        variant="ghost" 
+                      {org.status === 'suspended' ? (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          title="Reactivate organization"
+                          aria-label={`Reactivate ${org.name}`}
+                          disabled={suspendOrgMutation.isPending}
+                          onClick={() => suspendOrgMutation.mutate({ orgId: org.id, suspend: false })}
+                        >
+                          <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          title="Suspend organization"
+                          aria-label={`Suspend ${org.name}`}
+                          disabled={suspendOrgMutation.isPending}
+                          onClick={() => {
+                            if (confirm(`Suspend ${org.name}? Every member is signed out and blocked until it is reactivated.`)) {
+                              suspendOrgMutation.mutate({ orgId: org.id, suspend: true });
+                            }
+                          }}
+                        >
+                          <Ban className="h-4 w-4" />
+                        </Button>
+                      )}
+                      <Button
+                        variant="ghost"
                         size="sm"
-                        onClick={() => suspendOrgMutation.mutate(org.id)}
-                      >
-                        <Ban className="h-4 w-4" />
-                      </Button>
-                      <Button 
-                        variant="ghost" 
-                        size="sm"
+                        title="Delete organization"
+                        aria-label={`Delete ${org.name}`}
                         onClick={() => {
                           if (confirm('Delete this organization? This cannot be undone.')) {
                             deleteOrgMutation.mutate(org.id);
@@ -325,6 +393,14 @@ export default function GlobalAdminPage() {
                 className="pl-10"
               />
             </div>
+            {userOrgFilter && (
+              <div className="flex items-center gap-2 text-sm text-slate-600">
+                Showing members of <span className="font-medium text-slate-900">{filterOrgName || 'organization'}</span>
+                <Button variant="ghost" size="sm" onClick={() => setUserOrgFilter(null)} aria-label="Clear organization filter">
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
 
             <div className="rounded-lg border bg-white">
               <table className="w-full">
@@ -358,9 +434,51 @@ export default function GlobalAdminPage() {
                         </Badge>
                       </td>
                       <td className="px-6 py-4">
-                        <Button variant="ghost" size="sm">
-                          <MoreVertical className="h-4 w-4" />
-                        </Button>
+                        {u.role === 'super_admin' ? (
+                          <span className="text-xs text-slate-400">Platform admin</span>
+                        ) : (
+                          <div className="flex items-center gap-1">
+                            {u.status === 'locked' && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                title="Unlock sign-in"
+                                aria-label={`Unlock ${u.email}`}
+                                disabled={userActionMutation.isPending}
+                                onClick={() => userActionMutation.mutate({ userId: u.id, action: 'unlock' })}
+                              >
+                                <Unlock className="h-4 w-4" />
+                              </Button>
+                            )}
+                            {u.status === 'deactivated' ? (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                title="Reactivate user"
+                                aria-label={`Reactivate ${u.email}`}
+                                disabled={userActionMutation.isPending}
+                                onClick={() => userActionMutation.mutate({ userId: u.id, action: 'reactivate' })}
+                              >
+                                <UserCheck className="h-4 w-4 text-emerald-600" />
+                              </Button>
+                            ) : (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                title="Deactivate user"
+                                aria-label={`Deactivate ${u.email}`}
+                                disabled={userActionMutation.isPending}
+                                onClick={() => {
+                                  if (confirm(`Deactivate ${u.email}? They are signed out and cannot sign in.`)) {
+                                    userActionMutation.mutate({ userId: u.id, action: 'deactivate' });
+                                  }
+                                }}
+                              >
+                                <UserX className="h-4 w-4 text-red-500" />
+                              </Button>
+                            )}
+                          </div>
+                        )}
                       </td>
                     </tr>
                   ))}

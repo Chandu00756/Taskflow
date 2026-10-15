@@ -92,6 +92,7 @@ export interface UserProfile {
   avatar_url?: string;
   bio?: string;
   title?: string; // Job title
+  role?: string; // platform role (member, team_lead, org_admin…)
   department?: string;
   location?: string;
   timezone?: string;

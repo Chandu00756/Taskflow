@@ -43,7 +43,6 @@ export default function SetSecurityQuestions() {
   const [showPasswordFields, setShowPasswordFields] = useState(false);
 
   useEffect(() => {
-    console.log('SetSecurityQuestions - useEffect:', { user, hasUser: !!user });
     
     if (!user) {
       console.log('No user found, redirecting to login');
@@ -51,7 +50,6 @@ export default function SetSecurityQuestions() {
       return;
     }
 
-    console.log('User found:', user);
 
     // Check if this is a new user with temp password
     // (We'll detect this from localStorage flag set during login)
@@ -167,9 +165,8 @@ export default function SetSecurityQuestions() {
       setTimeout(() => {
         if (actualRole === 'super_admin') {
           router.push('/admin/global');
-        } else if (actualRole === 'org_admin') {
-          router.push('/admin/org');
         } else {
+          // The workspace sends requesters on to the self-service portal.
           router.push('/dashboard');
         }
       }, 1500);

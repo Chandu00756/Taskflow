@@ -5,7 +5,9 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"os"
 
+	"github.com/chanduchitikam/task-management-system/pkg/auth"
 	"github.com/chanduchitikam/task-management-system/pkg/cache"
 	"github.com/chanduchitikam/task-management-system/pkg/config"
 	"github.com/chanduchitikam/task-management-system/pkg/database"
@@ -46,7 +48,11 @@ func main() {
 	}
 
 	// 	// 	// Create gRPC server
-	grpcServer := grpc.NewServer()
+	jwtManager := auth.NewJWTManager(cfg.JWT.SecretKey, cfg.JWT.AccessTokenDuration, cfg.JWT.RefreshTokenDuration)
+	grpcServer := grpc.NewServer(
+		grpc.UnaryInterceptor(auth.UnaryIdentityInterceptor(jwtManager)),
+		grpc.StreamInterceptor(auth.StreamIdentityInterceptor(jwtManager)),
+	)
 
 	// 	// 	// Register TaskService
 	taskService := service.NewTaskService(db, redisClient)
@@ -60,6 +66,9 @@ func main() {
 		mux := http.NewServeMux()
 		mux.Handle("/metrics", promhttp.Handler())
 		metricsAddr := ":9093"
+		if v := os.Getenv("METRICS_ADDR"); v != "" {
+			metricsAddr = v
+		}
 		log.Printf("TaskService metrics server listening on %s", metricsAddr)
 		if err := http.ListenAndServe(metricsAddr, mux); err != nil {
 			log.Fatalf("Failed to start metrics server: %v", err)

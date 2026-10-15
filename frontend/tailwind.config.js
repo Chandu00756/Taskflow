@@ -1,3 +1,5 @@
+const { tailwindColors, themePlugin } = require('./theme/palettes');
+
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   darkMode: ['class'],
@@ -5,9 +7,28 @@ module.exports = {
     './src/pages/**/*.{js,ts,jsx,tsx,mdx}',
     './src/components/**/*.{js,ts,jsx,tsx,mdx}',
     './src/app/**/*.{js,ts,jsx,tsx,mdx}',
+    // Badge, avatar and status color classes are defined in lib helpers.
+    './src/lib/**/*.{js,ts,jsx,tsx}',
   ],
   theme: {
+    // Every palette reads CSS variables so themes (glass, classic, dark,
+    // crimson) can remap colors at runtime; see theme/palettes.js.
+    colors: {
+      transparent: 'transparent',
+      current: 'currentColor',
+      inherit: 'inherit',
+      white: '#ffffff',
+      black: '#000000',
+      ...tailwindColors(),
+    },
     extend: {
+      // Surfaces (bg-white) follow the theme; text-white stays white.
+      backgroundColor: {
+        white: 'rgb(var(--surface) / calc(var(--surface-alpha) * <alpha-value>))',
+      },
+      ringColor: {
+        white: 'rgb(var(--surface) / <alpha-value>)',
+      },
       colors: {
         border: 'hsl(var(--border))',
         input: 'hsl(var(--input))',
@@ -74,5 +95,5 @@ module.exports = {
       },
     },
   },
-  plugins: [],
+  plugins: [themePlugin],
 };

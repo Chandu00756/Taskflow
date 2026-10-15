@@ -32,3 +32,9 @@ scrape_configs:
       - targets: ['org-service:9094']
         labels:
           service: 'org-service'
+
+  - job_name: 'itsm-service'
+    static_configs:
+      - targets: ['itsm-service:8090']
+        labels:
+          service: 'itsm-service'

@@ -14,6 +14,8 @@ declare module 'react-confetti' {
     numberOfPieces?: number;
     recycle?: boolean;
     gravity?: number;
+    initialVelocityX?: number | { min: number; max: number };
+    initialVelocityY?: number | { min: number; max: number };
     wind?: number;
     run?: boolean;
     tweenDuration?: number;

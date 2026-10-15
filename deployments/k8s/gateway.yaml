@@ -23,9 +23,21 @@ spec:
         env:
         - name: HTTP_PORT
           value: "8080"
-        - name: GRPC_PORT
-          value: "50051"
+        - name: USER_SERVICE_ADDR
+          value: "user-service:50051"
+        - name: TASK_SERVICE_ADDR
+          value: "task-service:50052"
+        - name: NOTIFICATION_SERVICE_ADDR
+          value: "notification-service:50053"
+        - name: ORG_SERVICE_ADDR
+          value: "org-service:50054"
+        - name: ITSM_SERVICE_URL
+          value: "http://itsm-service:8090"
+        - name: TRUST_PROXY_HEADERS
+          value: "true"
         envFrom:
+        - configMapRef:
+            name: app-config
         - secretRef:
             name: app-secrets
         livenessProbe:

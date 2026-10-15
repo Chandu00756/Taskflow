@@ -24,6 +24,12 @@ go build -o bin/task-service ./services/task
 echo -e "${YELLOW}Building NotificationService...${NC}"
 go build -o bin/notification-service ./services/notification
 
+echo -e "${YELLOW}Building OrganizationService...${NC}"
+go build -o bin/org-service ./services/org
+
+echo -e "${YELLOW}Building Service Desk (ITSM) service...${NC}"
+go build -o bin/itsm-service ./services/itsm
+
 echo -e "${YELLOW}Building API Gateway...${NC}"
 go build -o bin/gateway ./gateway
 

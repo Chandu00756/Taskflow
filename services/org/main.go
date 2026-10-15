@@ -1,12 +1,16 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net"
 	"net/http"
 	"os"
+	"time"
 
+	"github.com/chanduchitikam/task-management-system/pkg/auth"
+	"github.com/chanduchitikam/task-management-system/pkg/config"
 	"github.com/chanduchitikam/task-management-system/pkg/database"
 	"github.com/chanduchitikam/task-management-system/proto/organization"
 	"github.com/chanduchitikam/task-management-system/services/org/service"
@@ -27,6 +31,20 @@ func main() {
 
 	log.Println("✓ Connected to database")
 
+	// users/organizations are created by the user service; wait for them on a fresh database.
+	var schemaErr error
+	for attempt := 1; attempt <= 30; attempt++ {
+		if schemaErr = service.EnsureSchema(context.Background(), db); schemaErr == nil {
+			break
+		}
+		log.Printf("schema not ready (attempt %d): %v", attempt, schemaErr)
+		time.Sleep(2 * time.Second)
+	}
+	if schemaErr != nil {
+		log.Fatalf("Failed to ensure schema: %v", schemaErr)
+	}
+	log.Println("✓ Schema ready")
+
 	// Create organization service
 	orgService := service.NewOrganizationService(db)
 
@@ -41,7 +59,15 @@ func main() {
 		log.Fatalf("Failed to listen on port %s: %v", port, err)
 	}
 
-	grpcServer := grpc.NewServer()
+	cfg, err := config.LoadConfig()
+	if err != nil {
+		log.Fatalf("Failed to load config: %v", err)
+	}
+	jwtManager := auth.NewJWTManager(cfg.JWT.SecretKey, cfg.JWT.AccessTokenDuration, cfg.JWT.RefreshTokenDuration)
+	grpcServer := grpc.NewServer(
+		grpc.ChainUnaryInterceptor(auth.UnaryIdentityInterceptor(jwtManager), service.AuthzUnaryInterceptor(db)),
+		grpc.StreamInterceptor(auth.StreamIdentityInterceptor(jwtManager)),
+	)
 	organization.RegisterOrganizationServiceServer(grpcServer, orgService)
 
 	// Enable reflection for grpcurl
@@ -52,6 +78,9 @@ func main() {
 		mux := http.NewServeMux()
 		mux.Handle("/metrics", promhttp.Handler())
 		metricsAddr := ":9094"
+		if v := os.Getenv("METRICS_ADDR"); v != "" {
+			metricsAddr = v
+		}
 		log.Printf("OrganizationService metrics server listening on %s", metricsAddr)
 		if err := http.ListenAndServe(metricsAddr, mux); err != nil {
 			log.Fatalf("Failed to start metrics server: %v", err)

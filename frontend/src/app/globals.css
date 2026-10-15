@@ -402,3 +402,503 @@
     text-shadow: 0 0 20px rgba(129, 140, 248, 0.65);
   }
 }
+
+/* ==========================================================================
+   Themes
+   The palette itself is remapped per theme by theme/palettes.js (CSS
+   variables behind every Tailwind color). The rules below add what a palette
+   cannot: glass blur, gradients, the navigation rail and backgrounds.
+   Themes: glass (default), classic, dark, crimson.
+   ========================================================================== */
+
+html {
+  background: rgb(var(--c-slate-50));
+}
+
+body {
+  background: transparent;
+  color: rgb(var(--c-slate-900));
+}
+
+::selection {
+  background: rgb(var(--c-blue-500) / 0.25);
+}
+
+/* Legacy component tokens (components/ui) follow the dark theme too. */
+[data-theme='dark'] {
+  --background: 224 71% 4%;
+  --foreground: 210 40% 98%;
+  --card: 222 47% 11%;
+  --card-foreground: 210 40% 98%;
+  --popover: 222 47% 11%;
+  --popover-foreground: 210 40% 98%;
+  --primary: 217 91% 60%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 217 33% 17%;
+  --secondary-foreground: 210 40% 98%;
+  --muted: 217 33% 17%;
+  --muted-foreground: 215 20% 65%;
+  --accent: 217 33% 17%;
+  --accent-foreground: 210 40% 98%;
+  --destructive: 0 63% 31%;
+  --destructive-foreground: 210 40% 98%;
+  --border: 217 33% 20%;
+  --input: 217 33% 20%;
+  --ring: 217 91% 60%;
+}
+
+[data-theme='crimson'] {
+  --primary: 347 77% 46%;
+  --ring: 347 77% 46%;
+}
+
+/* ---------- Page backgrounds ---------------------------------------------- */
+
+html[data-theme='glass'] {
+  background: linear-gradient(135deg, #e0f2fe 0%, #f8fbff 38%, #eef2ff 68%, #ecfeff 100%) fixed;
+}
+
+html[data-theme='crimson'] {
+  background: linear-gradient(135deg, #fff1f2 0%, #fffaf8 42%, #fff7ed 100%) fixed;
+}
+
+html[data-theme='dark'] {
+  background: #020617;
+}
+
+/* Shells are transparent so the aurora shows through glass panels. */
+[data-theme='glass'] .app-shell,
+[data-theme='crimson'] .app-shell {
+  background: transparent;
+}
+
+.theme-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+[data-theme='glass'] .theme-backdrop,
+[data-theme='crimson'] .theme-backdrop {
+  display: block;
+}
+
+.theme-backdrop::before,
+.theme-backdrop::after {
+  content: '';
+  position: absolute;
+  width: 62vmax;
+  height: 62vmax;
+  border-radius: 9999px;
+  filter: blur(70px);
+  animation: aurora 24s ease-in-out infinite;
+}
+
+.theme-backdrop::before {
+  left: -14%;
+  top: -18%;
+}
+
+.theme-backdrop::after {
+  right: -18%;
+  bottom: -24%;
+  animation-delay: -9s;
+  animation-duration: 30s;
+}
+
+[data-theme='glass'] .theme-backdrop {
+  background: radial-gradient(circle at 55% 45%, rgba(167, 139, 250, 0.18), transparent 40%);
+}
+
+[data-theme='glass'] .theme-backdrop::before {
+  background: radial-gradient(circle, rgba(56, 189, 248, 0.45), transparent 62%);
+}
+
+[data-theme='glass'] .theme-backdrop::after {
+  background: radial-gradient(circle, rgba(52, 211, 153, 0.38), transparent 62%);
+}
+
+[data-theme='crimson'] .theme-backdrop {
+  background: radial-gradient(circle at 60% 40%, rgba(251, 191, 36, 0.12), transparent 42%);
+}
+
+[data-theme='crimson'] .theme-backdrop::before {
+  background: radial-gradient(circle, rgba(239, 52, 86, 0.22), transparent 62%);
+}
+
+[data-theme='crimson'] .theme-backdrop::after {
+  background: radial-gradient(circle, rgba(249, 115, 22, 0.18), transparent 62%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .theme-backdrop::before,
+  .theme-backdrop::after {
+    animation: none;
+  }
+}
+
+/* ---------- Navigation rail ----------------------------------------------- */
+
+.app-sidebar {
+  background: #0f172a;
+  color: #cbd5e1;
+}
+
+.app-sidebar-title {
+  color: #fff;
+}
+
+.app-sidebar-muted {
+  color: #94a3b8;
+}
+
+.app-sidebar-divider {
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.app-nav-link {
+  color: #cbd5e1;
+}
+
+.app-nav-link:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+}
+
+.app-nav-link[data-active='true'] {
+  background: #2563eb;
+  color: #fff;
+}
+
+.app-nav-badge {
+  background: #fbbf24;
+  color: #0f172a;
+}
+
+[data-theme='dark'] .app-sidebar {
+  background: #020617;
+  border-right: 1px solid #1e293b;
+}
+
+[data-theme='glass'] .app-sidebar {
+  top: 12px;
+  height: calc(100vh - 24px);
+  margin: 12px 0 12px 12px;
+  border-radius: 28px;
+  background: rgba(255, 255, 255, 0.6);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  box-shadow: 0 24px 60px -24px rgba(15, 23, 42, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  color: #475569;
+}
+
+[data-theme='glass'] .app-sidebar-title {
+  color: #0f172a;
+}
+
+[data-theme='glass'] .app-sidebar-muted {
+  color: #64748b;
+}
+
+[data-theme='glass'] .app-sidebar-divider {
+  border-color: rgba(15, 23, 42, 0.08);
+}
+
+[data-theme='glass'] .app-nav-link {
+  color: #475569;
+  border-radius: 14px;
+}
+
+[data-theme='glass'] .app-nav-link:hover {
+  background: rgba(255, 255, 255, 0.85);
+  color: #0f172a;
+  box-shadow: 0 6px 16px -10px rgba(15, 23, 42, 0.35);
+}
+
+[data-theme='glass'] .app-nav-link[data-active='true'] {
+  background: linear-gradient(90deg, #3b82f6 0%, #0ea5e9 55%, #34d399 100%);
+  color: #fff;
+  box-shadow: 0 12px 26px -10px rgba(14, 165, 233, 0.6);
+}
+
+[data-theme='crimson'] .app-sidebar {
+  background: linear-gradient(180deg, #3b0414 0%, #6b0f2a 55%, #7c1331 100%);
+  color: #fecdd3;
+}
+
+[data-theme='crimson'] .app-sidebar-muted {
+  color: #fda4af;
+}
+
+[data-theme='crimson'] .app-sidebar-divider {
+  border-color: rgba(255, 228, 230, 0.14);
+}
+
+[data-theme='crimson'] .app-nav-link {
+  color: #ffe4e6;
+}
+
+[data-theme='crimson'] .app-nav-link:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+
+[data-theme='crimson'] .app-nav-link[data-active='true'] {
+  background: linear-gradient(90deg, #ef3456 0%, #f97316 100%);
+  color: #fff;
+  box-shadow: 0 10px 24px -10px rgba(249, 115, 22, 0.7);
+}
+
+[data-theme='crimson'] .app-nav-badge {
+  background: #fde68a;
+  color: #450516;
+}
+
+/* ---------- Top bar --------------------------------------------------------- */
+
+[data-theme='glass'] .app-topbar {
+  top: 12px;
+  margin: 12px 12px 0;
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  background: rgba(255, 255, 255, 0.6);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  backdrop-filter: blur(20px) saturate(180%);
+  box-shadow: 0 16px 40px -24px rgba(15, 23, 42, 0.3);
+}
+
+[data-theme='crimson'] .app-topbar {
+  background: rgba(255, 255, 255, 0.82);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+}
+
+/* ---------- Panels ---------------------------------------------------------- */
+
+[data-theme='glass'] .card-panel {
+  border-radius: 18px;
+  border-color: rgba(255, 255, 255, 0.75);
+  -webkit-backdrop-filter: blur(16px) saturate(160%);
+  backdrop-filter: blur(16px) saturate(160%);
+  box-shadow: 0 14px 40px -22px rgba(15, 23, 42, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+
+[data-theme='glass'] .dialog-panel {
+  border-radius: 22px;
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.86);
+  -webkit-backdrop-filter: blur(26px) saturate(180%);
+  backdrop-filter: blur(26px) saturate(180%);
+}
+
+[data-theme='glass'] .dialog-panel.dialog-side {
+  border-radius: 22px 0 0 22px;
+}
+
+[data-theme='glass'] .menu-panel {
+  background: rgba(255, 255, 255, 0.97);
+  -webkit-backdrop-filter: blur(18px) saturate(180%);
+  backdrop-filter: blur(18px) saturate(180%);
+  border-color: rgba(255, 255, 255, 0.85);
+}
+
+[data-theme='dark'] .card-panel,
+[data-theme='dark'] .dialog-panel,
+[data-theme='dark'] .menu-panel {
+  box-shadow: 0 0 0 1px rgba(148, 163, 184, 0.08), 0 20px 40px -24px rgba(0, 0, 0, 0.8);
+}
+
+[data-theme='crimson'] .card-panel {
+  border-radius: 14px;
+  box-shadow: 0 10px 30px -22px rgba(124, 19, 49, 0.35);
+}
+
+/* ---------- Buttons and titles --------------------------------------------- */
+
+.btn-primary {
+  transition: background-color 0.15s, box-shadow 0.2s, transform 0.2s, filter 0.2s;
+}
+
+[data-theme='glass'] .btn-primary {
+  background-image: linear-gradient(90deg, #3b82f6 0%, #0ea5e9 60%, #10b981 100%);
+  box-shadow: 0 10px 22px -10px rgba(14, 165, 233, 0.7);
+}
+
+[data-theme='glass'] .btn-primary:hover:not(:disabled) {
+  filter: brightness(1.06) saturate(1.1);
+  transform: translateY(-1px);
+}
+
+[data-theme='crimson'] .btn-primary {
+  background-image: linear-gradient(90deg, #b01236 0%, #ef3456 100%);
+  box-shadow: 0 10px 22px -12px rgba(176, 18, 54, 0.75);
+}
+
+[data-theme='crimson'] .btn-primary:hover:not(:disabled) {
+  filter: brightness(1.06);
+  transform: translateY(-1px);
+}
+
+/* Dark maps 700 shades to lighter tones; keep solid button hovers saturated. */
+[data-theme='dark'] .btn-primary:hover:not(:disabled) {
+  background-color: rgb(var(--c-blue-500));
+}
+
+[data-theme='dark'] .btn-danger:hover:not(:disabled) {
+  background-color: rgb(var(--c-rose-500));
+}
+
+[data-theme='dark'] .btn-success:hover:not(:disabled) {
+  background-color: rgb(var(--c-emerald-500));
+}
+
+[data-theme='glass'] .page-title {
+  background: linear-gradient(90deg, #1e3a8a 0%, #0369a1 55%, #047857 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+[data-theme='crimson'] .page-title {
+  background: linear-gradient(90deg, #7c1331 0%, #b01236 50%, #c2410c 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Subtle entrance for page content in the expressive themes. */
+@media (prefers-reduced-motion: no-preference) {
+  [data-theme='glass'] .page-enter,
+  [data-theme='crimson'] .page-enter {
+    animation: theme-rise 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+}
+
+@keyframes theme-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ---------- Sign-in pages --------------------------------------------------- */
+
+.auth-hero {
+  background: #0f172a;
+  color: #fff;
+}
+
+.auth-hero-text {
+  color: #cbd5e1;
+}
+
+.auth-hero-accent {
+  color: #60a5fa;
+}
+
+.auth-hero-chip {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.auth-card {
+  background: transparent;
+}
+
+[data-theme='dark'] .auth-hero {
+  background: #0b1120;
+  border-right: 1px solid #1e293b;
+}
+
+[data-theme='glass'] .auth-hero {
+  background: transparent;
+  color: #0f172a;
+}
+
+[data-theme='glass'] .auth-hero-text {
+  color: #475569;
+}
+
+[data-theme='glass'] .auth-hero-accent {
+  color: #0ea5e9;
+}
+
+[data-theme='glass'] .auth-hero-chip {
+  background: rgba(255, 255, 255, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.75);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+
+[data-theme='glass'] .auth-card {
+  padding: 2.5rem;
+  border-radius: 32px;
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  background: rgba(255, 255, 255, 0.72);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  backdrop-filter: blur(24px) saturate(180%);
+  box-shadow: 0 40px 80px -40px rgba(14, 116, 144, 0.45);
+}
+
+[data-theme='crimson'] .auth-hero {
+  background: linear-gradient(160deg, #3b0414 0%, #7c1331 60%, #9a3412 100%);
+}
+
+[data-theme='crimson'] .auth-hero-text {
+  color: #fecdd3;
+}
+
+[data-theme='crimson'] .auth-hero-accent {
+  color: #fdba74;
+}
+
+[data-theme='crimson'] .auth-card {
+  padding: 2.25rem;
+  border-radius: 24px;
+  background: #fff;
+  box-shadow: 0 30px 70px -40px rgba(124, 19, 49, 0.45);
+}
+
+/* ---------- Scrollbars ------------------------------------------------------ */
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgb(var(--c-slate-300));
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgb(var(--c-slate-400));
+  background-clip: padding-box;
+}
+
+[data-theme='glass'] ::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(59, 130, 246, 0.55), rgba(16, 185, 129, 0.55));
+  background-clip: padding-box;
+}
+
+[data-theme='crimson'] ::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(176, 18, 54, 0.55), rgba(249, 115, 22, 0.5));
+  background-clip: padding-box;
+}
+
+[data-theme='glass'] .brand-mark {
+  background-image: linear-gradient(135deg, #3b82f6 0%, #0ea5e9 50%, #34d399 100%);
+  box-shadow: 0 10px 24px -10px rgba(14, 165, 233, 0.7);
+}
+
+[data-theme='crimson'] .brand-mark {
+  background-image: linear-gradient(135deg, #b01236 0%, #f97316 100%);
+}

@@ -6,10 +6,12 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
+	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
-	"github.com/chanduchitikam/task-management-system/gateway/middleware"
 	"github.com/chanduchitikam/task-management-system/pkg/auth"
 	"github.com/chanduchitikam/task-management-system/pkg/config"
 	notificationpb "github.com/chanduchitikam/task-management-system/proto/notification"
@@ -59,14 +61,6 @@ func main() {
 		cfg.JWT.RefreshTokenDuration,
 	)
 
-	// 	// 	// Create middleware (for future HTTP-level implementation)
-	_ = middleware.NewAuthInterceptor(jwtManager)
-	rateLimiter := middleware.NewRateLimiter(100, 10) // 100 req/sec, burst of 10
-	_ = middleware.NewLoggingInterceptor(logger)
-
-	// 	// 	// Start cleanup for rate limiter
-	rateLimiter.CleanupLimiters(5 * time.Minute)
-
 	// 	// 	// Create gRPC-Gateway mux with metadata forwarder
 	mux := runtime.NewServeMux(
 		runtime.WithMarshalerOption(runtime.MIMEWildcard, &runtime.JSONPb{
@@ -95,6 +89,9 @@ func main() {
 			if val := req.Header.Get("X-Org-Id"); val != "" {
 				md.Set("org_id", val)
 				md.Set("org-id", val)
+			}
+			if val := req.Header.Get("X-Email"); val != "" {
+				md.Set("email", val)
 			}
 			return md
 		}),
@@ -161,78 +158,64 @@ func main() {
 		log.Fatalf("Failed to register /metrics endpoint: %v", err)
 	}
 
-	// 	// 	// Add CORS middleware
-	handler := corsMiddleware(mux, jwtManager)
+	// Service desk (ITSM) REST API is served by a plain HTTP service.
+	itsmProxy, err := newServiceProxy(getEnvOrDefault("ITSM_SERVICE_URL", "http://localhost:8090"))
+	if err != nil {
+		log.Fatalf("invalid ITSM_SERVICE_URL: %v", err)
+	}
+
+	root := http.NewServeMux()
+	root.Handle("/api/v2/", itsmProxy)
+	health := func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"status":"ok"}`))
+	}
+	root.HandleFunc("/health", health)
+	root.HandleFunc("/healthz", health)
+	root.HandleFunc("/ready", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"status":"ready"}`))
+	})
+	root.Handle("/", mux)
+
+	handler := edgeMiddleware(root, gatewayOptions{
+		cors:       newCORSPolicy(getEnvOrDefault("CORS_ALLOWED_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000")),
+		limiter:    newIPLimiter(float64(getEnvAsInt("RATE_LIMIT_RPS", 50)), getEnvAsInt("RATE_LIMIT_BURST", 100)),
+		trustProxy: os.Getenv("TRUST_PROXY_HEADERS") == "true",
+		jwt:        jwtManager,
+	})
 
 	// 	// 	// Start HTTP server
 	addr := fmt.Sprintf(":%d", cfg.Server.HTTPPort)
 	logger.Info("API Gateway listening", zap.String("addr", addr))
 
 	server := &http.Server{
-		Addr:         addr,
-		Handler:      handler,
-		ReadTimeout:  30 * time.Second,
-		WriteTimeout: 30 * time.Second,
+		Addr:              addr,
+		Handler:           handler,
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       60 * time.Second,
+		WriteTimeout:      60 * time.Second,
+		IdleTimeout:       120 * time.Second,
 	}
 
-	if err := server.ListenAndServe(); err != nil {
-		log.Fatalf("Failed to serve: %v", err)
-	}
+	go func() {
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("Failed to serve: %v", err)
+		}
+	}()
+
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
+	<-stop
+	logger.Info("shutting down gateway")
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	_ = server.Shutdown(shutdownCtx)
 }
 
-// corsMiddleware validates JWT (when present), injects claims into the
-// request context and also adds CORS headers expected by the frontend.
-func corsMiddleware(next http.Handler, jwtManager *auth.JWTManager) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		origin := r.Header.Get("Origin")
-		if origin == "" {
-			origin = "*"
-		}
-		w.Header().Set("Access-Control-Allow-Origin", origin)
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With")
-		w.Header().Set("Access-Control-Allow-Credentials", "true")
-		w.Header().Set("Access-Control-Max-Age", "86400")
-
-		if r.Method == "OPTIONS" {
-			w.WriteHeader(http.StatusOK)
-			return
-		}
-
-		// If an Authorization header is present, try to validate and inject claims
-		authHeader := r.Header.Get("Authorization")
-		if authHeader != "" {
-			token := strings.TrimSpace(strings.TrimPrefix(authHeader, "Bearer"))
-			token = strings.TrimSpace(token)
-			if token != "" && jwtManager != nil {
-				if claims, err := jwtManager.ValidateToken(token); err == nil {
-					ctx := r.Context()
-					ctx = context.WithValue(ctx, "user_id", claims.UserID)
-					ctx = context.WithValue(ctx, "email", claims.Email)
-					ctx = context.WithValue(ctx, "role", claims.Role)
-					ctx = context.WithValue(ctx, "org_id", claims.OrgID)
-					r = r.WithContext(ctx)
-
-					// Also expose as HTTP headers so gRPC-gateway forwards them as metadata
-					// (headers become metadata keys like "x-user-id")
-					if claims.UserID != "" {
-						r.Header.Set("X-User-Id", claims.UserID)
-						r.Header.Set("Grpc-Metadata-user_id", claims.UserID)
-						r.Header.Set("Grpc-Metadata-user-id", claims.UserID)
-					}
-					if claims.OrgID != "" {
-						r.Header.Set("X-Org-Id", claims.OrgID)
-						r.Header.Set("Grpc-Metadata-org_id", claims.OrgID)
-						r.Header.Set("Grpc-Metadata-org-id", claims.OrgID)
-					}
-					if claims.Role != "" {
-						r.Header.Set("X-Role", claims.Role)
-						r.Header.Set("Grpc-Metadata-role", claims.Role)
-					}
-				}
-			}
-		}
-
-		next.ServeHTTP(w, r)
-	})
+func getEnvAsInt(key string, fallback int) int {
+	if v, err := strconv.Atoi(os.Getenv(key)); err == nil {
+		return v
+	}
+	return fallback
 }

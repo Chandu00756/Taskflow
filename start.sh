@@ -29,6 +29,8 @@ if [ "$MODE" = "docker" ] && command -v docker > /dev/null 2>&1 && [ -f docker-c
     pkill -f "bin/task-service" 2>/dev/null || true
     pkill -f "bin/notification-service" 2>/dev/null || true
     pkill -f "bin/gateway" 2>/dev/null || true
+    pkill -f "bin/org-service" 2>/dev/null || true
+    pkill -f "bin/itsm-service" 2>/dev/null || true
     pkill -f "next dev" 2>/dev/null || true
 
     docker compose up -d --build
@@ -70,9 +72,13 @@ if [ "$MODE" = "docker" ] && command -v docker > /dev/null 2>&1 && [ -f docker-c
     echo "  - UserService:         http://localhost:50051"
     echo "  - TaskService:         http://localhost:50052"
     echo "  - NotificationService: http://localhost:50053"
+    echo "  - OrgService:          http://localhost:50054"
+    echo "  - Service Desk API:    http://localhost:8090 (via gateway at /api/v2)"
     echo "  - API Gateway:         http://localhost:8080"
     echo "Frontend:"
     echo "  - Next.js App:         http://localhost:3000 (PID: $FRONTEND_PID)"
+    echo "  - Agent workspace:     http://localhost:3000/dashboard"
+    echo "  - Self-service portal: http://localhost:3000/portal"
     echo "Logs Location: ./logs/"
     echo "To start in local binary mode instead, run: ./start.sh local"
 else
@@ -99,6 +105,12 @@ else
     NOTIFICATION_SERVICE_PID=$!
     echo $NOTIFICATION_SERVICE_PID > pids/notification-service.pid
     sleep 1
+    echo "[4/5] Starting OrganizationService (50054) and Service Desk API (8090)..."
+    GRPC_PORT=50054 nohup ./bin/org-service > logs/org-service.log 2>&1 &
+    echo $! > pids/org-service.pid
+    nohup ./bin/itsm-service > logs/itsm-service.log 2>&1 &
+    echo $! > pids/itsm-service.pid
+    sleep 2
     echo "[4/5] Starting API Gateway on port 8080..."
     nohup ./bin/gateway > logs/gateway.log 2>&1 &
     GATEWAY_PID=$!

@@ -24,6 +24,13 @@ func NewOrganizationService(db *gorm.DB, jwtManager *auth.JWTManager) *Organizat
 	}
 }
 
+// publicEmailDomains are shared mail providers that never identify an organization.
+var publicEmailDomains = map[string]bool{
+	"gmail.com": true, "googlemail.com": true, "yahoo.com": true, "outlook.com": true, "hotmail.com": true,
+	"live.com": true, "msn.com": true, "icloud.com": true, "me.com": true, "aol.com": true, "proton.me": true,
+	"protonmail.com": true, "yandex.com": true, "zoho.com": true, "gmx.com": true, "mail.com": true,
+}
+
 // RegisterOrganization creates a new organization and its admin user atomically
 func (s *OrganizationService) RegisterOrganization(orgName, orgDescription, adminEmail, adminPassword, adminFullName string) (*models.Organization, *models.User, error) {
 	// Check if organization name already exists
@@ -52,10 +59,18 @@ func (s *OrganizationService) RegisterOrganization(orgName, orgDescription, admi
 		}
 	}()
 
-	// Create organization
+	// Create organization. Corporate email domains identify the tenant;
+	// public providers (gmail.com, …) and already-claimed domains do not.
 	org := &models.Organization{
 		Name:        orgName,
 		Description: &orgDescription,
+	}
+	if parts := strings.Split(strings.ToLower(adminEmail), "@"); len(parts) == 2 && !publicEmailDomains[parts[1]] {
+		var taken int64
+		tx.Model(&models.Organization{}).Where("LOWER(domain) = ?", parts[1]).Count(&taken)
+		if taken == 0 {
+			org.Domain = &parts[1]
+		}
 	}
 	if err := tx.Create(org).Error; err != nil {
 		tx.Rollback()

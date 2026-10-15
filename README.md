@@ -2,6 +2,18 @@
 
 A production-ready, enterprise-grade task management platform built with microservices architecture. This system provides comprehensive task management capabilities with real-time collaboration, multi-tenant support, and intelligent search features.
 
+> **TaskFlow Service Desk** — this platform now includes a complete IT service
+> management suite: incidents & service requests with SLAs, problem / change /
+> release management, CMDB and procurement, service catalog, knowledge base,
+> Workflow Automator, analytics, account & people management and an employee
+> self-service portal. See **[docs/SERVICE_DESK.md](docs/SERVICE_DESK.md)** for
+> features, architecture, configuration, API and verification.
+>
+> Quick start: `cp .env.example .env && docker compose up -d --build`, then
+> `cd frontend && npm install && npm run dev` and open http://localhost:3000.
+> Load demo data with `python3 scripts/seed_demo.py`; run the end-to-end check
+> with `python3 scripts/itsm_smoke_test.py`.
+
 ## Overview
 
 The Task Management System is designed for organizations that need a scalable, secure, and feature-rich solution for managing tasks, teams, and projects. Built using modern technologies and best practices, it offers a robust backend powered by Go microservices and a responsive frontend using Next.js 14.

@@ -22,7 +22,7 @@ spec:
           name: grpc
         env:
         - name: GRPC_PORT
-          value: "50053"
+          value: "50051"
         envFrom:
         - configMapRef:
             name: app-config

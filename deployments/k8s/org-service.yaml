@@ -1,0 +1,63 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: org-service
+  namespace: task-management
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: org-service
+  template:
+    metadata:
+      labels:
+        app: org-service
+    spec:
+      containers:
+      - name: org-service
+        image: task-management/org-service:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 50054
+          name: grpc
+        - containerPort: 9094
+          name: metrics
+        env:
+        - name: GRPC_PORT
+          value: "50054"
+        envFrom:
+        - configMapRef:
+            name: app-config
+        - secretRef:
+            name: app-secrets
+        livenessProbe:
+          tcpSocket:
+            port: 50054
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          tcpSocket:
+            port: 50054
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: org-service
+  namespace: task-management
+spec:
+  selector:
+    app: org-service
+  ports:
+  - port: 50054
+    targetPort: 50054
+    name: grpc
+  type: ClusterIP

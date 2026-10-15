@@ -13,6 +13,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/chanduchitikam/task-management-system/pkg/auth"
 	"github.com/chanduchitikam/task-management-system/pkg/cache"
 	"github.com/chanduchitikam/task-management-system/pkg/config"
 	"github.com/chanduchitikam/task-management-system/pkg/database"
@@ -47,7 +48,11 @@ func main() {
 	}
 
 	//  	//  	// Create gRPC server
-	grpcServer := grpc.NewServer()
+	jwtManager := auth.NewJWTManager(cfg.JWT.SecretKey, cfg.JWT.AccessTokenDuration, cfg.JWT.RefreshTokenDuration)
+	grpcServer := grpc.NewServer(
+		grpc.ChainUnaryInterceptor(auth.UnaryIdentityInterceptor(jwtManager), service.AuthzUnaryInterceptor(db)),
+		grpc.ChainStreamInterceptor(auth.StreamIdentityInterceptor(jwtManager), service.AuthzStreamInterceptor()),
+	)
 
 	//  	//  	// Create Redis client and NotificationService with distributed delivery
 	redisClient, err := cache.NewRedisClient(cfg.Redis.GetRedisAddr(), cfg.Redis.Password, cfg.Redis.DB)

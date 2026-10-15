@@ -3,10 +3,11 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { Toaster } from 'sonner';
-import { ThemeProvider } from 'next-themes';
 import { useState, useEffect } from 'react';
 import { useAuthStore } from '@/store/auth';
 import { apiClient } from '@/lib/api';
+import { useTheme } from '@/lib/theme';
+import { Celebrations } from '@/components/theme/celebrations';
 
 // Global query client instance
 let globalQueryClient: QueryClient | null = null;
@@ -15,61 +16,45 @@ export function getQueryClient() {
   return globalQueryClient;
 }
 
-// Component to restore auth tokens on app load
+// Restores persisted auth tokens into the API client on load.
 function AuthTokenRestorer() {
-  const { accessToken, refreshToken, isAuthenticated } = useAuthStore();
-  
+  const { accessToken, refreshToken } = useAuthStore();
+
   useEffect(() => {
-    console.log('🔐 AuthTokenRestorer - checking tokens...', { 
-      hasAccessToken: !!accessToken, 
-      hasRefreshToken: !!refreshToken,
-      isAuthenticated 
-    });
-    
-    // Restore tokens to API client on mount if they exist in store
-    if (accessToken) {
-      apiClient.setAccessToken(accessToken);
-      console.log('🔐 Restored access token to API client');
-    }
-    if (refreshToken) {
-      apiClient.setRefreshToken(refreshToken);
-      console.log('🔐 Restored refresh token to API client');
-    }
-  }, [accessToken, refreshToken, isAuthenticated]); // Re-run when tokens change
-  
+    if (accessToken) apiClient.setAccessToken(accessToken);
+    if (refreshToken) apiClient.setRefreshToken(refreshToken);
+  }, [accessToken, refreshToken]);
+
   return null;
 }
 
-export function Providers({ children }: { children: React.ReactNode }) {
-  const [queryClient] = useState(
-    () => {
-      const client = new QueryClient({
-        defaultOptions: {
-          queries: {
-            staleTime: 60 * 1000, // 1 minute
-            retry: 1,
-          },
-        },
-      });
-      globalQueryClient = client;
-      return client;
-    }
-  );
+function ThemedToaster() {
+  const [theme] = useTheme();
+  return <Toaster richColors position="top-right" theme={theme === 'dark' ? 'dark' : 'light'} />;
+}
 
-  // Force remove dark class on mount
-  useEffect(() => {
-    document.documentElement.classList.remove('dark');
-    document.documentElement.setAttribute('data-theme', 'light');
-    localStorage.setItem('theme', 'light');
-  }, []);
+export function Providers({ children }: { children: React.ReactNode }) {
+  const [queryClient] = useState(() => {
+    const client = new QueryClient({
+      defaultOptions: {
+        queries: {
+          staleTime: 60 * 1000, // 1 minute
+          retry: 1,
+        },
+      },
+    });
+    globalQueryClient = client;
+    return client;
+  });
 
   return (
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false} forcedTheme="light">
-        <AuthTokenRestorer />
-        {children}
-        <Toaster richColors position="top-right" />
-      </ThemeProvider>
+      {/* Aurora background used by the glass and crimson themes. */}
+      <div className="theme-backdrop" aria-hidden />
+      <AuthTokenRestorer />
+      {children}
+      <Celebrations />
+      <ThemedToaster />
       <ReactQueryDevtools initialIsOpen={false} />
     </QueryClientProvider>
   );

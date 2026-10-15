@@ -45,6 +45,7 @@ vendor/
 
 # Frontend specific
 .next/
+.next-*/
 .turbo/
 out/
 

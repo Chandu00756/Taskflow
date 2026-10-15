@@ -18,6 +18,9 @@ data:
   REDIS_PORT: "6379"
   REDIS_DB: "0"
   ENVIRONMENT: "production"
+  PUBLIC_URL: "https://servicedesk.example.com"
+  CORS_ALLOWED_ORIGINS: "https://servicedesk.example.com"
+  SMTP_PORT: "587"
 ---
 apiVersion: v1
 kind: Secret
@@ -27,5 +30,12 @@ metadata:
 type: Opaque
 stringData:
   DB_PASSWORD: "postgres"
-  JWT_SECRET: "your-secret-key-change-in-production"
+  # Replace every value below before deploying (e.g. via sealed-secrets or your vault).
+  JWT_SECRET: "CHANGE-ME-use-a-64-char-random-string"
   REDIS_PASSWORD: ""
+  SUPER_ADMIN_EMAIL: "admin@taskflow.com"
+  SUPER_ADMIN_PASSWORD: "CHANGE-ME"
+  SMTP_HOST: ""
+  SMTP_USER: ""
+  SMTP_PASS: ""
+  SMTP_FROM: ""

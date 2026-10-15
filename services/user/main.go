@@ -40,17 +40,33 @@ func main() {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
 
+	// Organizations without a domain store NULL so the unique index allows many.
+	if err := db.Exec(`DO $$ BEGIN
+		IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'organizations' AND column_name = 'domain') THEN
+			ALTER TABLE organizations ALTER COLUMN domain DROP NOT NULL;
+			UPDATE organizations SET domain = NULL WHERE domain = '';
+		END IF;
+	END $$`).Error; err != nil {
+		log.Fatalf("Failed to prepare organizations table: %v", err)
+	}
+
 	// 	// 	// Auto-migrate models
 	if err := database.AutoMigrate(db, &models.User{}, &models.Organization{}, &models.Invite{}); err != nil {
 		log.Fatalf("Failed to migrate database: %v", err)
 	}
 
-	// Ensure global super admin account exists (admin@taskflow.com)
-	adminEmail := "admin@taskflow.com"
-	adminPassword := "Tskadmin@00756$"
+	// Ensure the platform super admin exists. Credentials come from the
+	// environment; the development fallback must never be used in production.
+	adminEmail := strings.ToLower(getEnv("SUPER_ADMIN_EMAIL", "admin@taskflow.com"))
+	adminPassword := os.Getenv("SUPER_ADMIN_PASSWORD")
+	if adminPassword == "" && strings.ToLower(cfg.Server.Environment) == "development" {
+		adminPassword = "Tskadmin@00756$"
+	}
 	var admin models.User
 	if err := db.Where("LOWER(email) = ?", adminEmail).First(&admin).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
+		if errors.Is(err, gorm.ErrRecordNotFound) && adminPassword == "" {
+			log.Printf("SUPER_ADMIN_PASSWORD not set; skipping super admin bootstrap for %s", adminEmail)
+		} else if errors.Is(err, gorm.ErrRecordNotFound) {
 			hashed, err := auth.HashPassword(adminPassword)
 			if err != nil {
 				log.Fatalf("failed to hash admin password: %v", err)
@@ -81,7 +97,10 @@ func main() {
 	)
 
 	// 	// 	// Create gRPC server
-	grpcServer := grpc.NewServer()
+	grpcServer := grpc.NewServer(
+		grpc.UnaryInterceptor(auth.UnaryIdentityInterceptor(jwtManager)),
+		grpc.StreamInterceptor(auth.StreamIdentityInterceptor(jwtManager)),
+	)
 
 	// Start a simple HTTP API for invite operations
 	go func() {
@@ -333,7 +352,7 @@ func main() {
 			json.NewEncoder(w).Encode(map[string]interface{}{"users": out})
 		})
 
-		addr := ":8080"
+		addr := fmt.Sprintf(":%d", cfg.Server.HTTPPort)
 		log.Printf("UserService HTTP invite API listening on %s", addr)
 		if err := http.ListenAndServe(addr, httpMux); err != nil {
 			log.Fatalf("failed to start http invite api: %v", err)
@@ -388,4 +407,11 @@ func generateSecureToken(n int) (string, error) {
 func hashString(s string) string {
 	h := sha256.Sum256([]byte(s))
 	return hex.EncodeToString(h[:])
+}
+
+func getEnv(key, fallback string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return fallback
 }

@@ -28,7 +28,7 @@ fi
 
 # # # Stop local binaries (use PID files if present)
 echo "Stopping local backend binaries..."
-for svc in user-service task-service notification-service gateway; do
+for svc in user-service task-service notification-service org-service itsm-service gateway; do
 	pidfile="pids/${svc}.pid"
 	if [ -f "$pidfile" ]; then
 		PID=$(cat "$pidfile")

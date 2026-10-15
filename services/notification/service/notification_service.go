@@ -66,6 +66,9 @@ func (s *NotificationService) SubscribeToNotifications(stream notificationpb.Not
 	if userID == "" {
 		return status.Error(codes.InvalidArgument, "user_id is required")
 	}
+	if caller, _, role := callerFrom(ctx); caller != userID && role != "super_admin" {
+		return status.Error(codes.PermissionDenied, "cannot subscribe to another user's notifications")
+	}
 
 	log.Printf("User %s subscribed to notifications", userID)
 
