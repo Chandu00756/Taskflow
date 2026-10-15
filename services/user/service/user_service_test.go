@@ -9,6 +9,8 @@ import (
 	"github.com/chanduchitikam/task-management-system/services/user/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
@@ -121,4 +123,86 @@ func TestGetUser(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotNil(t, resp)
 	assert.Equal(t, "test@example.com", resp.User.Email)
+}
+
+func withVerification(t *testing.T, required bool) {
+	t.Helper()
+	prev := verificationRequired
+	verificationRequired = func() bool { return required }
+	t.Cleanup(func() { verificationRequired = prev })
+}
+
+func TestLoginBlocksUnverifiedEmail(t *testing.T) {
+	withVerification(t, true)
+	db := setupTestDB(t)
+	service := NewUserService(db, auth.NewJWTManager("test-secret", 3600, 86400))
+	_, err := service.Register(context.Background(), &userpb.RegisterRequest{Email: "ann@acme.test", Username: "ann", Password: "password123", FullName: "Ann"})
+	require.NoError(t, err)
+
+	// A wrong password must not reveal that the account exists but is unverified.
+	_, err = service.Login(context.Background(), &userpb.LoginRequest{Email: "ann@acme.test", Password: "nope"})
+	assert.Equal(t, codes.Unauthenticated, status.Code(err))
+
+	_, err = service.Login(context.Background(), &userpb.LoginRequest{Email: "ann@acme.test", Password: "password123"})
+	assert.Equal(t, codes.FailedPrecondition, status.Code(err))
+	assert.Contains(t, err.Error(), "verify your email")
+
+	require.NoError(t, db.Model(&models.User{}).Where("email = ?", "ann@acme.test").Update("email_verification_pending", false).Error)
+	resp, err := service.Login(context.Background(), &userpb.LoginRequest{Email: "ann@acme.test", Password: "password123"})
+	require.NoError(t, err)
+	assert.NotEmpty(t, resp.AccessToken)
+}
+
+func TestRegisterDomainClaim(t *testing.T) {
+	db := setupTestDB(t)
+	service := NewUserService(db, auth.NewJWTManager("test-secret", 3600, 86400))
+	orgOf := func(email string) models.Organization {
+		var u models.User
+		require.NoError(t, db.Where("email = ?", email).First(&u).Error)
+		require.NotNil(t, u.OrgID)
+		var o models.Organization
+		require.NoError(t, db.Where("id = ?", *u.OrgID).First(&o).Error)
+		return o
+	}
+
+	// Unverified sign-ups do not claim their company domain.
+	withVerification(t, true)
+	_, err := service.Register(context.Background(), &userpb.RegisterRequest{Email: "a@squat.test", Username: "a1", Password: "password123"})
+	require.NoError(t, err)
+	assert.Nil(t, orgOf("a@squat.test").Domain)
+
+	// Without verification the domain is claimed straight away.
+	withVerification(t, false)
+	_, err = service.Register(context.Background(), &userpb.RegisterRequest{Email: "b@claim.test", Username: "b1", Password: "password123"})
+	require.NoError(t, err)
+	if d := orgOf("b@claim.test").Domain; assert.NotNil(t, d) {
+		assert.Equal(t, "claim.test", *d)
+	}
+
+	// Public providers never claim a domain; each sign-up gets its own workspace.
+	_, err = service.Register(context.Background(), &userpb.RegisterRequest{Email: "c@gmail.com", Username: "c1", Password: "password123", FullName: "Cara Diaz"})
+	require.NoError(t, err)
+	_, err = service.Register(context.Background(), &userpb.RegisterRequest{Email: "d@gmail.com", Username: "d1", Password: "password123"})
+	require.NoError(t, err, "a second gmail.com sign-up must not be blocked")
+	o := orgOf("c@gmail.com")
+	assert.Nil(t, o.Domain)
+	assert.Equal(t, "Cara Diaz's workspace", o.Name)
+}
+
+func TestRegisterOrganizationPendingVerification(t *testing.T) {
+	withVerification(t, true)
+	db := setupTestDB(t)
+	orgs := NewOrganizationService(db, auth.NewJWTManager("test-secret", 3600, 86400))
+	org, admin, err := orgs.RegisterOrganization("Acme", "", "boss@acme.test", "Password1!", "Boss")
+	require.NoError(t, err)
+	assert.True(t, admin.EmailVerificationPending)
+	assert.Nil(t, org.Domain, "the domain is claimed once the admin verifies")
+
+	withVerification(t, false)
+	org2, admin2, err := orgs.RegisterOrganization("Beta", "", "boss@beta.test", "Password1!", "Boss")
+	require.NoError(t, err)
+	assert.False(t, admin2.EmailVerificationPending)
+	if assert.NotNil(t, org2.Domain) {
+		assert.Equal(t, "beta.test", *org2.Domain)
+	}
 }

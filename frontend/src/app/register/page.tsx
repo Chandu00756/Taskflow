@@ -18,6 +18,7 @@ import { useAuthStore } from '@/store/auth';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { CheckInbox, sendVerificationLink, useAuthConfig } from '@/components/auth/email-flows';
 
 const Confetti = dynamic<ConfettiProps>(() => import('react-confetti'), { ssr: false });
 
@@ -70,6 +71,8 @@ function scorePassword(password: string) {
 export default function RegisterPage() {
   const router = useRouter();
   const [showCelebration, setShowCelebration] = useState(false);
+  const [sentTo, setSentTo] = useState<string | null>(null);
+  const authConfig = useAuthConfig();
   const {
     handleSubmit,
     register,
@@ -94,6 +97,14 @@ export default function RegisterPage() {
     const registerMutation = useMutation({
     mutationFn: authAPI.register,
     onSuccess: async (data: any, variables: any) => {
+      if (authConfig.data?.email_verification) {
+        // New accounts confirm their address before the first sign-in.
+        toast.success('Account created!');
+        setShowCelebration(true);
+        await sendVerificationLink(variables.email).catch(() => undefined);
+        setSentTo(variables.email);
+        return;
+      }
       toast.success('Account created! Logging you in...');
       setShowCelebration(true);
       // Automatically login to obtain tokens
@@ -276,6 +287,13 @@ export default function RegisterPage() {
               </p>
             </header>
 
+            {sentTo ? (
+              <CheckInbox email={sentTo}>
+                <Link href={`/login?email=${encodeURIComponent(sentTo)}`} className="block text-center text-sm font-semibold text-sky-500 hover:text-sky-600">
+                  I&apos;ve verified my email — sign in
+                </Link>
+              </CheckInbox>
+            ) : (
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
               <div className="grid gap-3 md:grid-cols-2">
                 <div className="space-y-1.5">
@@ -445,6 +463,7 @@ export default function RegisterPage() {
                 </p>
               </div>
             </form>
+            )}
           </div>
         </motion.div>
       </div>

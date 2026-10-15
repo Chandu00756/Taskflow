@@ -11,6 +11,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { Building2, Users, ShieldCheck, Sparkles } from 'lucide-react';
 import { apiClient } from '@/lib/api';
+import { CheckInbox, sendVerificationLink, useAuthConfig } from '@/components/auth/email-flows';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -42,6 +43,8 @@ type OrgRegisterFormValues = z.infer<typeof orgRegisterSchema>;
 export default function OrganizationRegisterPage() {
   const router = useRouter();
   const [step, setStep] = useState<'org' | 'admin'>('org');
+  const [sentTo, setSentTo] = useState<string | null>(null);
+  const authConfig = useAuthConfig();
   
   const {
     handleSubmit,
@@ -72,10 +75,15 @@ export default function OrganizationRegisterPage() {
         admin_full_name: data.admin_full_name,
       });
     },
-    onSuccess: () => {
+    onSuccess: async (_res, values) => {
       toast.success('Organization created successfully! 🎉');
-      toast.info('Please check your email to verify your account.');
-      setTimeout(() => router.push('/login'), 2000);
+      if (authConfig.data?.email_verification) {
+        // The account cannot sign in until its address is confirmed.
+        await sendVerificationLink(values.admin_email).catch(() => undefined);
+        setSentTo(values.admin_email);
+        return;
+      }
+      setTimeout(() => router.push(`/login?email=${encodeURIComponent(values.admin_email)}`), 1200);
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.message || 'Failed to create organization');
@@ -114,6 +122,14 @@ export default function OrganizationRegisterPage() {
           className="w-full max-w-2xl"
         >
           <div className="rounded-[44px] border border-white/70 bg-white/85 p-12 shadow-[0_45px_90px_-50px_rgba(56,189,248,0.5)] backdrop-blur-xl">
+            {sentTo ? (
+              <CheckInbox email={sentTo}>
+                <Link href={`/login?email=${encodeURIComponent(sentTo)}`} className="block text-center text-sm font-semibold text-sky-500 hover:text-sky-600">
+                  I&apos;ve verified my email — sign in
+                </Link>
+              </CheckInbox>
+            ) : (
+            <>
             {/* Progress Steps */}
             <div className="mb-8 flex items-center justify-center gap-4">
               <button
@@ -323,6 +339,8 @@ export default function OrganizationRegisterPage() {
                 ← Back to individual signup
               </Link>
             </div>
+            </>
+            )}
           </div>
         </motion.div>
       </div>

@@ -2,16 +2,11 @@ package app
 
 import (
 	"context"
-	"crypto/tls"
 	"fmt"
 	"log"
-	"mime"
-	"net"
-	"net/smtp"
-	"strings"
 	"time"
 
-	"github.com/google/uuid"
+	"github.com/chanduchitikam/task-management-system/pkg/mailer"
 	"gorm.io/gorm"
 )
 
@@ -196,18 +191,17 @@ func (a *App) processContracts(ctx context.Context, db *gorm.DB) {
 	}
 }
 
-// sanitizeHeader strips characters that could inject extra headers.
-func sanitizeHeader(s string) string {
-	return strings.NewReplacer("\r", " ", "\n", " ").Replace(s)
-}
-
+// deliverEmail sends queued mail. Rows are claimed with SKIP LOCKED so the
+// periodic worker and an immediate kick (or another replica) never send the
+// same message twice; failures back off and give up after five attempts.
 func (a *App) deliverEmail(db *gorm.DB) {
-	var batch []EmailOutbox
-	db.Where("status = 'queued' AND attempts < 5").Order("created_at").Limit(50).Find(&batch)
-	if len(batch) == 0 {
-		return
-	}
-	if a.Cfg.SMTPHost == "" {
+	mc := a.mailConfig()
+	if !mc.Enabled() {
+		var batch []EmailOutbox
+		db.Where("status = 'queued'").Order("created_at").Limit(200).Find(&batch)
+		if len(batch) == 0 {
+			return
+		}
 		ids := make([]string, len(batch))
 		for i, e := range batch {
 			ids[i] = e.ID
@@ -216,81 +210,62 @@ func (a *App) deliverEmail(db *gorm.DB) {
 		db.Model(&EmailOutbox{}).Where("id IN ?", ids).Updates(map[string]interface{}{"status": "skipped", "last_error": "SMTP not configured"})
 		return
 	}
-	for _, e := range batch {
-		err := a.sendSMTP(e.ToAddr, e.Subject, e.Body)
-		if err != nil {
-			status := "queued"
-			if e.Attempts+1 >= 5 {
-				status = "failed"
-			}
-			db.Model(&EmailOutbox{}).Where("id = ?", e.ID).Updates(map[string]interface{}{"attempts": e.Attempts + 1, "last_error": truncate(err.Error(), 500), "status": status})
-			continue
+	for round := 0; round < 10; round++ {
+		var batch []EmailOutbox
+		err := db.Raw(`UPDATE itsm_email_outbox SET status = 'sending', updated_at = now()
+			WHERE id IN (SELECT id FROM itsm_email_outbox
+				WHERE status = 'queued' AND attempts < 5 AND (attempts = 0 OR updated_at < now() - attempts * interval '2 minutes')
+				ORDER BY created_at LIMIT 20 FOR UPDATE SKIP LOCKED)
+			RETURNING *`).Scan(&batch).Error
+		if err != nil || len(batch) == 0 {
+			return
 		}
-		db.Model(&EmailOutbox{}).Where("id = ?", e.ID).Updates(map[string]interface{}{"status": "sent", "sent_at": now(), "attempts": e.Attempts + 1, "last_error": ""})
+		for _, e := range batch {
+			if err := mc.Send(mailer.Message{To: e.ToAddr, Subject: e.Subject, Text: e.Body}); err != nil {
+				status := "queued"
+				if e.Attempts+1 >= 5 {
+					status = "failed"
+				}
+				log.Printf("itsm email to=%s failed (attempt %d): %v", e.ToAddr, e.Attempts+1, err)
+				db.Model(&EmailOutbox{}).Where("id = ?", e.ID).Updates(map[string]interface{}{"attempts": e.Attempts + 1, "last_error": truncate(err.Error(), 500), "status": status, "updated_at": now()})
+				continue
+			}
+			db.Model(&EmailOutbox{}).Where("id = ?", e.ID).Updates(map[string]interface{}{"status": "sent", "sent_at": now(), "attempts": e.Attempts + 1, "last_error": "", "updated_at": now()})
+		}
+		if len(batch) < 20 {
+			return
+		}
 	}
 }
 
-func (a *App) sendSMTP(to, subject, body string) error {
-	from := a.Cfg.SMTPFrom
-	if from == "" {
-		from = a.Cfg.SMTPUser
+// kickMail starts delivering queued mail now instead of at the next worker
+// tick, so sign-up and reset links arrive within seconds.
+func (a *App) kickMail() {
+	a.mailAgain.Store(true)
+	if !a.mailMu.TryLock() {
+		return
 	}
-	host := a.Cfg.SMTPHost
-	addr := net.JoinHostPort(host, a.Cfg.SMTPPort)
-	msg := strings.Join([]string{
-		"From: " + sanitizeHeader(from),
-		"To: " + sanitizeHeader(to),
-		"Subject: " + mime.QEncoding.Encode("utf-8", sanitizeHeader(subject)),
-		"Date: " + time.Now().Format(time.RFC1123Z),
-		"Message-ID: <" + uuid.NewString() + "@" + host + ">",
-		"MIME-Version: 1.0",
-		"Content-Type: text/plain; charset=UTF-8",
-		"Content-Transfer-Encoding: 8bit",
-		"", strings.ReplaceAll(body, "\n", "\r\n"),
-	}, "\r\n")
-	var auth smtp.Auth
-	if a.Cfg.SMTPUser != "" {
-		auth = smtp.PlainAuth("", a.Cfg.SMTPUser, a.Cfg.SMTPPass, host)
-	}
-	if a.Cfg.SMTPPort == "465" {
-		conn, err := tls.DialWithDialer(&net.Dialer{Timeout: 15 * time.Second}, "tcp", addr, &tls.Config{ServerName: host, MinVersion: tls.VersionTLS12})
-		if err != nil {
-			return err
-		}
-		c, err := smtp.NewClient(conn, host)
-		if err != nil {
-			return err
-		}
-		defer c.Close()
-		if auth != nil {
-			if err := c.Auth(auth); err != nil {
-				return err
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				log.Printf("itsm mail delivery panic: %v", r)
 			}
+			a.mailMu.Unlock()
+			if a.mailAgain.Load() {
+				a.kickMail()
+			}
+		}()
+		for a.mailAgain.Swap(false) {
+			a.deliverEmail(a.DB)
 		}
-		if err := c.Mail(from); err != nil {
-			return err
-		}
-		if err := c.Rcpt(to); err != nil {
-			return err
-		}
-		w, err := c.Data()
-		if err != nil {
-			return err
-		}
-		if _, err := w.Write([]byte(msg)); err != nil {
-			return err
-		}
-		if err := w.Close(); err != nil {
-			return err
-		}
-		return c.Quit()
-	}
-	// smtp.SendMail upgrades to STARTTLS when the server offers it.
-	return smtp.SendMail(addr, auth, from, []string{to}, []byte(msg))
+	}()
 }
 
 func (a *App) cleanup(db *gorm.DB) {
 	db.Where("entity_type = 'pending' AND created_at < ?", now().Add(-24*time.Hour)).Delete(&Attachment{})
 	db.Where("expires_at < ?", now()).Delete(&RefreshSession{})
 	db.Where("status IN ('sent','skipped') AND created_at < ?", now().AddDate(0, 0, -90)).Delete(&EmailOutbox{})
+	// A delivery interrupted by a restart is retried.
+	db.Model(&EmailOutbox{}).Where("status = 'sending' AND updated_at < ?", now().Add(-10*time.Minute)).Update("status", "queued")
+	db.Where("created_at < ?", now().AddDate(0, 0, -7)).Delete(&AuthToken{})
 }

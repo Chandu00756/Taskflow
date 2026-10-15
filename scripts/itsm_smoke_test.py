@@ -6,15 +6,23 @@ service catalog, knowledge base, problem/change/release management, assets,
 reporting and the security boundaries between tenants and roles.
 
 Usage:
-    python3 scripts/itsm_smoke_test.py [--base http://localhost:8080]
+    python3 scripts/itsm_smoke_test.py [--base http://localhost:8080] [--mail-dir DIR]
+
+When the server sends email, pass --mail-dir pointing at a local catch-all
+SMTP server's output (one .eml file per message) so the test can follow
+verification and reset links; or set SMOKE_SUPER_EMAIL/SMOKE_SUPER_PASSWORD
+so new accounts can be verified through the platform console.
 
 The script registers a brand-new organization each run, so it is safe to run
 repeatedly against a development or staging environment. It never touches
 existing organizations.
 """
 import argparse
+import email
+import email.header
 import json
 import os
+import re
 import ssl
 import sys
 import time
@@ -25,6 +33,7 @@ import uuid
 
 BASE = "http://localhost:8080"
 SSL_CONTEXT = None
+MAIL_DIR = None
 FAILURES = []
 PASSES = 0
 
@@ -81,13 +90,87 @@ def login(email, password):
     return res["access_token"], res["refresh_token"]
 
 
+def mails_to(addr, subject_part=None):
+    """Messages in --mail-dir addressed to addr, oldest first, as (subject, body)."""
+    out = []
+    if not MAIL_DIR or not os.path.isdir(MAIL_DIR):
+        return out
+    for name in sorted(os.listdir(MAIL_DIR)):
+        with open(os.path.join(MAIL_DIR, name), "rb") as fh:
+            msg = email.message_from_bytes(fh.read())
+        to = (msg.get("X-Envelope-To", "") + " " + str(msg.get("To", ""))).lower()
+        subject = str(email.header.make_header(email.header.decode_header(msg.get("Subject", ""))))
+        if addr.lower() in to and (subject_part is None or subject_part.lower() in subject.lower()):
+            out.append((subject, msg.get_payload(decode=True).decode("utf-8", "replace")))
+    return out
+
+
+def wait_mail(addr, subject_part, count_before=0, timeout=30):
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        found = mails_to(addr, subject_part)
+        if len(found) > count_before:
+            return found[-1]
+        time.sleep(0.5)
+    return None
+
+
+def link_token(body, path):
+    m = re.search(re.escape(path) + r"\?token=([A-Za-z0-9_%-]+)", body or "")
+    return urllib.parse.unquote(m.group(1)) if m else None
+
+
+def with_temp_password(res, addr):
+    """Fills res["temporary_password"] from the welcome email when it was emailed instead of returned."""
+    if "temporary_password" in res:
+        return res
+    if not MAIL_DIR:
+        raise SystemExit("temporary passwords are emailed on this server: pass --mail-dir to read them")
+    mail = wait_mail(addr, "account")
+    check(mail is not None, f"welcome email delivered to {addr}")
+    m = re.search(r"Temporary password: (\S+)", mail[1] if mail else "")
+    check(m is not None, "welcome email contains the temporary password")
+    res["temporary_password"] = m.group(1) if m else ""
+    return res
+
+
+def verify_new_account(addr, password, super_token):
+    """Confirms a self-service sign-up the way its owner would."""
+    status, res = call("POST", "/api/v1/auth/login", body={"email": addr, "password": password})
+    check(status == 400 and "verify your email" in str(res).lower(), f"unverified account cannot sign in yet (got {status})")
+    status, _ = call("POST", "/api/v1/auth/login", body={"email": addr, "password": password + "x"})
+    check(status == 401, f"a wrong password does not reveal the verification state (got {status})")
+    call("POST", "/api/v2/auth/verify-email", body={"token": "not-a-real-token"}, expect=400)
+    _, sent = call("POST", "/api/v2/auth/verify-email/send", body={"email": addr}, expect=200)
+    _, other = call("POST", "/api/v2/auth/verify-email/send", body={"email": "nobody-" + addr}, expect=200)
+    check(sent["message"] == other["message"], "resend does not reveal whether an account exists")
+    if MAIL_DIR:
+        mail = wait_mail(addr, "Verify your email")
+        check(mail is not None, "verification email delivered")
+        token = link_token(mail[1] if mail else "", "/verify-email")
+        check(token is not None, "verification email contains the link")
+        _, res = call("POST", "/api/v2/auth/verify-email", body={"token": token}, expect=200)
+        check(res and res.get("email") == addr, "verification link confirms the address")
+        _, res = call("POST", "/api/v2/auth/verify-email", body={"token": token}, expect=200)
+        check("already" in str(res).lower(), "opening the link again says the address is already verified")
+    elif super_token:
+        _, users = call("GET", "/api/v2/platform/users?q=" + urllib.parse.quote(addr), super_token, expect=200)
+        u = next((u for u in users["items"] if u["email"] == addr), None)
+        check(u is not None and u["status"] == "unverified", "platform shows the new account as unverified")
+        call("POST", f"/api/v2/platform/users/{u['id']}/verify-email", super_token, expect=200)
+    else:
+        raise SystemExit("email verification is on: pass --mail-dir, or set SMOKE_SUPER_EMAIL/SMOKE_SUPER_PASSWORD")
+
+
 def main():
-    global BASE, SSL_CONTEXT
+    global BASE, SSL_CONTEXT, MAIL_DIR
     ap = argparse.ArgumentParser()
     ap.add_argument("--base", default=BASE)
     ap.add_argument("--insecure", action="store_true", help="accept self-signed HTTPS certificates (local trial runs)")
+    ap.add_argument("--mail-dir", default=os.environ.get("SMOKE_MAIL_DIR"), help="folder where a catch-all SMTP server writes .eml files")
     args = ap.parse_args()
     BASE = args.base.rstrip("/")
+    MAIL_DIR = args.mail_dir
     if args.insecure:
         SSL_CONTEXT = ssl._create_unverified_context()
     suffix = uuid.uuid4().hex[:8]
@@ -102,11 +185,21 @@ def main():
     status, _ = call("GET", "/api/v1/admin/users", headers={"Grpc-Metadata-Role": "super_admin", "X-User-Id": str(uuid.uuid4())})
     check(status in (401, 403), f"forged gRPC metadata must not grant admin access (got {status})")
     call("GET", "/api/v2/me", expect=401)
+    _, auth_cfg = call("GET", "/api/v2/auth/config", expect=200)
+    check(isinstance(auth_cfg.get("email_enabled"), bool) and isinstance(auth_cfg.get("email_verification"), bool), "auth config reports email features")
+    email_on, verify_on = auth_cfg["email_enabled"], auth_cfg["email_verification"]
+    print(f"  email sending {'on' if email_on else 'off'}, sign-up verification {'on' if verify_on else 'off'}")
+
+    super_token = os.environ.get("SMOKE_SUPER_TOKEN")
+    if not super_token and os.environ.get("SMOKE_SUPER_EMAIL"):
+        super_token, _ = login(os.environ["SMOKE_SUPER_EMAIL"], os.environ.get("SMOKE_SUPER_PASSWORD", ""))
 
     section("Organization signup and account admin")
     call("POST", "/api/v1/organizations/register", expect=200, body={
         "org_name": f"Acme {suffix}", "description": "smoke test", "admin_email": admin_email,
         "admin_password": admin_pw, "admin_full_name": "Alice Admin"})
+    if verify_on:
+        verify_new_account(admin_email, admin_pw, super_token)
     admin, admin_refresh = login(admin_email, admin_pw)
     _, me = call("GET", "/api/v2/me", admin, expect=200)
     check(me["is_agent"] and me["is_account_admin"], "org admin is an account admin agent")
@@ -129,7 +222,11 @@ def main():
         "email": f"agent@{domain}", "name": "Andy Agent", "role_ids": [rmap["SD Agent"]["id"], rmap["Change Manager"]["id"]],
         "group_ids": [gmap["Network Team"]["id"], gmap["Service Desk"]["id"]], "job_title": "Engineer"}, expect=201)
     agent_id = agent_res["person"]["id"]
-    check("temporary_password" in agent_res, "temporary password returned when SMTP is not configured")
+    if email_on:
+        check("temporary_password" not in agent_res, "temporary password is emailed, not shown, when email is configured")
+        with_temp_password(agent_res, f"agent@{domain}")
+    else:
+        check("temporary_password" in agent_res, "temporary password returned when SMTP is not configured")
     call("POST", "/api/v2/agents", admin, {"email": f"agent@{domain}", "name": "Dup"}, expect=422)
     call("POST", "/api/v2/agents", admin, {"email": "not-an-email", "name": "X"}, expect=422)
 
@@ -138,6 +235,8 @@ def main():
         "reporting_manager_id": me["user"]["id"]}, expect=201)
     requester_id = req_res["person"]["id"]
     _, other_res = call("POST", "/api/v2/requesters", admin, {"email": f"omar@{domain}", "name": "Omar Other"}, expect=201)
+    with_temp_password(req_res, f"rita@{domain}")
+    with_temp_password(other_res, f"omar@{domain}")
 
     agent_tok, _ = login(f"agent@{domain}", agent_res["temporary_password"])
     time.sleep(1.1)  # JWT iat has one-second precision
@@ -453,7 +552,7 @@ def main():
     check(none["total"] == 0, "dry run creates nobody")
     _, imp = call("POST", "/api/v2/people/import", admin, {"kind": "requesters", "csv": csv_text}, expect=200)
     ivan_row = next(r for r in imp["rows"] if r["email"] == f"ivan@{domain}")
-    check(ivan_row["action"] == "create" and ivan_row.get("temporary_password"), "import creates people")
+    check(ivan_row["action"] == "create" and (ivan_row.get("temporary_password") or email_on), "import creates people")
     _, ivan = call("GET", f"/api/v2/requesters?q=ivan@{domain}", admin, expect=200)
     iv = ivan["items"][0]
     check(iv["department"]["id"] == fin["id"] and iv["vip"] and iv["reporting_manager"]["id"] == admin_uid, "imported fields applied")
@@ -534,26 +633,73 @@ def main():
     _, conv = call("POST", f"/api/v2/people/{requester_id}/convert-to-agent", admin, {"role_ids": [rmap["SD Agent"]["id"]]}, expect=200)
     check(conv["is_agent"], "requester converted to agent")
     call("POST", f"/api/v2/people/{requester_id}/convert-to-requester", admin, expect=200)
+    welcomes = len(mails_to(f"agent@{domain}", "account"))
     _, rp = call("POST", f"/api/v2/people/{agent_id}/reset-password", admin, expect=200)
-    check("temporary_password" in rp, "admin password reset issues a temporary password")
+    if email_on and MAIL_DIR:
+        check(wait_mail(f"agent@{domain}", "account", count_before=welcomes) is not None, "admin password reset emails the temporary password")
+    else:
+        check("temporary_password" in rp or email_on, "admin password reset issues a temporary password")
     call("POST", f"/api/v2/people/{me['user']['id']}/deactivate", admin, expect=400)
     _, key = call("POST", "/api/v2/me/api-key", admin, expect=201)
     import base64
     basic = base64.b64encode((key["key"] + ":X").encode()).decode()
     call("GET", "/api/v2/tickets", headers={"Authorization": "Basic " + basic}, expect=200)
 
+    section("Password reset by email")
+    if not email_on:
+        call("POST", "/api/v2/auth/forgot/email", body={"email": admin_email}, expect=400)
+        print("  (email is off: only checked that email reset is refused)")
+    else:
+        _, real = call("POST", "/api/v2/auth/forgot/email", body={"email": admin_email}, expect=200)
+        _, ghost = call("POST", "/api/v2/auth/forgot/email", body={"email": f"nobody-{suffix}@{domain}"}, expect=200)
+        check(real["message"] == ghost["message"], "reset request does not reveal whether an account exists")
+        call("POST", "/api/v2/auth/forgot/email", body={"email": "not-an-email"}, expect=422)
+        call("POST", "/api/v2/auth/forgot/email/check", body={"token": "bogus"}, expect=400)
+        call("POST", "/api/v2/auth/forgot/email/reset", body={"token": "bogus", "new_password": "Whatever@123"}, expect=400)
+        if MAIL_DIR:
+            mail = wait_mail(admin_email, "Reset your")
+            token = link_token(mail[1] if mail else "", "/reset-password")
+            check(token is not None, "reset email delivered with a link")
+            call("POST", "/api/v2/auth/forgot/email", body={"email": admin_email}, expect=200)
+            time.sleep(2)
+            check(len(mails_to(admin_email, "Reset your")) == 1, "a second reset request within a minute sends no extra email")
+            _, who = call("POST", "/api/v2/auth/forgot/email/check", body={"token": token}, expect=200)
+            check(who.get("email") == admin_email, "reset link identifies the account")
+            _, old_refresh = login(admin_email, admin_pw)
+            call("POST", "/api/v2/auth/forgot/email/reset", body={"token": token, "new_password": "short"}, expect=422)
+            new_pw = "Reset@" + suffix + "A1"
+            time.sleep(1.1)  # JWT iat has one-second precision
+            call("POST", "/api/v2/auth/forgot/email/reset", body={"token": token, "new_password": new_pw}, expect=200)
+            call("POST", "/api/v2/auth/forgot/email/reset", body={"token": token, "new_password": new_pw}, expect=400)
+            status, _ = call("POST", "/api/v1/auth/login", body={"email": admin_email, "password": admin_pw})
+            check(status == 401, f"old password stops working after an email reset (got {status})")
+            status, _ = call("POST", "/api/v2/auth/refresh", body={"refresh_token": old_refresh})
+            check(status == 401, f"sessions are signed out after an email reset (got {status})")
+            admin_pw = new_pw
+            admin, _ = login(admin_email, admin_pw)
+            call("GET", "/api/v2/me", admin, expect=200)
+            check(wait_mail(admin_email, "password was changed") is not None, "password-change notice emailed")
+
     section("Platform administration")
     call("GET", "/api/v2/platform/organizations", expect=401)
     call("GET", "/api/v2/platform/organizations", admin, expect=403)
-    super_token = os.environ.get("SMOKE_SUPER_TOKEN")
-    if not super_token and os.environ.get("SMOKE_SUPER_EMAIL"):
-        super_token, _ = login(os.environ["SMOKE_SUPER_EMAIL"], os.environ.get("SMOKE_SUPER_PASSWORD", ""))
+    call("GET", "/api/v2/platform/email", admin, expect=403)
     if not super_token:
         print("  (skipped: set SMOKE_SUPER_TOKEN or SMOKE_SUPER_EMAIL/SMOKE_SUPER_PASSWORD to test the platform console)")
     else:
         _, orgs = call("GET", "/api/v2/platform/organizations", super_token, expect=200)
         mine = next((o for o in orgs["items"] if o["id"] == org_id), None)
         check(mine and mine["status"] == "active" and mine["member_count"] >= 2, "platform lists the organization with counts")
+        check(mine and mine.get("domain") == domain, "the verified admin's company domain is attached to the organization")
+        _, est = call("GET", "/api/v2/platform/email", super_token, expect=200)
+        check(est["configured"] == email_on and "pass" not in est and isinstance(est["recent"], list), "platform email status never exposes the password")
+        call("POST", "/api/v2/platform/email/test", super_token, {"to": "not-an-email"}, expect=422)
+        if email_on:
+            call("POST", "/api/v2/platform/email/test", super_token, {"to": f"ops@{domain}"}, expect=200)
+            if MAIL_DIR:
+                check(wait_mail(f"ops@{domain}", "test email") is not None, "platform test email delivered")
+        else:
+            call("POST", "/api/v2/platform/email/test", super_token, {"to": f"ops@{domain}"}, expect=400)
         _, users = call("GET", f"/api/v2/platform/users?org_id={org_id}", super_token, expect=200)
         check(any(u["email"] == admin_email for u in users["items"]), "platform lists organization members")
         call("POST", f"/api/v2/platform/organizations/{uuid.uuid4()}/suspend", super_token, expect=404)

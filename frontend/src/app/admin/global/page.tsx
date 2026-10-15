@@ -6,7 +6,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { 
   Building2, Users, Activity, TrendingUp, Shield, Search,
-  UserCheck, Ban, Trash2, Eye, Server, BarChart3, CheckCircle2, Unlock, UserX, X, LogOut
+  UserCheck, Ban, Trash2, Eye, Server, BarChart3, CheckCircle2, Unlock, UserX, X, LogOut, Mail, MailCheck
 } from 'lucide-react';
 import { useAuthStore } from '@/store/auth';
 import { apiClient } from '@/lib/api';
@@ -20,6 +20,7 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { UserGrowthChart, TaskDistributionChart, OrganizationActivityChart } from '@/components/admin/AnalyticsCharts';
 import { SystemHealthMonitor } from '@/components/admin/SystemHealth';
+import { EmailDeliveryPanel } from '@/components/admin/email-delivery';
 
 interface Organization {
   id: string;
@@ -45,10 +46,10 @@ interface GlobalUser {
   org_name?: string | null;
   last_login?: string | null;
   created_at: string;
-  status: 'active' | 'locked' | 'deactivated';
+  status: 'active' | 'locked' | 'deactivated' | 'unverified';
 }
 
-type UserAction = 'deactivate' | 'reactivate' | 'unlock';
+type UserAction = 'deactivate' | 'reactivate' | 'unlock' | 'verify-email';
 
 export default function GlobalAdminPage() {
   const router = useRouter();
@@ -60,7 +61,7 @@ export default function GlobalAdminPage() {
   const [searchOrg, setSearchOrg] = useState('');
   const [searchUser, setSearchUser] = useState('');
   const [userOrgFilter, setUserOrgFilter] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'overview' | 'organizations' | 'users' | 'analytics' | 'system'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'organizations' | 'users' | 'analytics' | 'email' | 'system'>('overview');
 
   useEffect(() => {
     // The persisted session is only available after the first client render.
@@ -145,7 +146,7 @@ export default function GlobalAdminPage() {
     mutationFn: ({ userId, action }: { userId: string; action: UserAction }) =>
       v2.post(`/platform/users/${userId}/${action}`),
     onSuccess: (_data, { action }) => {
-      toast.success({ deactivate: 'User deactivated', reactivate: 'User reactivated', unlock: 'User unlocked' }[action]);
+      toast.success({ deactivate: 'User deactivated', reactivate: 'User reactivated', unlock: 'User unlocked', 'verify-email': 'Email marked as verified' }[action]);
       queryClient.invalidateQueries({ queryKey: ['admin-users'] });
     },
     onError: (err) => toast.error(parseApiError(err).message),
@@ -200,6 +201,7 @@ export default function GlobalAdminPage() {
               { id: 'analytics', label: 'Analytics', icon: BarChart3 },
               { id: 'organizations', label: 'Organizations', icon: Building2 },
               { id: 'users', label: 'All Users', icon: Users },
+              { id: 'email', label: 'Email', icon: Mail },
               { id: 'system', label: 'System Health', icon: Server },
             ].map((tab) => (
               <button
@@ -276,6 +278,8 @@ export default function GlobalAdminPage() {
             <OrganizationActivityChart />
           </div>
         )}
+
+        {activeTab === 'email' && <EmailDeliveryPanel defaultTo={user?.email} />}
 
         {activeTab === 'system' && (
           <div>
@@ -429,7 +433,7 @@ export default function GlobalAdminPage() {
                         <Badge variant="outline">{u.role}</Badge>
                       </td>
                       <td className="px-6 py-4">
-                        <Badge variant={u.status === 'active' ? 'default' : 'destructive'}>
+                        <Badge variant={u.status === 'active' ? 'default' : u.status === 'unverified' ? 'secondary' : 'destructive'}>
                           {u.status}
                         </Badge>
                       </td>
@@ -438,6 +442,22 @@ export default function GlobalAdminPage() {
                           <span className="text-xs text-slate-400">Platform admin</span>
                         ) : (
                           <div className="flex items-center gap-1">
+                            {u.status === 'unverified' && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                title="Mark email as verified"
+                                aria-label={`Mark ${u.email} as verified`}
+                                disabled={userActionMutation.isPending}
+                                onClick={() => {
+                                  if (confirm(`Mark ${u.email} as verified? Only do this if you know the address belongs to them.`)) {
+                                    userActionMutation.mutate({ userId: u.id, action: 'verify-email' });
+                                  }
+                                }}
+                              >
+                                <MailCheck className="h-4 w-4 text-blue-600" />
+                              </Button>
+                            )}
                             {u.status === 'locked' && (
                               <Button
                                 variant="ghost"

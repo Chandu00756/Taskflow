@@ -10,7 +10,6 @@ import (
 	"log"
 	"net"
 	"net/http"
-	"net/smtp"
 	"os"
 	"strings"
 	"time"
@@ -18,6 +17,7 @@ import (
 	"github.com/chanduchitikam/task-management-system/pkg/auth"
 	"github.com/chanduchitikam/task-management-system/pkg/config"
 	"github.com/chanduchitikam/task-management-system/pkg/database"
+	"github.com/chanduchitikam/task-management-system/pkg/mailer"
 	userpb "github.com/chanduchitikam/task-management-system/proto/user"
 	"github.com/chanduchitikam/task-management-system/services/user/models"
 	"github.com/chanduchitikam/task-management-system/services/user/service"
@@ -189,19 +189,12 @@ func main() {
 					return
 				}
 
-				// In production, attempt to email the invite token; in development, return token in response.
+				// In production, email the invite link; in development, return the token in the response.
 				var emailed bool
-				// Check SMTP configuration via environment variables
-				smtpHost := os.Getenv("SMTP_HOST")
-				smtpPort := os.Getenv("SMTP_PORT")
-				smtpUser := os.Getenv("SMTP_USER")
-				smtpPass := os.Getenv("SMTP_PASS")
-				smtpFrom := os.Getenv("SMTP_FROM")
-
-				if strings.ToLower(cfg.Server.Environment) != "development" && smtpHost != "" && smtpPort != "" {
-					// attempt to send email
-					body := fmt.Sprintf("You have been invited to join organization %s. Use this token to accept the invite: %s", orgID, inviteToken)
-					if err := sendMail(smtpHost+":"+smtpPort, smtpUser, smtpPass, smtpFrom, invite.Email, "TaskFlow Invite", body); err != nil {
+				if mc := mailer.FromEnv(); strings.ToLower(cfg.Server.Environment) != "development" && mc.Enabled() {
+					link := strings.TrimRight(os.Getenv("PUBLIC_URL"), "/") + "/register?token=" + inviteToken
+					body := fmt.Sprintf("You have been invited to join TaskFlow.\n\nCreate your account here (the link expires %s):\n%s\n\nIf you were not expecting this invitation, you can ignore this email.", expires.UTC().Format("Jan 2, 2006 15:04 MST"), link)
+					if err := mc.Send(mailer.Message{To: invite.Email, Subject: "You're invited to TaskFlow", Text: body}); err != nil {
 						log.Printf("warning: failed to send invite email: %v", err)
 					} else {
 						emailed = true
@@ -377,21 +370,6 @@ func main() {
 	if err := grpcServer.Serve(listener); err != nil {
 		log.Fatalf("Failed to serve: %v", err)
 	}
-}
-
-// sendMail sends a simple plaintext email using basic SMTP auth.
-func sendMail(addr, user, pass, from, to, subject, body string) error {
-	// If no SMTP user/pass provided, try unauthenticated send
-	msg := "From: " + from + "\r\n" +
-		"To: " + to + "\r\n" +
-		"Subject: " + subject + "\r\n\r\n" +
-		body + "\r\n"
-
-	if user != "" && pass != "" {
-		auth := smtp.PlainAuth("", user, pass, strings.Split(addr, ":")[0])
-		return smtp.SendMail(addr, auth, from, []string{to}, []byte(msg))
-	}
-	return smtp.SendMail(addr, nil, from, []string{to}, []byte(msg))
 }
 
 // generateSecureToken returns a cryptographically secure random token of n bytes encoded as hex

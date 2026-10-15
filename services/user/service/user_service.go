@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/chanduchitikam/task-management-system/pkg/auth"
+	"github.com/chanduchitikam/task-management-system/pkg/mailer"
 	userpb "github.com/chanduchitikam/task-management-system/proto/user"
 	"github.com/chanduchitikam/task-management-system/services/user/models"
 	"google.golang.org/grpc/codes"
@@ -91,44 +92,39 @@ func (s *UserService) Register(ctx context.Context, req *userpb.RegisterRequest)
 		role = "admin"
 	}
 
-	// Determine organization by email domain
-	domain := ""
+	// Determine organization by email domain. Public mail providers
+	// (gmail.com, …) never identify a company, so those sign-ups get a
+	// workspace of their own. An address that still has to be verified does
+	// not claim its company domain until the owner confirms it.
+	pending := verificationRequired()
+	domain := mailer.Domain(normalizedEmail)
 	var org models.Organization
-	if parts := strings.Split(normalizedEmail, "@"); len(parts) == 2 {
-		domain = parts[1]
-	}
-
 	if domain != "" {
-		// Check if organization exists for this domain
-		if err := s.db.Where("domain = ?", domain).First(&org).Error; err != nil {
-			if errors.Is(err, gorm.ErrRecordNotFound) {
-				// No org exists: create one (unless DB doesn't have organizations table)
-				org = models.Organization{
-					Name:   strings.Split(domain, ".")[0],
-					Domain: &domain,
-				}
-				if err := s.db.Create(&org).Error; err != nil {
-					// If migrations not applied (tests), skip org creation
-					if strings.Contains(err.Error(), "no such table") || strings.Contains(err.Error(), "no such column") {
-						org = models.Organization{}
-					} else {
-						return nil, status.Error(codes.Internal, "failed to create organization")
-					}
-				} else {
-					// make user admin of new org
-					role = "admin"
-				}
+		claim := !mailer.IsPublicDomain(domain)
+		if claim {
+			if err := s.db.Where("domain = ?", domain).First(&org).Error; err == nil {
+				// Org exists: disallow self-registration — must be invited by org admin
+				return nil, status.Error(codes.PermissionDenied, "organization already exists for this domain; please request an invite from your organization administrator")
+			} else if !errors.Is(err, gorm.ErrRecordNotFound) && !strings.Contains(err.Error(), "no such table") {
+				return nil, status.Error(codes.Internal, "failed to lookup organization")
+			}
+		}
+		org = models.Organization{Name: strings.Split(domain, ".")[0]}
+		if !claim {
+			org.Name = workspaceName(req.FullName, req.Username)
+		} else if !pending {
+			org.Domain = &domain
+		}
+		if err := s.db.Create(&org).Error; err != nil {
+			// If migrations not applied (tests), skip org creation
+			if strings.Contains(err.Error(), "no such table") || strings.Contains(err.Error(), "no such column") {
+				org = models.Organization{}
 			} else {
-				// Lookup failed for other reasons
-				if strings.Contains(err.Error(), "no such table") {
-					org = models.Organization{}
-				} else {
-					return nil, status.Error(codes.Internal, "failed to lookup organization")
-				}
+				return nil, status.Error(codes.Internal, "failed to create organization")
 			}
 		} else {
-			// Org exists: disallow self-registration — must be invited by org admin
-			return nil, status.Error(codes.PermissionDenied, "organization already exists for this domain; please request an invite from your organization administrator")
+			// make user admin of new org
+			role = "admin"
 		}
 	}
 
@@ -144,6 +140,8 @@ func (s *UserService) Register(ctx context.Context, req *userpb.RegisterRequest)
 		FullName: req.FullName,
 		Role:     role,
 		OrgID:    orgIDPtr,
+
+		EmailVerificationPending: pending,
 	}
 
 	if err := s.db.Create(user).Error; err != nil {
@@ -216,6 +214,11 @@ func (s *UserService) Login(ctx context.Context, req *userpb.LoginRequest) (*use
 		}
 		s.db.Model(&user).Updates(updates)
 		return nil, status.Error(codes.Unauthenticated, "invalid email or password")
+	}
+
+	// Only after the correct password: say the address still needs verifying.
+	if user.EmailVerificationPending {
+		return nil, status.Error(codes.FailedPrecondition, "Please verify your email address before signing in. Use the link we sent to your inbox, or request a new one.")
 	}
 
 	// Successful login - update login tracking
@@ -938,4 +941,17 @@ func (s *UserService) RemoveOrganizationMember(ctx context.Context, req *userpb.
 	return &userpb.RemoveOrganizationMemberResponse{
 		Message: "Member removed successfully",
 	}, nil
+}
+
+// workspaceName names the organization created for a sign-up from a public
+// mail provider, e.g. "Ann Lee's workspace".
+func workspaceName(fullName, username string) string {
+	name := strings.TrimSpace(fullName)
+	if name == "" {
+		name = strings.TrimSpace(username)
+	}
+	if name == "" {
+		return "My workspace"
+	}
+	return name + "'s workspace"
 }

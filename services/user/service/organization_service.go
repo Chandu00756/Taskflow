@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/chanduchitikam/task-management-system/pkg/auth"
+	"github.com/chanduchitikam/task-management-system/pkg/mailer"
 	"github.com/chanduchitikam/task-management-system/services/user/models"
 	"gorm.io/gorm"
 )
@@ -24,12 +25,9 @@ func NewOrganizationService(db *gorm.DB, jwtManager *auth.JWTManager) *Organizat
 	}
 }
 
-// publicEmailDomains are shared mail providers that never identify an organization.
-var publicEmailDomains = map[string]bool{
-	"gmail.com": true, "googlemail.com": true, "yahoo.com": true, "outlook.com": true, "hotmail.com": true,
-	"live.com": true, "msn.com": true, "icloud.com": true, "me.com": true, "aol.com": true, "proton.me": true,
-	"protonmail.com": true, "yandex.com": true, "zoho.com": true, "gmx.com": true, "mail.com": true,
-}
+// verificationRequired reports whether self-service sign-ups must confirm
+// their email before signing in (see mailer.VerificationRequired).
+var verificationRequired = func() bool { return mailer.VerificationRequired(mailer.FromEnv()) }
 
 // RegisterOrganization creates a new organization and its admin user atomically
 func (s *OrganizationService) RegisterOrganization(orgName, orgDescription, adminEmail, adminPassword, adminFullName string) (*models.Organization, *models.User, error) {
@@ -61,15 +59,18 @@ func (s *OrganizationService) RegisterOrganization(orgName, orgDescription, admi
 
 	// Create organization. Corporate email domains identify the tenant;
 	// public providers (gmail.com, …) and already-claimed domains do not.
+	// An address that still has to be verified claims its domain only once
+	// the owner confirms it.
+	pending := verificationRequired()
 	org := &models.Organization{
 		Name:        orgName,
 		Description: &orgDescription,
 	}
-	if parts := strings.Split(strings.ToLower(adminEmail), "@"); len(parts) == 2 && !publicEmailDomains[parts[1]] {
+	if d := mailer.Domain(adminEmail); d != "" && !mailer.IsPublicDomain(d) && !pending {
 		var taken int64
-		tx.Model(&models.Organization{}).Where("LOWER(domain) = ?", parts[1]).Count(&taken)
+		tx.Model(&models.Organization{}).Where("LOWER(domain) = ?", d).Count(&taken)
 		if taken == 0 {
-			org.Domain = &parts[1]
+			org.Domain = &d
 		}
 	}
 	if err := tx.Create(org).Error; err != nil {
@@ -117,6 +118,8 @@ func (s *OrganizationService) RegisterOrganization(orgName, orgDescription, admi
 		FullName: adminFullName,
 		Role:     "org_admin",
 		OrgID:    &org.ID,
+
+		EmailVerificationPending: pending,
 	}
 	if err := tx.Create(admin).Error; err != nil {
 		tx.Rollback()

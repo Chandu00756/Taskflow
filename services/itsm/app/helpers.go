@@ -374,6 +374,7 @@ func (a *App) queueEmail(ctx context.Context, db *gorm.DB, orgID, event, to stri
 		ToAddr: to, Subject: renderTemplate(tpl.Subject, vars), Body: renderTemplate(tpl.Body, vars),
 		Status: "queued", EntityType: entityType, EntityID: entityID,
 	})
+	a.kickMail()
 }
 
 func (a *App) userEmail(db *gorm.DB, id string) (email, name string) {

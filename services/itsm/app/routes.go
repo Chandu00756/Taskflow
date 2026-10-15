@@ -8,6 +8,12 @@ func (a *App) routes() {
 	a.handle("POST /auth/logout", a.logout, public())
 	a.handle("POST /auth/forgot/questions", a.forgotQuestions, public())
 	a.handle("POST /auth/forgot/reset", a.forgotReset, public())
+	a.handle("GET /auth/config", a.authConfig, public())
+	a.handle("POST /auth/verify-email/send", a.sendVerification, public())
+	a.handle("POST /auth/verify-email", a.verifyEmail, public())
+	a.handle("POST /auth/forgot/email", a.forgotEmail, public())
+	a.handle("POST /auth/forgot/email/check", a.forgotEmailCheck, public())
+	a.handle("POST /auth/forgot/email/reset", a.forgotEmailReset, public())
 	a.handle("POST /inbound/email", a.inboundEmail, public())
 
 	// --- Me -----------------------------------------------------------------

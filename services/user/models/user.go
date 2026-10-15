@@ -27,6 +27,10 @@ type User struct {
 	// IsActive is false for deactivated accounts, which can no longer sign in.
 	IsActive bool `gorm:"not null;default:true" json:"is_active"`
 
+	// EmailVerificationPending is true for self-service sign-ups that have
+	// not yet confirmed their address; they cannot sign in until they do.
+	EmailVerificationPending bool `gorm:"not null;default:false" json:"-"`
+
 	// Security questions (JSON: [{question: "Q1", answer_hash: "hash1"}, ...])
 	SecurityQuestions string `gorm:"type:text" json:"security_questions,omitempty"`
 

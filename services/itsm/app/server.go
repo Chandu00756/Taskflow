@@ -15,6 +15,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/chanduchitikam/task-management-system/pkg/auth"
@@ -45,6 +46,9 @@ type App struct {
 	cache  *principalCache
 	seedMu sync.Mutex
 	seeded sync.Map // orgID -> true
+
+	mailMu    sync.Mutex  // one immediate delivery run at a time
+	mailAgain atomic.Bool // more mail was queued while a run was busy
 }
 
 // New builds the application and registers every route.

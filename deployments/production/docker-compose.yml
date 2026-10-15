@@ -25,6 +25,17 @@ x-db-env: &db-env
   JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
   ENVIRONMENT: production
 
+# Outgoing email, shared by the user service (sign-up verification, invites)
+# and the ITSM service (notifications, verification and reset links).
+x-mail-env: &mail-env
+  PUBLIC_URL: https://${DOMAIN:?set DOMAIN in .env}
+  SMTP_HOST: ${SMTP_HOST:-}
+  SMTP_PORT: ${SMTP_PORT:-587}
+  SMTP_USER: ${SMTP_USER:-}
+  SMTP_PASS: ${SMTP_PASS:-}
+  SMTP_FROM: ${SMTP_FROM:-}
+  EMAIL_VERIFICATION: ${EMAIL_VERIFICATION:-auto}
+
 services:
   postgres:
     image: postgres:16-alpine
@@ -62,7 +73,7 @@ services:
       context: ../..
       dockerfile: deployments/docker/Dockerfile.user
     environment:
-      <<: *db-env
+      <<: [*db-env, *mail-env]
       GRPC_PORT: "50051"
       DB_MAX_OPEN_CONNS: "25"
       SUPER_ADMIN_EMAIL: ${SUPER_ADMIN_EMAIL:?set SUPER_ADMIN_EMAIL in .env}
@@ -125,15 +136,9 @@ services:
       context: ../..
       dockerfile: deployments/docker/Dockerfile.itsm
     environment:
-      <<: *db-env
+      <<: [*db-env, *mail-env]
       ITSM_HTTP_PORT: "8090"
       DB_MAX_OPEN_CONNS: "40"
-      PUBLIC_URL: https://${DOMAIN:?set DOMAIN in .env}
-      SMTP_HOST: ${SMTP_HOST:-}
-      SMTP_PORT: ${SMTP_PORT:-587}
-      SMTP_USER: ${SMTP_USER:-}
-      SMTP_PASS: ${SMTP_PASS:-}
-      SMTP_FROM: ${SMTP_FROM:-}
       MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-15}
     depends_on:
       postgres:

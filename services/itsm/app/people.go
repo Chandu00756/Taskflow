@@ -640,6 +640,7 @@ func (a *App) queueWelcome(c *Ctx, userID, email, name, temp string) {
 		name, s.HelpdeskName, strings.TrimRight(a.Cfg.PublicURL, "/"), email, temp)
 	c.DB().Create(&EmailOutbox{Base: Base{OrgID: c.P.OrgID}, ToAddr: email, Subject: "Your " + s.HelpdeskName + " account",
 		Body: body, Status: "queued", EntityType: "user", EntityID: userID})
+	a.kickMail()
 }
 
 func (a *App) updatePerson(agent bool) handlerFunc {

@@ -932,6 +932,6 @@ func AllModels() []interface{} {
 		&KBCategory{}, &KBFolder{}, &KBArticle{}, &Workflow{}, &Scenario{}, &CannedFolder{}, &CannedResponse{},
 		&FormField{}, &Announcement{}, &Survey{}, &SurveyResponse{}, &EmailTemplate{}, &EmailOutbox{},
 		&AuditLog{}, &OnCallSchedule{}, &APIKey{}, &RefreshSession{}, &Project{}, &WorkItem{}, &Cycle{},
-		&Team{}, &TeamMember{}, &Avatar{},
+		&Team{}, &TeamMember{}, &Avatar{}, &AuthToken{},
 	}
 }

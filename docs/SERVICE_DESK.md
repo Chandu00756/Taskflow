@@ -33,6 +33,7 @@ operate it, and how to verify it.
 | **Analytics** | Dashboard (unresolved / overdue / due today / unassigned, created-vs-resolved trend, SLA compliance, average response & resolution, CSAT, leaderboard), reports for ticket volume, SLA by priority, agent performance (incl. time logged), group performance, CSAT distribution, asset inventory |
 | **Organization** | Org units (OUs) as a tree: company → division → business unit → department → unit, with heads, prime contacts, codes, cost centers, default locations and email domains that place new requesters automatically; org chart view; deleting a unit moves its people and sub-units up. Teams with hand-picked members or rule-based membership (unit incl. sub-units, location, manager, job title, email domain, person type, VIP) with live preview. Location hierarchy. Unit-restricted catalog items and KB folders include sub-units |
 | **Account & people** | Agents & requesters (create with temporary password, edit, convert agent ⇄ requester, deactivate / reactivate, reset password, unlock, GDPR forget), filters by unit (with sub-units), location, team, group, role and status, bulk actions (move unit, location, manager, teams, VIP, deactivate), CSV import with dry-run preview and CSV export, manager chain and direct reports, agent groups with leaders, members and observers, roles with 18 privileges (clone, agent counts), on-call schedules, helpdesk settings (branding & logo, time zone, portal permissions, ticket prefixes, custom statuses, auto-close), security policy (password complexity, idle sign-out), API keys, audit log |
+| **Sign-up & recovery** | Email verification for self-service sign-ups (turns on automatically once email is configured; a company's email domain is attached to its organization only after the admin verifies), password reset by a single-use emailed link (1 hour) or security questions, "your password was changed" notices, sign-in page resend of the verification link |
 | **Personal settings** | Profile picture, contact details and signature, out of office with an approval delegate (round-robin skips you), per-event notification preferences (in-app and email), active sessions with remote sign-out and "sign out of all other sessions", my organization (unit, reporting line, direct reports, teams, groups) |
 | **Search** | Global search (⌘K) with keyboard navigation and a full results page; finds tickets by number with any prefix, subject, description, category, tags, requester, agent, group or conversation text; problems, changes, releases and assets by ID; work items, articles, services and people |
 | **Appearance** | Per-user themes: Glass (default — frosted panels over an animated aurora, gradient accents), Classic, Dark and Crimson; confetti celebrations on sign-in, resolved tickets, finished work items and submitted requests (can be turned off; always off with reduced motion) |
@@ -81,9 +82,15 @@ Browser ──► Next.js web app (:3000)
   tickets, contract expiry reminders & auto-renewal, email delivery with retry,
   and cleanup of stale uploads, sessions and old email logs.
 * **Email** is queued in an outbox (`itsm_email_outbox`) and delivered over
-  SMTP (STARTTLS on 587, implicit TLS on 465). Without `SMTP_HOST`, messages are
+  SMTP (STARTTLS on 587, implicit TLS on 465) by the shared `pkg/mailer`
+  package. New mail is sent within seconds; rows are claimed with
+  `SKIP LOCKED` so a message is never sent twice, and failures retry with
+  back-off up to five times. `SMTP_FROM` may include a display name
+  (`TaskFlow <support@example.com>`). Without `SMTP_HOST`, messages are
   logged and marked `skipped`, and admin flows return temporary passwords
-  directly so accounts can still be onboarded.
+  directly so accounts can still be onboarded. The platform console's
+  **Email** tab shows the settings, delivery counts and recent failures, and
+  sends a live test message.
 
 ### Roles out of the box
 
@@ -146,7 +153,8 @@ put the gateway behind TLS (`TRUST_PROXY_HEADERS=true` when a load balancer sets
 | `TRUST_PROXY_HEADERS` | `false` | Use `X-Forwarded-For` for client IPs |
 | `ITSM_SERVICE_URL` | `http://localhost:8090` | Gateway → ITSM service |
 | `PUBLIC_URL` | `http://localhost:3000` | Links in emails |
-| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` | – | Outgoing email |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` | – | Outgoing email (user and ITSM services) |
+| `EMAIL_VERIFICATION` | `auto` | Self-service sign-ups must verify their email: `auto` (only when email is configured), `required` or `off`. Set the same value on the user and ITSM services |
 | `MAX_UPLOAD_MB` | 15 | Attachment size limit |
 | `WORKER_INTERVAL` / `DISABLE_WORKERS` | `60s` / `false` | Background jobs |
 | `DB_LOG_QUERIES` | `false` | Log SQL (never in production — statements contain personal data) |
@@ -175,6 +183,16 @@ Authentication: `Authorization: Bearer <access token>` from
 `POST /api/v1/auth/login`, refreshed with `POST /api/v2/auth/refresh`
 (rotating refresh tokens with reuse detection), or an agent API key:
 `Authorization: Basic base64("<key>:X")`.
+
+Public account endpoints (no token): `GET /auth/config` (which email features
+are on), `POST /auth/verify-email/send` and `POST /auth/verify-email`
+(sign-up verification), `POST /auth/forgot/email`,
+`POST /auth/forgot/email/check` and `POST /auth/forgot/email/reset` (reset by
+emailed link), `POST /auth/forgot/questions` and `POST /auth/forgot/reset`
+(security questions). Requests for links never reveal whether an account
+exists and are limited to one email a minute and five an hour per account.
+Sign-in for an unverified account fails with HTTP 400 and a message asking the
+user to verify, but only after the correct password.
 
 | Resource | Endpoints |
 |---|---|
@@ -237,12 +255,18 @@ Fixes made while building the service desk (all covered by tests):
 ```bash
 go vet ./... && go test ./...                         # unit tests (SLA calendar, rules, policies, auth, gateway…)
 cd frontend && npm run type-check && npm run lint && npm run build
-python3 scripts/itsm_smoke_test.py --base http://localhost:8080   # ~260 end-to-end checks
+python3 scripts/itsm_smoke_test.py --base http://localhost:8080   # ~370 end-to-end checks
 ```
 
 Set `SMOKE_SUPER_EMAIL` and `SMOKE_SUPER_PASSWORD` (or `SMOKE_SUPER_TOKEN`) to
 include the platform-console checks (organization suspension, user
-deactivation); without them that section is skipped.
+deactivation, email status); without them that section is skipped.
+
+When the server sends email, point it at a local catch-all SMTP server that
+writes one `.eml` file per message and pass `--mail-dir <folder>`: the test
+then follows the real verification and reset links and checks welcome,
+notification and test emails (~410 checks). Without `--mail-dir`, sign-up
+verification is completed through the platform console instead.
 
 The smoke test registers a throwaway organization and exercises account
 management, tickets, SLAs, workflows, approvals, the catalog, knowledge base,

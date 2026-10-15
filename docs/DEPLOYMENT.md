@@ -183,9 +183,30 @@ example to your computer:
 scp ubuntu@YOUR_SERVER_IP:Taskflow/deployments/production/backups/*.sql.gz ./taskflow-backups/
 ```
 
-**Email.** Create a free Brevo or Resend account, verify `portalvii.com`
-there (they show the SPF/DKIM DNS records to add), fill in the `SMTP_*`
-values in `.env`, then run `docker compose up -d itsm-service`.
+**Email.** TaskFlow emails ticket notifications, welcome messages with
+temporary passwords, sign-up verification links and password reset links.
+Fill in the `SMTP_*` values in `.env` (see the examples there), then:
+
+```bash
+docker compose up -d user-service itsm-service
+```
+
+Open the **platform console → Email** tab and use **Send test email**. It
+shows the mail server's exact answer if something is wrong (wrong password,
+sender not allowed…). Once email works, people who sign up themselves must
+confirm their address before signing in (`EMAIL_VERIFICATION=auto`); accounts
+created by an admin are not affected.
+
+*Zoho Mail (a mailbox on your domain):* turn on two-factor sign-in, create an
+app password at **accounts.zoho.com → Security → App passwords**, and use
+`SMTP_HOST=smtp.zoho.com` (paid plans: `smtppro.zoho.com`), `SMTP_PORT=465`,
+`SMTP_USER=` the mailbox and `SMTP_PASS=` the app password. `SMTP_FROM` must be
+that mailbox or one of its aliases, e.g. `TaskFlow <support@portalvii.com>`.
+If the test email reports that sign-in failed even with an app password, your
+Zoho plan does not allow sending from apps: use **Zoho ZeptoMail**
+(`smtp.zeptomail.com`, port 587, user `emailapikey`) or **Brevo**
+(`smtp-relay.brevo.com`, port 587) instead. Both show the SPF/DKIM records to
+add in Zoho DNS so your mail is not marked as spam.
 
 **Uptime alerts.** Add an HTTP monitor for
 `https://taskflow.portalvii.com/health` in UptimeRobot or Better Stack.

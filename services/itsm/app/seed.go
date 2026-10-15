@@ -407,6 +407,7 @@ func EnsureSchema(db *gorm.DB) error {
 		`ALTER TABLE users ADD COLUMN IF NOT EXISTS must_change_password boolean DEFAULT false`,
 		`ALTER TABLE users ADD COLUMN IF NOT EXISTS password_changed_at timestamptz`,
 		`ALTER TABLE users ADD COLUMN IF NOT EXISTS tokens_revoked_at timestamptz`,
+		`ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verification_pending boolean NOT NULL DEFAULT false`,
 		`ALTER TABLE organizations ADD COLUMN IF NOT EXISTS is_suspended boolean NOT NULL DEFAULT false`,
 	}
 	for _, s := range stmts {
