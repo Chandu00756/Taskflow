@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# One-time setup for a fresh Ubuntu 22.04/24.04 server (ARM or x86), e.g. an
+# One-time setup for a fresh Ubuntu 20.04/22.04/24.04 server (ARM or x86), e.g. an
 # Oracle Cloud Always Free instance. Run from the repository checkout:
 #
 #   sudo bash deployments/production/setup-server.sh
@@ -28,6 +28,11 @@ if ! command -v docker >/dev/null 2>&1; then
 fi
 if ! docker compose version >/dev/null 2>&1; then
   apt-get install -y docker-compose-v2 || apt-get install -y docker-compose-plugin
+fi
+# BuildKit builder (the web image's Dockerfile needs it). Ubuntu 20.04 does
+# not pull it in with docker.io.
+if ! docker buildx version >/dev/null 2>&1; then
+  apt-get install -y docker-buildx || apt-get install -y docker-buildx-plugin || true
 fi
 systemctl enable --now docker
 if [[ -n "${SUDO_USER:-}" ]]; then

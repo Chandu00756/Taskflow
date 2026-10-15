@@ -53,8 +53,12 @@ them and set `DB_SSLMODE=require`.
    - **SSH keys:** upload your public key (`~/.ssh/id_ed25519.pub`) or let
      Oracle generate one and download it
    - **Boot volume:** set **100 GB** (free up to 200 GB in total)
-   - If you see *"Out of capacity"*, pick another availability domain or try
-     again later — free ARM capacity frees up during the day.
+   - If you see *"Out of capacity"*, try the other availability domains. If
+     every domain refuses even 1 OCPU (common for Free Trial accounts in busy
+     regions such as Ashburn), upgrade the account to **Pay As You Go** —
+     Always Free resources stay free; add a $1 budget alert — and try again.
+     Don't settle for the 1 GB `VM.Standard.E2.1.Micro`: it is too small to
+     build and run TaskFlow.
 3. **Open the web ports in Oracle's network firewall:** on the instance page
    click the **Subnet** → **Security List** → **Add Ingress Rules**:
 
