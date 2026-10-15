@@ -134,5 +134,6 @@ export function useGroupOptions() {
 
 export function useDepartmentOptions() {
   const { data } = useDepartments();
-  return React.useMemo(() => (data ?? []).map((d) => ({ value: d.id, label: d.name })), [data]);
+  // Units arrive in tree order; indent children so the hierarchy reads in selects.
+  return React.useMemo(() => (data ?? []).map((d) => ({ value: d.id, label: `${'— '.repeat(d.depth ?? 0)}${d.name}` })), [data]);
 }

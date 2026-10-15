@@ -321,7 +321,8 @@ export function Avatar({ name, size = 'md', className, src }: { name?: string | 
         alt={name ?? ''}
         title={name ?? undefined}
         onError={() => setFailed(true)}
-        className={cn('inline-block shrink-0 rounded-full bg-slate-100 object-cover', sizing, className)}
+        // max-w-none: the base img max-width:100% collapses avatars inside shrink-to-fit flex items.
+        className={cn('inline-block max-w-none shrink-0 rounded-full bg-slate-100 object-cover', sizing, className)}
       />
     );
   }

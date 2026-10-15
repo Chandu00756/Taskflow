@@ -3,47 +3,87 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Copy, KeyRound, Lock, MoreHorizontal, Plus, Power, Repeat, Unlock, UserX } from 'lucide-react';
+import { Copy, Download, KeyRound, Lock, MoreHorizontal, Plus, Power, Repeat, Unlock, Upload, UserX, X } from 'lucide-react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
-import { Avatar, Badge, Btn, Card, Drawer, EmptyState, LoadingBlock, Menu, MenuItem, Modal, PageHeader, Pagination, SearchInput, SelectBox, StatusBadge, Table, Td, Th, useConfirm } from '@/components/desk/kit';
+import { Avatar, Badge, Btn, Card, Checkbox, Drawer, EmptyState, LoadingBlock, Menu, MenuItem, Modal, PageHeader, Pagination, SearchInput, SelectBox, StatusBadge, Table, Td, Th, useConfirm } from '@/components/desk/kit';
+import { ImportPeopleDialog } from './people-import';
 import { SchemaForm, FieldSpec } from '@/components/desk/crud';
-import { useDebounced, useDepartmentOptions, useGroupOptions } from '@/components/desk/pickers';
-import { v2, parseApiError } from '@/lib/itsm/api';
+import { PersonPicker, useDebounced, useDepartmentOptions, useGroupOptions } from '@/components/desk/pickers';
+import { v2, parseApiError, downloadFile } from '@/lib/itsm/api';
 import { useCan, useLocations, useMe, useRoles } from '@/lib/itsm/hooks';
 import { TIME_ZONES, timeAgo } from '@/lib/itsm/format';
-import type { ListResponse, Person } from '@/lib/itsm/types';
+import type { ListResponse, Person, Team } from '@/lib/itsm/types';
 
-export function PeopleAdmin({ agents }: { agents: boolean }) {
+const FILTER_KEYS = ['state', 'department_id', 'include_children', 'location_id', 'team_id', 'group_id', 'role_id'] as const;
+type Filters = Record<(typeof FILTER_KEYS)[number], string>;
+
+export function PeopleAdmin(props: { agents: boolean }) {
+  return (
+    <React.Suspense fallback={<LoadingBlock />}>
+      <PeopleAdminInner {...props} />
+    </React.Suspense>
+  );
+}
+
+function PeopleAdminInner({ agents }: { agents: boolean }) {
   const qc = useQueryClient();
   const confirm = useConfirm();
   const can = useCan();
+  const router = useRouter();
+  const pathname = usePathname();
+  const params = useSearchParams();
   const { data: me } = useMe();
   const roles = useRoles();
   const groupOptions = useGroupOptions();
   const deptOptions = useDepartmentOptions();
   const locations = useLocations();
-  const [q, setQ] = React.useState('');
-  const [state, setState] = React.useState('active');
-  const [filter, setFilter] = React.useState('');
+  const teams = useQuery({ queryKey: ['teams', ''], queryFn: () => v2.items<Team>('/teams'), staleTime: 60_000 });
+  const [q, setQ] = React.useState(params.get('q') ?? '');
+  // Filters live in the URL so links such as "people in this unit" work.
+  const filters = Object.fromEntries(FILTER_KEYS.map((k) => [k, params.get(k) ?? (k === 'state' ? 'active' : '')])) as Filters;
+  const setFilter = (patch: Partial<Filters>) => {
+    const sp = new URLSearchParams(params.toString());
+    Object.entries(patch).forEach(([k, v]) => (v ? sp.set(k, v) : sp.delete(k)));
+    if (sp.get('state') === 'active') sp.delete('state');
+    router.replace(`${pathname}${sp.toString() ? `?${sp}` : ''}`, { scroll: false });
+  };
   const [page, setPage] = React.useState(1);
+  const [selected, setSelected] = React.useState<string[]>([]);
+  const [importing, setImporting] = React.useState(false);
   const term = useDebounced(q, 300);
-  React.useEffect(() => setPage(1), [term, state, filter]);
+  const filterKey = FILTER_KEYS.map((k) => filters[k]).join('|');
+  React.useEffect(() => {
+    setPage(1);
+    setSelected([]);
+  }, [term, filterKey]);
   const path = agents ? '/agents' : '/requesters';
-  const key = ['admin-people', path, term, state, filter, page];
+  const key = ['admin-people', path, term, filterKey, page];
   const { data, isLoading, error } = useQuery({
     queryKey: key,
-    queryFn: () => v2.list<Person>(path, { q: term, state, page, per_page: 30, ...(agents ? { group_id: filter } : { department_id: filter }) }),
+    queryFn: () => v2.list<Person>(path, { q: term, page, per_page: 30, ...filters }),
     placeholderData: (p) => p,
+  });
+  const bulk = useMutation({
+    mutationFn: (body: { action: string; value?: string }) => v2.post<{ updated: number }>('/people/bulk', { ids: selected, ...body }),
+    onSuccess: (r) => {
+      toast.success(`${r.updated} ${r.updated === 1 ? 'person' : 'people'} updated`);
+      setSelected([]);
+      invalidate();
+    },
+    onError: (e) => toast.error(parseApiError(e).message),
   });
   const [editing, setEditing] = React.useState<{ person: Person | null; values: Record<string, unknown> } | null>(null);
   const [errors, setErrors] = React.useState<Record<string, string>>({});
   const [secret, setSecret] = React.useState<{ email: string; password: string; title: string } | null>(null);
   const [converting, setConverting] = React.useState<Person | null>(null);
 
-  const invalidate = () => {
+  function invalidate() {
     qc.invalidateQueries({ queryKey: ['admin-people'] });
     qc.invalidateQueries({ queryKey: ['lookup'] });
-  };
+    qc.invalidateQueries({ queryKey: ['unit-people'] });
+    qc.invalidateQueries({ queryKey: ['teams'] });
+  }
   const save = useMutation({
     mutationFn: () => {
       const v = { ...editing!.values };
@@ -87,7 +127,7 @@ export function PeopleAdmin({ agents }: { agents: boolean }) {
     { name: 'phone', label: 'Phone', span: 1 },
     { name: 'mobile', label: 'Mobile', span: 1 },
     { name: 'time_zone', label: 'Time zone', type: 'select', span: 1, options: TIME_ZONES.map((t) => ({ value: t, label: t })) },
-    { name: 'department_id', label: 'Department', type: 'select', span: 1, options: deptOptions },
+    { name: 'department_id', label: 'Org unit', type: 'select', span: 1, options: deptOptions },
     { name: 'location_id', label: 'Location', type: 'select', span: 1, options: (locations.data ?? []).map((l) => ({ value: l.id, label: l.name })) },
     { name: 'reporting_manager_id', label: 'Reporting manager', type: 'person', hint: 'Approves service requests that need manager approval' },
     ...(agents
@@ -125,22 +165,91 @@ export function PeopleAdmin({ agents }: { agents: boolean }) {
         title={agents ? 'Agents' : 'Requesters'}
         subtitle={agents ? 'People who work on tickets, problems, changes and assets.' : 'Employees and customers who raise tickets and request services.'}
         breadcrumbs={[{ label: 'Admin', href: '/admin' }, { label: agents ? 'Agents' : 'Requesters' }]}
-        actions={manage && <Btn variant="primary" size="sm" icon={<Plus className="h-4 w-4" />} onClick={() => { setErrors({}); setEditing({ person: null, values: defaults }); }}>New {singular.toLowerCase()}</Btn>}
+        actions={
+          <>
+            {manage && (
+              <Btn size="sm" icon={<Download className="h-4 w-4" />} onClick={() => downloadFile(`/people/export?kind=${agents ? 'agents' : 'requesters'}`, `${agents ? 'agents' : 'requesters'}.csv`).catch((e) => toast.error(parseApiError(e).message))}>
+                Export
+              </Btn>
+            )}
+            {(manage || (!agents && can('tickets.manage'))) && (
+              <Btn size="sm" icon={<Upload className="h-4 w-4" />} onClick={() => setImporting(true)}>Import CSV</Btn>
+            )}
+            {manage && <Btn variant="primary" size="sm" icon={<Plus className="h-4 w-4" />} onClick={() => { setErrors({}); setEditing({ person: null, values: defaults }); }}>New {singular.toLowerCase()}</Btn>}
+          </>
+        }
       />
       <Card padded={false}>
         <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 p-3">
-          <SearchInput value={q} onChange={setQ} placeholder="Search by name or email" className="w-full sm:w-72" />
-          <SelectBox aria-label="State" value={state} onChange={setState} className="w-40" options={[{ value: 'active', label: 'Active' }, { value: 'deactivated', label: 'Deactivated' }, { value: 'all', label: 'All' }]} />
-          <SelectBox aria-label={agents ? 'Group' : 'Department'} value={filter} onChange={setFilter} className="w-48" placeholder={agents ? 'Any group' : 'Any department'} options={agents ? groupOptions : deptOptions} />
+          <SearchInput value={q} onChange={setQ} placeholder="Search name, email, job title, phone or unit" className="w-full sm:w-80" />
+          <SelectBox
+            aria-label="Status"
+            value={filters.state}
+            onChange={(state) => setFilter({ state })}
+            className="w-40"
+            options={[
+              { value: 'active', label: 'Active' },
+              { value: 'invited', label: 'Never signed in' },
+              { value: 'locked', label: 'Locked out' },
+              { value: 'out_of_office', label: 'Out of office' },
+              ...(agents ? [] : [{ value: 'vip', label: 'VIP' }]),
+              { value: 'deactivated', label: 'Deactivated' },
+              { value: 'all', label: 'Everyone' },
+            ]}
+          />
+          <SelectBox aria-label="Org unit" value={filters.department_id} onChange={(department_id) => setFilter({ department_id })} className="w-52" placeholder="Any unit" options={[{ value: 'none', label: 'No unit' }, ...deptOptions]} />
+          {filters.department_id && filters.department_id !== 'none' && (
+            <Checkbox checked={filters.include_children === 'true'} onChange={(on) => setFilter({ include_children: on ? 'true' : '' })} label="Include sub-units" />
+          )}
+          <SelectBox aria-label="Location" value={filters.location_id} onChange={(location_id) => setFilter({ location_id })} className="w-40" placeholder="Any location" options={(locations.data ?? []).map((l) => ({ value: l.id, label: l.name }))} />
+          <SelectBox aria-label="Team" value={filters.team_id} onChange={(team_id) => setFilter({ team_id })} className="w-44" placeholder="Any team" options={(teams.data ?? []).map((t) => ({ value: t.id, label: t.name }))} />
+          {agents && (
+            <>
+              <SelectBox aria-label="Group" value={filters.group_id} onChange={(group_id) => setFilter({ group_id })} className="w-44" placeholder="Any group" options={groupOptions} />
+              <SelectBox aria-label="Role" value={filters.role_id} onChange={(role_id) => setFilter({ role_id })} className="w-40" placeholder="Any role" options={roleOptions} />
+            </>
+          )}
+          {FILTER_KEYS.some((k) => k !== 'state' && filters[k]) && (
+            <Btn size="sm" variant="ghost" icon={<X className="h-4 w-4" />} onClick={() => setFilter(Object.fromEntries(FILTER_KEYS.filter((k) => k !== 'state').map((k) => [k, ''])))}>
+              Clear
+            </Btn>
+          )}
+          <span className="ml-auto text-xs text-slate-500">{data?.total ?? 0} {agents ? 'agents' : 'requesters'}</span>
         </div>
+        {manage && selected.length > 0 && (
+          <BulkBar
+            count={selected.length}
+            agents={agents}
+            busy={bulk.isPending}
+            deptOptions={deptOptions}
+            locationOptions={(locations.data ?? []).map((l) => ({ value: l.id, label: l.name }))}
+            teamOptions={(teams.data ?? []).filter((t) => t.kind === 'static').map((t) => ({ value: t.id, label: t.name }))}
+            onAction={async (action, value) => {
+              if (action === 'deactivate' && !(await confirm({ title: `Deactivate ${selected.length} people?`, message: 'They are signed out and can no longer sign in. You are never included.', danger: true, confirmLabel: 'Deactivate' }))) return;
+              bulk.mutate({ action, value });
+            }}
+            onClear={() => setSelected([])}
+          />
+        )}
         {isLoading ? <LoadingBlock /> : error ? <p className="p-6 text-center text-sm text-rose-600">{parseApiError(error).message}</p> : items.length === 0 ? (
           <EmptyState title={`No ${agents ? 'agents' : 'requesters'} found`} />
         ) : (
           <Table>
             <thead>
               <tr>
+                {manage && (
+                  <Th className="w-8">
+                    <input
+                      type="checkbox"
+                      aria-label="Select all"
+                      className="h-4 w-4 rounded border-slate-300"
+                      checked={items.length > 0 && selected.length === items.length}
+                      onChange={(e) => setSelected(e.target.checked ? items.map((p) => p.id) : [])}
+                    />
+                  </Th>
+                )}
                 <Th>Name</Th>
-                {agents ? <Th>Roles</Th> : <Th>Department</Th>}
+                {agents ? <Th>Roles</Th> : <Th>Org unit</Th>}
                 {agents ? <Th>Groups</Th> : <Th>Reports to</Th>}
                 <Th>Status</Th>
                 <Th>Last sign in</Th>
@@ -149,7 +258,18 @@ export function PeopleAdmin({ agents }: { agents: boolean }) {
             </thead>
             <tbody className="divide-y divide-slate-100">
               {items.map((p) => (
-                <tr key={p.id} className="hover:bg-slate-50">
+                <tr key={p.id} className={selected.includes(p.id) ? 'bg-blue-50/40' : 'hover:bg-slate-50'}>
+                  {manage && (
+                    <Td>
+                      <input
+                        type="checkbox"
+                        aria-label={`Select ${p.name}`}
+                        className="h-4 w-4 rounded border-slate-300"
+                        checked={selected.includes(p.id)}
+                        onChange={(e) => setSelected((s) => (e.target.checked ? [...s, p.id] : s.filter((x) => x !== p.id)))}
+                      />
+                    </Td>
+                  )}
                   <Td>
                     <Link href={`/people/${p.id}`} className="flex items-center gap-2.5">
                       <Avatar name={p.name} src={p.avatar_url} size="sm" />
@@ -170,6 +290,7 @@ export function PeopleAdmin({ agents }: { agents: boolean }) {
                       {p.active ? <StatusBadge status="active" label="Active" /> : <StatusBadge status="cancelled" label="Deactivated" />}
                       {p.locked && <StatusBadge status="rejected" label="Locked" />}
                       {p.must_change_password && <StatusBadge status="pending" label="Invited" />}
+                      {p.out_of_office && <StatusBadge status="on_hold" label="Out of office" />}
                     </div>
                   </Td>
                   <Td className="text-xs text-slate-500">{p.last_login ? timeAgo(p.last_login) : 'Never'}</Td>
@@ -234,6 +355,8 @@ export function PeopleAdmin({ agents }: { agents: boolean }) {
         )}
       </Drawer>
 
+      <ImportPeopleDialog open={importing} agents={agents} onClose={() => setImporting(false)} onDone={invalidate} />
+
       <ConvertDialog person={converting} onClose={() => setConverting(null)} roleOptions={roleOptions} groupOptions={groupOptions} onDone={invalidate} />
 
       <Modal open={!!secret} onClose={() => setSecret(null)} title={secret?.title ?? ''} size="sm" footer={<Btn variant="primary" onClick={() => setSecret(null)}>Done</Btn>}>
@@ -278,5 +401,37 @@ function ConvertDialog({ person, onClose, roleOptions, groupOptions, onDone }: {
         ]}
       />
     </Modal>
+  );
+}
+
+function BulkBar({ count, agents, busy, deptOptions, locationOptions, teamOptions, onAction, onClear }: {
+  count: number;
+  agents: boolean;
+  busy: boolean;
+  deptOptions: { value: string; label: string }[];
+  locationOptions: { value: string; label: string }[];
+  teamOptions: { value: string; label: string }[];
+  onAction: (action: string, value?: string) => void;
+  onClear: () => void;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-2 border-b border-blue-100 bg-blue-50 px-3 py-2" role="toolbar" aria-label="Bulk actions">
+      <span className="text-sm font-medium text-blue-900">{count} selected</span>
+      <SelectBox aria-label="Move to unit" value="" onChange={(v) => v && onAction('set_unit', v === 'none' ? '' : v)} placeholder="Move to unit…" options={[{ value: 'none', label: 'No unit' }, ...deptOptions]} className="w-44" disabled={busy} />
+      <SelectBox aria-label="Set location" value="" onChange={(v) => v && onAction('set_location', v)} placeholder="Set location…" options={locationOptions} className="w-36" disabled={busy} />
+      <div className="w-48"><PersonPicker value={null} onChange={(id) => id && onAction('set_manager', id)} placeholder="Set manager…" allowClear={false} /></div>
+      {teamOptions.length > 0 && (
+        <>
+          <SelectBox aria-label="Add to team" value="" onChange={(v) => v && onAction('add_to_team', v)} placeholder="Add to team…" options={teamOptions} className="w-36" disabled={busy} />
+          <SelectBox aria-label="Remove from team" value="" onChange={(v) => v && onAction('remove_from_team', v)} placeholder="Remove from team…" options={teamOptions} className="w-44" disabled={busy} />
+        </>
+      )}
+      {!agents && (
+        <SelectBox aria-label="VIP" value="" onChange={(v) => v && onAction(v)} placeholder="VIP…" options={[{ value: 'set_vip_on', label: 'Mark as VIP' }, { value: 'set_vip_off', label: 'Remove VIP' }]} className="w-32" disabled={busy} />
+      )}
+      <Btn size="sm" onClick={() => onAction('reactivate')} disabled={busy}>Reactivate</Btn>
+      <Btn size="sm" variant="danger" onClick={() => onAction('deactivate')} disabled={busy}>Deactivate</Btn>
+      <Btn size="sm" variant="ghost" onClick={onClear} className="ml-auto">Cancel</Btn>
+    </div>
   );
 }

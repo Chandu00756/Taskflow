@@ -4,19 +4,20 @@ import * as React from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
-import { Mail, Phone, Plus } from 'lucide-react';
+import { CalendarOff, Mail, Phone, Plus } from 'lucide-react';
 import { Avatar, Card, DefList, EmptyState, ErrorBlock, LinkBtn, LoadingBlock, PageHeader, StatusBadge, Stat, Badge } from '@/components/desk/kit';
 import { v2, parseApiError } from '@/lib/itsm/api';
 import { useCan } from '@/lib/itsm/hooks';
 import { fmtDate, timeAgo } from '@/lib/itsm/format';
-import type { Asset, Person, Ticket } from '@/lib/itsm/types';
+import type { Asset, OrgContext, Person, Ticket } from '@/lib/itsm/types';
+import { OrgCard } from '@/components/desk/org-card';
 
 export default function PersonPage() {
   const { id } = useParams<{ id: string }>();
   const can = useCan();
   const { data, isLoading, error } = useQuery({
     queryKey: ['person', id],
-    queryFn: () => v2.get<{ person: Person; recent_tickets: Ticket[]; assets: Asset[]; stats: { open: number; resolved: number; assigned: number } }>(`/people/${id}`),
+    queryFn: () => v2.get<{ person: Person; org: OrgContext; recent_tickets: Ticket[]; assets: Asset[]; stats: { open: number; resolved: number; assigned: number } }>(`/people/${id}`),
   });
   if (isLoading) return <LoadingBlock />;
   if (error || !data) return <ErrorBlock message={parseApiError(error).message} />;
@@ -41,7 +42,15 @@ export default function PersonPage() {
         }
         actions={<LinkBtn href={`/tickets/new?requester_id=${p.id}`} size="sm" variant="primary" icon={<Plus className="h-4 w-4" />}>New ticket</LinkBtn>}
       />
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
+      {p.out_of_office && (
+        <div className="mb-5 flex flex-wrap items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <CalendarOff className="h-4 w-4" />
+          <span className="font-medium">Out of office{p.ooo_end ? ` until ${fmtDate(p.ooo_end)}` : ''}.</span>
+          {p.ooo_delegate && <span>Approvals go to {p.ooo_delegate.name}.</span>}
+          {p.ooo_message && <span className="text-amber-800">“{p.ooo_message}”</span>}
+        </div>
+      )}
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
         <div className="space-y-5">
           <div className="grid grid-cols-3 gap-3">
             <Stat label="Open tickets" value={data.stats.open} href={`/tickets?view=all&requester_id=${p.id}`} />
@@ -80,25 +89,27 @@ export default function PersonPage() {
             )}
           </Card>
         </div>
-        <Card title="Contact">
-          <div className="mb-4 space-y-2 text-sm">
-            <a href={`mailto:${p.email}`} className="flex items-center gap-2 text-blue-700 hover:underline"><Mail className="h-4 w-4" />{p.email}</a>
-            {p.phone && <div className="flex items-center gap-2 text-slate-700"><Phone className="h-4 w-4" />{p.phone}</div>}
-            {p.mobile && <div className="flex items-center gap-2 text-slate-700"><Phone className="h-4 w-4" />{p.mobile} (mobile)</div>}
-          </div>
-          <DefList
-            items={[
-              { label: 'Department', value: p.department?.name ?? '—' },
-              { label: 'Location', value: p.location?.name ?? '—' },
-              { label: 'Reports to', value: p.reporting_manager?.name ?? '—' },
-              { label: 'Time zone', value: p.time_zone || '—' },
-              { label: 'Last sign in', value: p.last_login ? timeAgo(p.last_login) : 'Never' },
-              { label: 'Member since', value: fmtDate(p.created_at) },
-              ...(p.is_agent ? [{ label: 'Groups', value: p.groups.map((g) => g.name).join(', ') || '—' }, { label: 'Roles', value: p.roles.map((r) => r.name).join(', ') || '—' }] : []),
-            ]}
-          />
-          {p.background && <p className="mt-4 whitespace-pre-wrap rounded-md bg-slate-50 p-3 text-sm text-slate-600">{p.background}</p>}
-        </Card>
+        <div className="space-y-5">
+          <Card title="Contact">
+            <div className="mb-4 space-y-2 text-sm">
+              <a href={`mailto:${p.email}`} className="flex items-center gap-2 text-blue-700 hover:underline"><Mail className="h-4 w-4" />{p.email}</a>
+              {p.phone && <div className="flex items-center gap-2 text-slate-700"><Phone className="h-4 w-4" />{p.phone}</div>}
+              {p.mobile && <div className="flex items-center gap-2 text-slate-700"><Phone className="h-4 w-4" />{p.mobile} (mobile)</div>}
+            </div>
+            <DefList
+              items={[
+                { label: 'Org unit', value: p.department?.name ?? '—' },
+                { label: 'Location', value: p.location?.name ?? '—' },
+                { label: 'Reports to', value: p.reporting_manager?.name ?? '—' },
+                { label: 'Time zone', value: p.time_zone || '—' },
+                { label: 'Last sign in', value: p.last_login ? timeAgo(p.last_login) : 'Never' },
+                { label: 'Member since', value: fmtDate(p.created_at) },
+              ]}
+            />
+            {p.background && <p className="mt-4 whitespace-pre-wrap rounded-md bg-slate-50 p-3 text-sm text-slate-600">{p.background}</p>}
+          </Card>
+          {data.org && <OrgCard person={p} org={data.org} />}
+        </div>
       </div>
     </>
   );

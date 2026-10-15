@@ -77,7 +77,7 @@ export function OrgUnitsAdmin() {
           <>
             <div className="flex rounded-md border border-slate-200 bg-white p-0.5" role="radiogroup" aria-label="View">
               {([['tree', 'Tree', ListTree], ['chart', 'Org chart', GitBranch]] as const).map(([v, label, Icon]) => (
-                <button key={v} role="radio" aria-checked={view === v} onClick={() => setView(v)} className={cn('flex items-center gap-1.5 rounded px-2.5 py-1 text-xs font-medium text-slate-600', view === v && 'bg-slate-100 text-slate-900')}>
+                <button key={v} role="radio" aria-checked={view === v} onClick={() => setView(v)} className={cn('flex items-center gap-1.5 whitespace-nowrap rounded px-2.5 py-1 text-xs font-medium text-slate-600', view === v && 'bg-slate-100 text-slate-900')}>
                   <Icon className="h-4 w-4" /> {label}
                 </button>
               ))}
@@ -98,7 +98,7 @@ export function OrgUnitsAdmin() {
       ) : view === 'chart' ? (
         <OrgChart units={units} onSelect={(id) => { setSelected(id); setView('tree'); }} />
       ) : (
-        <div className="grid gap-5 lg:grid-cols-[360px_minmax(0,1fr)]">
+        <div className="grid gap-5 xl:grid-cols-[340px_minmax(0,1fr)]">
           <Card padded={false} className="self-start">
             <div className="border-b border-slate-100 p-3">
               <SearchInput value={q} onChange={setQ} placeholder="Find a unit…" />
@@ -204,9 +204,10 @@ function UnitDetail({ unit, units, manage, onSelect, onEdit, onAddChild }: {
         </nav>
         <div className="flex flex-wrap items-start gap-3">
           <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-slate-100 text-slate-600"><k.icon className="h-5 w-5" /></span>
-          <div className="min-w-0 flex-1">
+          {/* The minimum width makes the action buttons wrap below the name instead of covering it. */}
+          <div className="min-w-[12rem] flex-1">
             <div className="flex flex-wrap items-center gap-2">
-              <h2 className="text-lg font-semibold text-slate-900">{unit.name}</h2>
+              <h2 className="break-words text-lg font-semibold text-slate-900">{unit.name}</h2>
               <Badge className={k.tone}>{k.label}</Badge>
               {unit.code && <span className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs text-slate-600">{unit.code}</span>}
             </div>

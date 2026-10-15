@@ -139,7 +139,7 @@ func edgeMiddleware(next http.Handler, opts gatewayOptions) http.Handler {
 			h.Set("Access-Control-Allow-Origin", origin)
 			h.Set("Access-Control-Allow-Credentials", "true")
 			h.Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
-			h.Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With")
+			h.Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, X-Session-Hash")
 			h.Set("Access-Control-Expose-Headers", "Content-Disposition, X-Total-Count")
 			h.Set("Access-Control-Max-Age", "86400")
 			h.Add("Vary", "Origin")

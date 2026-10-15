@@ -26,6 +26,7 @@ function LoginForm() {
   const router = useRouter();
   const sp = useSearchParams();
   const setAuth = useAuthStore((s) => s.setAuth);
+  const setTokens = useAuthStore((s) => s.setTokens);
   const [email, setEmail] = React.useState('');
   const [password, setPassword] = React.useState('');
   const [show, setShow] = React.useState(false);
@@ -48,6 +49,16 @@ function LoginForm() {
       const claims = parseJwt(access);
       celebrate('big');
       setAuth({ ...data.user, id: (data.user as unknown as { user_id?: string }).user_id ?? data.user.id, org_id: claims?.org_id || '', role: claims?.role || '' }, access, refresh ?? '');
+      // Exchange the sign-in refresh token once so this device appears under
+      // "Active sessions" and can be signed out remotely.
+      if (refresh) {
+        try {
+          const pair = await v2.post<{ access_token: string; refresh_token: string }>('/auth/refresh', { refresh_token: refresh });
+          setTokens(pair.access_token, pair.refresh_token);
+        } catch {
+          /* keep the sign-in tokens */
+        }
+      }
       if (claims?.role === 'super_admin') {
         router.replace('/admin/global');
         return;
