@@ -117,8 +117,35 @@ def mails_to(addr, subject_part=None):
         to = (msg.get("X-Envelope-To", "") + " " + str(msg.get("To", ""))).lower()
         subject = str(email.header.make_header(email.header.decode_header(msg.get("Subject", ""))))
         if addr.lower() in to and (subject_part is None or subject_part.lower() in subject.lower()):
-            out.append((subject, msg.get_payload(decode=True).decode("utf-8", "replace")))
+            out.append((subject, mail_text(msg)))
     return out
+
+
+def mail_part(msg, ctype):
+    """Decoded body of the first part with this content type (whole body for single-part mail)."""
+    for part in msg.walk():
+        if part.get_content_type() == ctype and not part.is_multipart():
+            return part.get_payload(decode=True).decode(part.get_content_charset() or "utf-8", "replace")
+    return ""
+
+
+def mail_text(msg):
+    return mail_part(msg, "text/plain")
+
+
+def mail_html(addr, subject_part):
+    """HTML part of the newest matching message in --mail-dir."""
+    found = ""
+    if not MAIL_DIR or not os.path.isdir(MAIL_DIR):
+        return found
+    for name in sorted(os.listdir(MAIL_DIR)):
+        with open(os.path.join(MAIL_DIR, name), "rb") as fh:
+            msg = email.message_from_bytes(fh.read())
+        to = (msg.get("X-Envelope-To", "") + " " + str(msg.get("To", ""))).lower()
+        subject = str(email.header.make_header(email.header.decode_header(msg.get("Subject", ""))))
+        if addr.lower() in to and subject_part.lower() in subject.lower():
+            found = mail_part(msg, "text/html")
+    return found
 
 
 def wait_mail(addr, subject_part, count_before=0, timeout=30):
@@ -175,6 +202,8 @@ def verify_new_account(addr, password, super_token):
         check(mail is not None, "verification email delivered")
         token = link_token(mail[1] if mail else "", "/verify-email")
         check(token is not None, "verification email contains the link")
+        html = mail_html(addr, "Verify your email")
+        check("<!DOCTYPE html>" in html and "Verify my email" in html and "/verify-email?token=" in html, "verification email has a branded HTML version with a button")
         _, res = call("POST", "/api/v2/auth/verify-email", body={"token": token}, expect=200)
         check(res and res.get("email") == addr, "verification link confirms the address")
         _, res = call("POST", "/api/v2/auth/verify-email", body={"token": token}, expect=200)
@@ -567,6 +596,8 @@ def main():
     call("PUT", f"/api/v2/work-items/{w1['id']}", agent_tok, {"state": "in_progress", "priority": "high"}, expect=200)
     if email_on and MAIL_DIR:
         check(wait_mail(admin_email, "updated KAIRV-1", count_before=before_mails) is not None, "subscribers get an email when a work item changes")
+        html = mail_html(admin_email, "updated KAIRV-1")
+        check("Open in " in html and "Notification settings" in html, "notification emails are branded HTML with a button")
     _, d1 = call("DELETE", f"/api/v2/work-items/{w1['id']}/subscribe", admin, expect=200)
     check(not d1["subscribed"], "unsubscribe works")
     call("DELETE", f"/api/v2/modules/{mod['id']}", agent_tok, expect=200)
@@ -864,6 +895,8 @@ def main():
             admin, _ = login(admin_email, admin_pw)
             call("GET", "/api/v2/me", admin, expect=200)
             check(wait_mail(admin_email, "password was changed") is not None, "password-change notice emailed")
+            html = mail_html(admin_email, "Reset your")
+            check("Choose a new password" in html and "max-width:600px" in html, "reset email is responsive HTML")
 
     section("Platform administration")
     call("GET", "/api/v2/platform/organizations", expect=401)

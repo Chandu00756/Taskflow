@@ -374,6 +374,15 @@ func (a *App) queueEmail(ctx context.Context, db *gorm.DB, orgID, event, to stri
 	if !emailAllowed(prefs, event) {
 		return
 	}
+	if tpl.Recipient == "requester" && vars["ticket.portal_url"] != "" {
+		// Requesters follow links into the self-service portal, not the agent desk.
+		v := make(map[string]string, len(vars))
+		for k, x := range vars {
+			v[k] = x
+		}
+		v["ticket.url"] = vars["ticket.portal_url"]
+		vars = v
+	}
 	subject, body := renderTemplate(tpl.Subject, vars), renderTemplate(tpl.Body, vars)
 	l := templateLayout(event, subject, body, vars)
 	base := a.emailLayout(db.WithContext(ctx), orgID)

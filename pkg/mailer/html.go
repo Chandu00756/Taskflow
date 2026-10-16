@@ -126,7 +126,8 @@ a{color:` + accent + `;}
  .tf-container{width:100%!important;}
  .tf-pad{padding-left:20px!important;padding-right:20px!important;}
  .tf-title{font-size:22px!important;line-height:30px!important;}
- .tf-btn a{display:block!important;}
+ .tf-btn{width:100%!important;}
+ .tf-btn a{display:block!important;text-align:center!important;}
  .tf-detail-label{width:40%!important;}
 }
 </style></head>
@@ -206,7 +207,11 @@ a{color:` + accent + `;}
 			fmt.Fprintf(&b, `<a href="%s" style="color:#64748b;text-decoration:underline;">%s</a>`, esc(u), esc(fl.Label))
 		}
 	}
-	b.WriteString(`<br><span style="color:#cbd5e1;">Sent by ` + esc(brand) + ` · Powered by TaskFlow</span></td></tr></table></td></tr>`)
+	sentBy := "Sent by " + esc(brand)
+	if !strings.EqualFold(brand, "TaskFlow") {
+		sentBy += " · Powered by TaskFlow"
+	}
+	b.WriteString(`<br><span style="color:#cbd5e1;">` + sentBy + `</span></td></tr></table></td></tr>`)
 	b.WriteString(`</table></td></tr></table></body></html>`)
 	return b.String()
 }
