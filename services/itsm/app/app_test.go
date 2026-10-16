@@ -375,3 +375,151 @@ func TestTokenRevoked(t *testing.T) {
 		t.Fatal("newer token must stay valid")
 	}
 }
+
+func TestDefaultClassificationsAreValid(t *testing.T) {
+	for _, sp := range classificationSpecs {
+		sp := sp
+		got, err := normalizeChoices(&sp, sp.Defaults())
+		if err != nil {
+			t.Fatalf("%s/%s defaults invalid: %v", sp.Entity, sp.Name, err)
+		}
+		if len(got) == 0 {
+			t.Fatalf("%s/%s has no defaults", sp.Entity, sp.Name)
+		}
+	}
+	// Category paths used by existing data, the demo seed and the smoke test stay valid.
+	tree := defaultTicketCategories()
+	for _, path := range [][2]string{{"Network", "VPN"}, {"Hardware", "Laptop"}, {"Hardware", "Printer"}, {"Hardware", "Monitor"}, {"Access", "Permissions"}, {"Email & Collaboration", "Mailbox"}} {
+		l1 := findChoice(tree, path[0])
+		if l1 == nil || findChoice(l1.Children, path[1]) == nil {
+			t.Fatalf("default ticket categories lost %s > %s", path[0], path[1])
+		}
+	}
+	for _, old := range legacyTicketCategories() {
+		cur := findChoice(tree, old.Value)
+		if cur == nil {
+			t.Fatalf("upgrade would drop category %q", old.Value)
+		}
+		for _, sub := range old.Children {
+			if findChoice(cur.Children, sub.Value) == nil {
+				t.Fatalf("upgrade would drop %s > %s", old.Value, sub.Value)
+			}
+		}
+	}
+}
+
+func TestNormalizeChoices(t *testing.T) {
+	nested := findSpec("ticket", "category")
+	if _, err := normalizeChoices(nested, []choice{node("A", node("B", node("C", leaves("D")...)))}); err == nil {
+		t.Fatal("four levels must be rejected")
+	}
+	if _, err := normalizeChoices(nested, []choice{{Value: "Dup"}, {Value: "dup"}}); err == nil {
+		t.Fatal("duplicate siblings must be rejected")
+	}
+	if _, err := normalizeChoices(nested, []choice{{Value: "  "}}); err == nil {
+		t.Fatal("empty names must be rejected")
+	}
+	got, err := normalizeChoices(nested, []choice{node("  Hardware  ", leaves("Laptop", "laptop bag")...)})
+	if err != nil || got[0].Value != "Hardware" || len(got[0].Children) != 2 {
+		t.Fatalf("names are trimmed and children kept: %+v %v", got, err)
+	}
+	flat := findSpec("problem", "business_impact")
+	got, _ = normalizeChoices(flat, []choice{node("High", leaves("x")...)})
+	if len(got[0].Children) != 0 {
+		t.Fatal("flat lists drop children")
+	}
+	types := findSpec("change", "change_type")
+	yes := true
+	got, err = normalizeChoices(types, []choice{{Label: "Cloud Migration", RequiresApproval: &yes}, {Value: "major", Label: "Big", RequiresApproval: boolPtr(false)}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	custom := findChoice(got, "cloud_migration")
+	if custom == nil || !*custom.RequiresApproval || custom.System {
+		t.Fatalf("custom change type slugged from its label: %+v", got)
+	}
+	major := findChoice(got, "major")
+	if major == nil || major.Label != "Big" || !*major.RequiresApproval || !major.System {
+		t.Fatalf("built-in types keep their approval rule but can be relabelled: %+v", major)
+	}
+	for _, v := range []string{"minor", "standard", "emergency"} {
+		if findChoice(got, v) == nil {
+			t.Fatalf("built-in change type %s must be restored", v)
+		}
+	}
+}
+
+func TestDefaultJobRolesFormAHierarchy(t *testing.T) {
+	levels := map[string]int{}
+	for _, r := range defaultJobRoles() {
+		if _, dup := levels[r.name]; dup {
+			t.Fatalf("duplicate job role %q", r.name)
+		}
+		if r.parent != "" {
+			pl, ok := levels[r.parent]
+			if !ok {
+				t.Fatalf("%q reports to %q, which is not defined before it", r.name, r.parent)
+			}
+			if pl >= r.level {
+				t.Fatalf("%q (level %d) must sit below %q (level %d)", r.name, r.level, r.parent, pl)
+			}
+		}
+		levels[r.name] = r.level
+	}
+	if levels["Senior Vice President"] >= levels["Vice President"] {
+		t.Fatal("SVP must rank above VP")
+	}
+	names := map[string]bool{}
+	for _, r := range moreDefaultRoles() {
+		if names[r.Name] || r.Name == "" || !r.IsDefault {
+			t.Fatalf("bad default role %+v", r)
+		}
+		names[r.Name] = true
+	}
+}
+
+func TestNotificationEmails(t *testing.T) {
+	if notificationPath(map[string]string{"ticket_id": "t1"}, true) != "/tickets/t1" || notificationPath(map[string]string{"ticket_id": "t1"}, false) != "/portal/tickets/t1" {
+		t.Fatal("ticket links depend on agent or requester")
+	}
+	if got := notificationPath(map[string]string{"work_item_id": "w", "project_id": "p"}, true); got != "/projects/p?item=w" {
+		t.Fatalf("work item link: %s", got)
+	}
+	if notificationPath(nil, false) != "/portal" {
+		t.Fatal("fallback for requesters is the portal")
+	}
+	for _, k := range []string{"ticket_assigned", "ticket_reply", "approval_requested", "sla_violation"} {
+		if !templateCovered[k] {
+			t.Fatalf("%s already has a template email and must not be sent twice", k)
+		}
+	}
+	for _, k := range []string{"work_item_assigned", "work_item_update", "work_item_comment", "mention", "ticket_status", "problem_assigned"} {
+		if templateCovered[k] {
+			t.Fatalf("%s needs the generic notification email", k)
+		}
+	}
+	off := false
+	if emailWanted(map[string]channelPrefs{"mention": {Email: &off}}, "mention") || !emailWanted(nil, "mention") {
+		t.Fatal("email preference is respected and defaults to on")
+	}
+}
+
+func TestWorkItemChangeSummaryAndRelations(t *testing.T) {
+	due := time.Date(2026, 10, 17, 0, 0, 0, 0, time.UTC)
+	before := &WorkItem{State: "todo", Priority: "medium", Title: "A"}
+	after := &WorkItem{State: "in_progress", Priority: "high", Title: "B", DueDate: &due}
+	got := describeWorkItemChanges(before, after)
+	for _, want := range []string{"state → In Progress", "priority → High", "due Oct 17, 2026", "renamed"} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("summary %q missing %q", got, want)
+		}
+	}
+	if describeWorkItemChanges(before, before) != "" {
+		t.Fatal("no changes, no notification")
+	}
+	for k, v := range relationInverse {
+		if relationInverse[v] != k {
+			t.Fatalf("relation %s/%s is not symmetric", k, v)
+		}
+	}
+}

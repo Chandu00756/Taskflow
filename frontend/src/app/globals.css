@@ -813,6 +813,16 @@ html[data-theme='dark'] {
   background: transparent;
 }
 
+/* Streams flow behind the form, so it sits on a card in every theme. */
+[data-theme='classic'] .auth-card,
+[data-theme='dark'] .auth-card {
+  padding: 2.25rem;
+  border-radius: 24px;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  background: rgb(var(--surface) / 0.94);
+  box-shadow: 0 30px 70px -40px rgba(15, 23, 42, 0.45);
+}
+
 [data-theme='dark'] .auth-hero {
   background: #0b1120;
   border-right: 1px solid #1e293b;
@@ -865,6 +875,331 @@ html[data-theme='dark'] {
   border-radius: 24px;
   background: #fff;
   box-shadow: 0 30px 70px -40px rgba(124, 19, 49, 0.45);
+}
+
+/* Brand wordmark and hero title follow the hero background per theme. */
+.auth-hero-title {
+  color: #fff;
+}
+
+[data-theme='glass'] .auth-hero-title {
+  color: #0f172a;
+}
+
+.tf-brand-glow {
+  background: radial-gradient(circle, rgba(14, 165, 233, 0.55), transparent 70%);
+  filter: blur(10px);
+  opacity: 0.45;
+}
+
+.tf-draw {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 0;
+}
+
+/* A short light that travels down the T into the arrow. */
+.tf-pulse {
+  stroke-dasharray: 0.16 1.2;
+  stroke-dashoffset: 0.16;
+  opacity: 0;
+}
+
+.tf-stream {
+  stroke-dasharray: 16 84;
+  stroke-dashoffset: 100;
+  opacity: 0;
+}
+
+/* Drifting colour behind the sign-in pages. */
+.tf-aurora span {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(80px);
+  opacity: 0.35;
+}
+
+.tf-aurora span:nth-child(1) {
+  width: 38rem;
+  height: 38rem;
+  left: -10rem;
+  top: -12rem;
+  background: #6366f1;
+}
+
+.tf-aurora span:nth-child(2) {
+  width: 30rem;
+  height: 30rem;
+  left: 22%;
+  bottom: -16rem;
+  background: #0ea5e9;
+}
+
+.tf-aurora span:nth-child(3) {
+  width: 26rem;
+  height: 26rem;
+  right: -8rem;
+  top: 28%;
+  background: #10b981;
+}
+
+[data-theme='classic'] .tf-aurora span,
+[data-theme='dark'] .tf-aurora span {
+  opacity: 0.16;
+}
+
+[data-theme='crimson'] .tf-aurora span:nth-child(1) {
+  background: #e11d48;
+}
+
+[data-theme='crimson'] .tf-aurora span:nth-child(2) {
+  background: #f97316;
+}
+
+[data-theme='crimson'] .tf-aurora span:nth-child(3) {
+  background: #be123c;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .tf-draw {
+    animation: tf-draw-loop 7s cubic-bezier(0.65, 0, 0.35, 1) infinite both;
+  }
+  .tf-draw-2 {
+    animation-delay: 0.25s;
+  }
+  .tf-draw-3 {
+    animation-delay: 0.55s;
+  }
+  .tf-pulse {
+    animation: tf-pulse-loop 7s linear infinite both;
+  }
+  .tf-shine {
+    animation: tf-shine 6s linear infinite;
+  }
+  .tf-brand-glow {
+    animation: tf-glow 4s ease-in-out infinite;
+  }
+  .tf-word {
+    animation: tf-word 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .tf-row-in {
+    animation: tf-row-in 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .tf-pop {
+    animation: tf-pop 0.35s ease-out;
+  }
+  .tf-number {
+    animation: tf-number 0.4s ease-out;
+  }
+  .tf-toast {
+    animation: tf-toast 3.6s ease-in-out both;
+  }
+  .tf-float {
+    animation: tf-float 7s ease-in-out infinite;
+  }
+  .tf-tilt {
+    transform: rotateY(calc(var(--tf-mx, 0) * 7deg)) rotateX(calc(var(--tf-my, 0) * -6deg));
+    transition: transform 0.25s ease-out;
+    transform-style: preserve-3d;
+  }
+  .tf-live {
+    animation: tf-live 1.6s ease-out infinite;
+  }
+  .tf-stream {
+    opacity: 1;
+    animation: tf-stream 2.6s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+  .tf-aurora span {
+    animation: tf-aurora 18s ease-in-out infinite alternate;
+  }
+  .tf-aurora span:nth-child(2) {
+    animation-delay: -6s;
+  }
+  .tf-aurora span:nth-child(3) {
+    animation-delay: -12s;
+  }
+}
+
+@keyframes tf-draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* Draw in, hold, then flow out along the stroke and repeat. */
+@keyframes tf-draw-loop {
+  0% {
+    stroke-dashoffset: 1;
+  }
+  14%,
+  80% {
+    stroke-dashoffset: 0;
+  }
+  94%,
+  100% {
+    stroke-dashoffset: -1;
+  }
+}
+
+/* Two runs of light down the T while it is drawn. */
+@keyframes tf-pulse-loop {
+  0%,
+  19% {
+    stroke-dashoffset: 0.16;
+    opacity: 0;
+  }
+  21% {
+    opacity: 1;
+  }
+  44% {
+    stroke-dashoffset: -1.04;
+    opacity: 1;
+  }
+  44.9% {
+    stroke-dashoffset: -1.04;
+    opacity: 0;
+  }
+  45% {
+    stroke-dashoffset: 0.16;
+    opacity: 0;
+  }
+  47% {
+    opacity: 1;
+  }
+  70% {
+    stroke-dashoffset: -1.04;
+    opacity: 1;
+  }
+  71%,
+  100% {
+    stroke-dashoffset: -1.04;
+    opacity: 0;
+  }
+}
+
+@keyframes tf-shine {
+  to {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes tf-glow {
+  0%,
+  100% {
+    opacity: 0.3;
+    transform: scale(0.95);
+  }
+  50% {
+    opacity: 0.75;
+    transform: scale(1.06);
+  }
+}
+
+@keyframes tf-word {
+  from {
+    opacity: 0;
+    transform: translateY(0.45em);
+    filter: blur(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+}
+
+@keyframes tf-row-in {
+  from {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes tf-pop {
+  0% {
+    opacity: 0.4;
+    transform: scale(0.85);
+  }
+  60% {
+    transform: scale(1.06);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes tf-number {
+  from {
+    opacity: 0.3;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes tf-toast {
+  0% {
+    opacity: 0;
+    transform: translateY(10px) scale(0.96);
+  }
+  10%,
+  85% {
+    opacity: 1;
+    transform: none;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+
+@keyframes tf-float {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-0.4deg);
+  }
+  50% {
+    transform: translateY(-8px) rotate(0.4deg);
+  }
+}
+
+@keyframes tf-live {
+  0% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.55);
+  }
+  100% {
+    box-shadow: 0 0 0 8px rgba(16, 185, 129, 0);
+  }
+}
+
+@keyframes tf-stream {
+  from {
+    stroke-dashoffset: 100;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes tf-aurora {
+  0% {
+    transform: translate(0, 0) scale(1);
+  }
+  50% {
+    transform: translate(6%, 4%) scale(1.1);
+  }
+  100% {
+    transform: translate(-4%, -6%) scale(0.95);
+  }
 }
 
 /* ---------- Scrollbars ------------------------------------------------------ */

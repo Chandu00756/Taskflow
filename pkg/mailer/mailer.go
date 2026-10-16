@@ -71,6 +71,8 @@ type Message struct {
 	To      string
 	Subject string
 	Text    string
+	// ReplyTo is optional.
+	ReplyTo string
 }
 
 // sanitizeHeader strips characters that could inject extra headers.
@@ -91,33 +93,89 @@ func Build(from *mail.Address, m Message, at time.Time) []byte {
 		domain = from.Address[i+1:]
 	}
 	body := strings.ReplaceAll(strings.ReplaceAll(m.Text, "\r\n", "\n"), "\n", "\r\n")
-	return []byte(strings.Join([]string{
-		"From: " + from.String(),
-		"To: " + sanitizeHeader(m.To),
-		"Subject: " + mime.QEncoding.Encode("utf-8", sanitizeHeader(m.Subject)),
-		"Date: " + at.Format(time.RFC1123Z),
-		"Message-ID: " + messageID(domain),
+	head := []string{"From: " + from.String()}
+	if m.ReplyTo != "" {
+		head = append(head, "Reply-To: "+sanitizeHeader(m.ReplyTo))
+	}
+	return []byte(strings.Join(append(head,
+		"To: "+sanitizeHeader(m.To),
+		"Subject: "+mime.QEncoding.Encode("utf-8", sanitizeHeader(m.Subject)),
+		"Date: "+at.Format(time.RFC1123Z),
+		"Message-ID: "+messageID(domain),
 		"MIME-Version: 1.0",
 		"Content-Type: text/plain; charset=UTF-8",
 		"Content-Transfer-Encoding: 8bit",
 		"Auto-Submitted: auto-generated",
 		"", body,
-	}, "\r\n"))
+	), "\r\n"))
+}
+
+// senderRefused reports whether the server rejected the From address because
+// the signed-in mailbox may not send as it (Zoho "Sender is not allowed to
+// relay", Microsoft "SendAsDenied", Gmail "sender address rejected"…).
+func senderRefused(err error) bool {
+	if err == nil {
+		return false
+	}
+	e := strings.ToLower(err.Error())
+	for _, s := range []string{"relay", "sendasdenied", "send as", "sender address rejected", "not allowed to send", "not owned by", "553"} {
+		if strings.Contains(e, s) {
+			return true
+		}
+	}
+	return false
+}
+
+// Result describes a successful delivery.
+type Result struct {
+	// From is the sender actually used.
+	From string
+	// Fallback is set when the configured SMTP_FROM was refused and the
+	// message went out from the signed-in mailbox instead.
+	Fallback bool
 }
 
 // Send delivers m. It returns the server's error text when delivery fails so
 // administrators can see why (wrong password, sender not allowed, …).
 func (c Config) Send(m Message) error {
+	_, err := c.SendWithResult(m)
+	return err
+}
+
+// SendWithResult delivers m. When the mail server refuses SMTP_FROM because
+// the signed-in mailbox (SMTP_USER) may not send as that address, it resends
+// from SMTP_USER, keeping the display name and setting Reply-To to SMTP_FROM,
+// so mail still arrives while the alias is being set up.
+func (c Config) SendWithResult(m Message) (Result, error) {
 	if !c.Enabled() {
-		return errors.New("email is not configured (SMTP_HOST is empty)")
-	}
-	to, err := mail.ParseAddress(m.To)
-	if err != nil {
-		return fmt.Errorf("invalid recipient %q", m.To)
+		return Result{}, errors.New("email is not configured (SMTP_HOST is empty)")
 	}
 	from, err := c.Sender()
 	if err != nil {
-		return err
+		return Result{}, err
+	}
+	err = c.send(from, m)
+	if err == nil {
+		return Result{From: from.String()}, nil
+	}
+	user, uerr := mail.ParseAddress(c.User)
+	if !senderRefused(err) || uerr != nil || strings.EqualFold(user.Address, from.Address) {
+		return Result{}, err
+	}
+	alt := &mail.Address{Name: from.Name, Address: user.Address}
+	if m.ReplyTo == "" {
+		m.ReplyTo = from.String()
+	}
+	if err2 := c.send(alt, m); err2 != nil {
+		return Result{}, fmt.Errorf("%v (also failed from %s: %v)", err, user.Address, err2)
+	}
+	return Result{From: alt.String(), Fallback: true}, nil
+}
+
+func (c Config) send(from *mail.Address, m Message) error {
+	to, err := mail.ParseAddress(m.To)
+	if err != nil {
+		return fmt.Errorf("invalid recipient %q", m.To)
 	}
 	timeout := c.Timeout
 	if timeout <= 0 {
@@ -168,7 +226,7 @@ func (c Config) Send(m Message) error {
 	if err != nil {
 		return err
 	}
-	if _, err := w.Write(Build(from, Message{To: to.String(), Subject: m.Subject, Text: m.Text}, time.Now())); err != nil {
+	if _, err := w.Write(Build(from, Message{To: to.String(), Subject: m.Subject, Text: m.Text, ReplyTo: m.ReplyTo}, time.Now())); err != nil {
 		return err
 	}
 	if err := w.Close(); err != nil {

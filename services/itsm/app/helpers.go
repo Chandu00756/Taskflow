@@ -317,7 +317,9 @@ func (c *Ctx) audit(action, entityType, entityID, summary string, details interf
 	})
 }
 
-// notify writes an in-app notification into the shared notifications table.
+// notify writes an in-app notification into the shared notifications table
+// and emails a copy (see mailNotification); each channel follows the
+// person's notification preferences.
 func notify(db *gorm.DB, userID, kind, title, message string, meta map[string]string) {
 	if userID == "" {
 		return
@@ -331,12 +333,14 @@ func notify(db *gorm.DB, userID, kind, title, message string, meta map[string]st
 	if raw != nil {
 		_ = jsonUnmarshal(datatypes.JSON(*raw), &prefs)
 	}
-	if !notificationAllowed(prefs, kind) {
-		return
+	if notificationAllowed(prefs, kind) {
+		db.Exec(`INSERT INTO notifications (id, user_id, type, title, message, read, metadata, created_at)
+			VALUES (?, ?, ?, ?, ?, false, ?, ?)`,
+			uuid.NewString(), userID, kind, title, message, string(jsonOf(meta)), now())
 	}
-	db.Exec(`INSERT INTO notifications (id, user_id, type, title, message, read, metadata, created_at)
-		VALUES (?, ?, ?, ?, ?, false, ?, ?)`,
-		uuid.NewString(), userID, kind, title, message, string(jsonOf(meta)), now())
+	if notificationMailer != nil && emailWanted(prefs, kind) {
+		notificationMailer(db, userID, kind, title, message, meta)
+	}
 }
 
 var placeholderRe = regexp.MustCompile(`\{\{\s*([a-zA-Z0-9_.]+)\s*\}\}`)

@@ -17,8 +17,9 @@ import { Board } from '@/components/projects/board';
 import { CalendarLayout, ListLayout, TableLayout } from '@/components/projects/layouts';
 import { WorkItemPeek } from '@/components/projects/peek';
 import { CreateWorkItemModal, CyclesView, ProjectSettings } from '@/components/projects/forms';
+import { ModulesView } from '@/components/projects/modules';
 import { DEFAULT_DISPLAY, DISPLAY_LABELS, type CardContext, type DisplayProps } from '@/components/projects/work-item-card';
-import { useCreateWorkItem, useCycles, useProject, useProjectLabels, useUpdateWorkItem, useWorkItems, type WorkItemPatch } from '@/components/projects/hooks';
+import { useCreateWorkItem, useCycles, useModules, useProject, useProjectLabels, useUpdateWorkItem, useWorkItems, type WorkItemPatch } from '@/components/projects/hooks';
 
 type Layout = 'list' | 'board' | 'calendar' | 'table';
 type Order = 'manual' | 'priority' | 'due_date' | 'created' | 'updated';
@@ -92,6 +93,7 @@ interface Filters {
   priority: string[];
   cycle: string;
   label: string;
+  module?: string;
 }
 
 const NO_FILTERS: Filters = { assignee: '', priority: [], cycle: '', label: '' };
@@ -120,6 +122,7 @@ function ProjectPage() {
   const { data: me } = useMe();
   const project = useProject(id);
   const cycles = useCycles(id);
+  const modules = useModules(id);
   const labels = useProjectLabels(id);
   const [prefs, setPrefs] = useViewPrefs(id);
   const [q, setQ] = React.useState('');
@@ -135,6 +138,7 @@ function ProjectPage() {
     assignee_id: filters.assignee,
     cycle_id: filters.cycle,
     label: filters.label,
+    module_id: filters.module,
     parent_id: prefs.showSubItems ? undefined : 'none',
   });
   const update = useUpdateWorkItem(id);
@@ -170,8 +174,9 @@ function ProjectPage() {
       assignee_id: filterAssignee && p.member_ids.includes(filterAssignee) ? filterAssignee : undefined,
       priority: filters.priority.length === 1 ? filters.priority[0] : undefined,
       labels: filters.label ? [filters.label] : undefined,
+      module_ids: filters.module ? [filters.module] : undefined,
     });
-  const activeFilters = !!(filters.assignee || filters.priority.length || filters.cycle || filters.label);
+  const activeFilters = !!(filters.assignee || filters.priority.length || filters.cycle || filters.label || filters.module);
   const memberName = (uid: string) => p.members.find((m) => m.id === uid)?.name ?? 'Member';
   const cycleName = (cid: string) => cycles.data?.find((c) => c.id === cid)?.name ?? 'Cycle';
 
@@ -205,6 +210,7 @@ function ProjectPage() {
         tabs={[
           { value: 'items', label: 'Work items', count: p.total_items },
           { value: 'cycles', label: 'Cycles' },
+          { value: 'modules', label: 'Modules' },
           ...(p.can_manage ? [{ value: 'settings', label: 'Settings' }] : []),
         ]}
       />
@@ -214,6 +220,15 @@ function ProjectPage() {
           project={p}
           onShowItems={(cid) => {
             setFilters({ ...NO_FILTERS, cycle: cid });
+            setParam({ tab: null });
+          }}
+        />
+      )}
+      {tab === 'modules' && (
+        <ModulesView
+          project={p}
+          onShowItems={(mid) => {
+            setFilters({ ...NO_FILTERS, module: mid });
             setParam({ tab: null });
           }}
         />
@@ -259,6 +274,7 @@ function ProjectPage() {
               ))}
               {filters.cycle && <ClearableChip onClear={() => setFilters({ ...filters, cycle: '' })}>Cycle: {filters.cycle === 'none' ? 'No cycle' : cycleName(filters.cycle)}</ClearableChip>}
               {filters.label && <ClearableChip onClear={() => setFilters({ ...filters, label: '' })}>Label: {filters.label}</ClearableChip>}
+              {filters.module && <ClearableChip onClear={() => setFilters({ ...filters, module: '' })}>Module: {modules.data?.find((m) => m.id === filters.module)?.name ?? 'Module'}</ClearableChip>}
               <button onClick={() => setFilters(NO_FILTERS)} className="text-xs text-slate-500 hover:text-slate-800">Clear all</button>
             </div>
           )}

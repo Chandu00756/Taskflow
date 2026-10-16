@@ -21,8 +21,11 @@ import (
 const (
 	tokenVerifyEmail   = "verify_email"
 	tokenResetPassword = "reset_password"
+	tokenActivate      = "activate"
 	verifyTokenTTL     = 48 * time.Hour
 	resetTokenTTL      = time.Hour
+	adminResetTTL      = 24 * time.Hour
+	activateTokenTTL   = 7 * 24 * time.Hour
 	// systemOrgID tags outgoing mail that belongs to no organization (the
 	// platform admin's own account).
 	systemOrgID = "00000000-0000-0000-0000-000000000000"
@@ -300,4 +303,133 @@ func (a *App) forgotEmailReset(c *Ctx) error {
 	body := fmt.Sprintf("Hi %s,\n\nThe password for your TaskFlow account (%s) was just changed using a reset link, and all devices were signed out.\n\nIf this was not you, reset your password again right away and tell your administrator.\n\n— TaskFlow", r.name(), r.Email)
 	a.queueSystemEmail(c.DB(), r.OrgID, r.Email, "Your TaskFlow password was changed", body, r.ID)
 	return c.JSON(http.StatusOK, map[string]string{"message": "password updated; you can now sign in"})
+}
+
+// ---------------------------------------------------------------------------
+// Invitations: people an admin adds confirm their address and choose a password
+// ---------------------------------------------------------------------------
+
+func displayName(name, email string) string {
+	if strings.TrimSpace(name) != "" {
+		return strings.TrimSpace(name)
+	}
+	return strings.Split(email, "@")[0]
+}
+
+// inviteUser emails an activation link when email is configured and marks the
+// address unverified until it is used. It returns false when email is off, so
+// the caller hands the temporary password to the admin instead. db may be a
+// transaction (CSV import).
+func (a *App) inviteUser(db *gorm.DB, c *Ctx, userID, email, name string) bool {
+	if !a.mailConfig().Enabled() {
+		return false
+	}
+	db.Table("users").Where("id = ?", userID).Updates(map[string]interface{}{"email_verification_pending": true, "updated_at": now()})
+	raw, ok := issueAuthToken(db, userID, tokenActivate, activateTokenTTL)
+	if !ok {
+		return true // an invitation went out moments ago and is still valid
+	}
+	s := c.settings()
+	body := fmt.Sprintf("Hi %s,\n\n%s invited you to %s.\n\nActivate your account and choose a password here:\n\n%s\n\nThe link confirms that this email address is yours, works once and expires in 7 days. If you were not expecting this, you can ignore this email.\n\n— %s",
+		displayName(name, email), c.P.Name, s.HelpdeskName, a.link("/activate", raw), s.HelpdeskName)
+	orgID := c.P.OrgID
+	a.queueSystemEmail(db, &orgID, email, "You're invited to "+s.HelpdeskName, body, userID)
+	return true
+}
+
+// POST /people/{id}/invite resends the activation email.
+func (a *App) resendInvite(c *Ctx) error {
+	r, err := c.loadPersonRow(c.Param("id"))
+	if err != nil {
+		return err
+	}
+	if !r.IsActive {
+		return errBadRequest("reactivate this person before inviting them")
+	}
+	if !r.Pending && r.HasLoggedIn {
+		return errBadRequest(r.Email + " has already activated their account")
+	}
+	if !a.mailConfig().Enabled() {
+		return errBadRequest("Email is not configured. Use Reset password to get a temporary password instead.")
+	}
+	var recent int64
+	c.DB().Model(&AuthToken{}).Where("user_id = ? AND purpose = ? AND created_at > ?", r.ID, tokenActivate, now().Add(-time.Minute)).Count(&recent)
+	if recent > 0 {
+		return &APIError{Status: http.StatusTooManyRequests, Message: "an invitation was sent less than a minute ago"}
+	}
+	a.inviteUser(c.DB(), c, r.ID, r.Email, r.FullName)
+	c.audit("person.invited", "user", r.ID, "Sent an invitation to "+r.Email, nil)
+	return c.JSON(http.StatusOK, map[string]string{"message": "Invitation sent to " + r.Email})
+}
+
+var errActivateLink = &APIError{Status: http.StatusBadRequest, Message: "This invitation link is invalid or has expired. Ask your administrator to send a new one."}
+
+// POST /auth/activate/check {token}
+func (a *App) activateCheck(c *Ctx) error {
+	var in struct {
+		Token string `json:"token"`
+	}
+	if err := c.Bind(&in); err != nil {
+		return err
+	}
+	tok, usable := lookupAuthToken(c.DB(), in.Token, tokenActivate)
+	if !usable {
+		return errActivateLink
+	}
+	r, ok := findAccount(c.DB(), "id = ?", tok.UserID)
+	if !ok || !r.IsActive {
+		return errActivateLink
+	}
+	var org string
+	if r.OrgID != nil {
+		c.DB().Table("organizations").Select("name").Where("id = ?", *r.OrgID).Scan(&org)
+	}
+	return c.JSON(http.StatusOK, map[string]string{"email": r.Email, "name": r.name(), "organization": org})
+}
+
+// POST /auth/activate {token, new_password}
+func (a *App) activateAccount(c *Ctx) error {
+	var in struct {
+		Token       string `json:"token"`
+		NewPassword string `json:"new_password"`
+	}
+	if err := c.Bind(&in); err != nil {
+		return err
+	}
+	tok, usable := lookupAuthToken(c.DB(), in.Token, tokenActivate)
+	if !usable {
+		return errActivateLink
+	}
+	r, ok := findAccount(c.DB(), "id = ?", tok.UserID)
+	if !ok || !r.IsActive || (r.OrgID != nil && orgSuspended(c.DB(), *r.OrgID)) {
+		return errActivateLink
+	}
+	var s *Settings
+	if r.OrgID != nil {
+		var st Settings
+		if c.DB().Where("org_id = ?", *r.OrgID).Take(&st).Error == nil {
+			s = &st
+		}
+	}
+	if err := validatePassword(s, in.NewPassword); err != nil {
+		return errValidation(map[string]string{"new_password": err.Error()})
+	}
+	hash, err := auth.HashPassword(in.NewPassword)
+	if err != nil {
+		return err
+	}
+	if !consumeAuthToken(c.DB(), tok) {
+		return errActivateLink
+	}
+	c.DB().Table("users").Where("id = ?", r.ID).Updates(map[string]interface{}{
+		"password": hash, "must_change_password": false, "failed_login_attempts": 0, "locked_until": nil,
+		"password_changed_at": now(), "email_verification_pending": false, "updated_at": now(),
+	})
+	c.DB().Model(&RefreshSession{}).Where("user_id = ? AND revoked_at IS NULL", r.ID).Update("revoked_at", now())
+	a.Invalidate(r.ID)
+	if r.OrgID != nil {
+		c.DB().Create(&AuditLog{Base: Base{OrgID: *r.OrgID}, ActorID: &r.ID, Action: "person.activated", EntityType: "user", EntityID: r.ID,
+			Summary: "Activated account and verified " + r.Email, Details: jsonOf(nil), IP: c.ClientIP()})
+	}
+	return c.JSON(http.StatusOK, map[string]string{"message": "Your account is active. Sign in with your new password.", "email": r.Email})
 }

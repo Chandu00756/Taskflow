@@ -609,6 +609,9 @@ func (a *App) listWorkItems(c *Ctx) error {
 	case isUUID(v):
 		q = q.Where("parent_id = ?", v)
 	}
+	if v := c.Query("module_id"); isUUID(v) {
+		q = q.Where("module_ids @> ?::jsonb", string(jsonOf([]string{v})))
+	}
 	if v := strings.TrimSpace(strings.ToLower(c.Query("label"))); v != "" {
 		q = q.Where("labels @> ?::jsonb", string(jsonOf([]string{v})))
 	}
@@ -629,19 +632,23 @@ func (a *App) listWorkItems(c *Ctx) error {
 }
 
 type workItemInput struct {
-	Title       *string   `json:"title"`
-	Description *string   `json:"description"`
-	State       *string   `json:"state"`
-	Priority    *string   `json:"priority"`
-	AssigneeID  *string   `json:"assignee_id"`
-	ParentID    *string   `json:"parent_id"`
-	CycleID     *string   `json:"cycle_id"`
-	Labels      *[]string `json:"labels"`
-	Estimate    *int      `json:"estimate"`
-	StartDate   *string   `json:"start_date"`
-	DueDate     *string   `json:"due_date"`
-	SortOrder   *float64  `json:"sort_order"`
-	TicketID    string    `json:"ticket_id"`
+	Title       *string    `json:"title"`
+	Description *string    `json:"description"`
+	State       *string    `json:"state"`
+	Priority    *string    `json:"priority"`
+	AssigneeID  *string    `json:"assignee_id"`
+	ParentID    *string    `json:"parent_id"`
+	CycleID     *string    `json:"cycle_id"`
+	Labels      *[]string  `json:"labels"`
+	Estimate    *int       `json:"estimate"`
+	StartDate   *string    `json:"start_date"`
+	DueDate     *string    `json:"due_date"`
+	SortOrder   *float64   `json:"sort_order"`
+	TicketID    string     `json:"ticket_id"`
+	ModuleIDs   *[]string  `json:"module_ids"`
+	WebLinks    *[]webLink `json:"web_links"`
+	// AttachmentIDs are pending uploads to attach when creating.
+	AttachmentIDs []string `json:"attachment_ids"`
 }
 
 func (c *Ctx) applyWorkItemInput(w *WorkItem, p *Project, in *workItemInput) map[string]string {
@@ -734,6 +741,7 @@ func (c *Ctx) applyWorkItemInput(w *WorkItem, p *Project, in *workItemInput) map
 	if in.SortOrder != nil {
 		w.SortOrder = *in.SortOrder
 	}
+	c.applyWorkItemExtras(w, p, in, errs)
 	return errs
 }
 
@@ -787,7 +795,8 @@ func (a *App) createWorkItem(c *Ctx) error {
 	if err := c.Bind(&in); err != nil {
 		return err
 	}
-	w := WorkItem{Base: Base{OrgID: c.P.OrgID}, ProjectID: p.ID, State: "todo", Priority: "none", ReporterID: c.P.UserID, Labels: jsonOf([]string{})}
+	w := WorkItem{Base: Base{OrgID: c.P.OrgID}, ProjectID: p.ID, State: "todo", Priority: "none", ReporterID: c.P.UserID, Labels: jsonOf([]string{}),
+		ModuleIDs: jsonOf([]string{}), WebLinks: jsonOf([]webLink{})}
 	if errs := c.applyWorkItemInput(&w, p, &in); len(errs) > 0 {
 		return errValidation(errs)
 	}
@@ -815,6 +824,7 @@ func (a *App) createWorkItem(c *Ctx) error {
 			return err
 		}
 		c.activity(tx, "work_item", w.ID, "created", "created the work item", nil)
+		c.attachFiles(tx, "work_item", w.ID, in.AttachmentIDs)
 		if ticket != nil {
 			tx.Create(&Link{Base: Base{OrgID: c.P.OrgID}, SourceType: "work_item", SourceID: w.ID, TargetType: "ticket", TargetID: ticket.ID, LinkType: "related"})
 			c.activity(tx, "ticket", ticket.ID, "linked", "created work item "+displayID(p.Key, w.Number)+" in "+p.Name, nil)
@@ -824,8 +834,77 @@ func (a *App) createWorkItem(c *Ctx) error {
 	if err != nil {
 		return err
 	}
+	subscribeWorkItem(c.DB(), c.P.OrgID, w.ID, c.P.UserID, deref(w.AssigneeID))
 	c.notifyWorkItemAssignee(p, &w)
+	if p.LeadID != nil && *p.LeadID != c.P.UserID && *p.LeadID != deref(w.AssigneeID) {
+		notify(c.DB(), *p.LeadID, "work_item_created", c.P.Name+" created "+displayID(p.Key, w.Number)+" in "+p.Name, w.Title,
+			map[string]string{"work_item_id": w.ID, "project_id": p.ID})
+	}
 	return c.JSON(http.StatusCreated, c.workItemDTOs([]WorkItem{w})[0])
+}
+
+// subscribeWorkItem adds people to a work item's subscribers.
+func subscribeWorkItem(db *gorm.DB, orgID, workItemID string, userIDs ...string) {
+	for _, id := range uniq(userIDs) {
+		db.Where(Watcher{EntityType: "work_item", EntityID: workItemID, UserID: id}).
+			FirstOrCreate(&Watcher{EntityType: "work_item", EntityID: workItemID, UserID: id, OrgID: orgID})
+	}
+}
+
+// workItemAudience is everyone who follows a work item: assignee, reporter
+// and subscribers, minus the person acting.
+func (c *Ctx) workItemAudience(w *WorkItem, skip ...string) []string {
+	var ids []string
+	c.DB().Model(&Watcher{}).Where("entity_type = 'work_item' AND entity_id = ?", w.ID).Pluck("user_id", &ids)
+	ids = append(ids, deref(w.AssigneeID), w.ReporterID)
+	skipSet := map[string]bool{c.P.UserID: true}
+	for _, s := range skip {
+		skipSet[s] = true
+	}
+	out := []string{}
+	for _, id := range uniq(ids) {
+		if !skipSet[id] {
+			out = append(out, id)
+		}
+	}
+	return out
+}
+
+// describeWorkItemChanges turns field changes into a short sentence for notifications.
+func describeWorkItemChanges(before, after *WorkItem) string {
+	var parts []string
+	if before.State != after.State {
+		parts = append(parts, "state → "+workItemLabels[after.State])
+	}
+	if before.Priority != after.Priority {
+		parts = append(parts, "priority → "+labelOf(after.Priority))
+	}
+	if deref(before.AssigneeID) != deref(after.AssigneeID) {
+		parts = append(parts, "assignee changed")
+	}
+	if !sameTime(before.DueDate, after.DueDate) {
+		if after.DueDate != nil {
+			parts = append(parts, "due "+after.DueDate.Format("Jan 2, 2006"))
+		} else {
+			parts = append(parts, "due date removed")
+		}
+	}
+	if !sameTime(before.StartDate, after.StartDate) {
+		parts = append(parts, "start date changed")
+	}
+	if before.Title != after.Title {
+		parts = append(parts, "renamed")
+	}
+	if deref(before.CycleID) != deref(after.CycleID) {
+		parts = append(parts, "cycle changed")
+	}
+	if string(before.ModuleIDs) != string(after.ModuleIDs) {
+		parts = append(parts, "modules changed")
+	}
+	if before.Description != after.Description {
+		parts = append(parts, "description updated")
+	}
+	return strings.Join(parts, ", ")
 }
 
 func (c *Ctx) notifyWorkItemAssignee(p *Project, w *WorkItem) {
@@ -836,18 +915,12 @@ func (c *Ctx) notifyWorkItemAssignee(p *Project, w *WorkItem) {
 		map[string]string{"work_item_id": w.ID, "project_id": p.ID})
 }
 
-// WorkItemDetail adds permissions to the work item representation.
-type WorkItemDetail struct {
-	WorkItemDTO
-	CanEdit bool `json:"can_edit"`
-}
-
 func (a *App) getWorkItem(c *Ctx) error {
 	w, _, perms, err := c.loadWorkItem(c.Param("id"))
 	if err != nil {
 		return err
 	}
-	return c.JSON(http.StatusOK, WorkItemDetail{WorkItemDTO: c.workItemDTOs([]WorkItem{*w})[0], CanEdit: perms.edit})
+	return c.JSON(http.StatusOK, a.workItemDetail(c, w, perms.edit))
 }
 
 var workItemLabels = map[string]string{
@@ -873,7 +946,7 @@ func (a *App) updateWorkItem(c *Ctx) error {
 	if in.State != nil && *in.State != before.State && in.SortOrder == nil {
 		w.SortOrder = c.nextSortOrder(p.ID, w.State)
 	}
-	changes := diffFields(before, *w, "title", "state", "priority", "assignee_id", "cycle_id", "parent_id", "estimate", "start_date", "due_date", "labels")
+	changes := diffFields(before, *w, "title", "state", "priority", "assignee_id", "cycle_id", "parent_id", "estimate", "start_date", "due_date", "labels", "module_ids")
 	err = c.DB().Transaction(func(tx *gorm.DB) error {
 		if err := tx.Save(w).Error; err != nil {
 			return err
@@ -892,10 +965,20 @@ func (a *App) updateWorkItem(c *Ctx) error {
 	if err != nil {
 		return err
 	}
+	skip := []string{}
 	if deref(before.AssigneeID) != deref(w.AssigneeID) {
 		c.notifyWorkItemAssignee(p, w)
+		subscribeWorkItem(c.DB(), c.P.OrgID, w.ID, deref(w.AssigneeID))
+		skip = append(skip, deref(w.AssigneeID))
 	}
-	return c.JSON(http.StatusOK, WorkItemDetail{WorkItemDTO: c.workItemDTOs([]WorkItem{*w})[0], CanEdit: perms.edit})
+	if what := describeWorkItemChanges(&before, w); what != "" {
+		for _, id := range c.workItemAudience(w, skip...) {
+			notify(c.DB(), id, "work_item_update", c.P.Name+" updated "+displayID(p.Key, w.Number)+": "+what, w.Title,
+				map[string]string{"work_item_id": w.ID, "project_id": p.ID})
+		}
+	}
+	c.syncTicketsFromWorkItem(&before, w, p)
+	return c.JSON(http.StatusOK, a.workItemDetail(c, w, perms.edit))
 }
 
 func (a *App) deleteWorkItem(c *Ctx) error {

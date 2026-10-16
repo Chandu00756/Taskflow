@@ -6,7 +6,7 @@ import { ChevronDown, X } from 'lucide-react';
 import { v2 } from '@/lib/itsm/api';
 import type { Person } from '@/lib/itsm/types';
 import { cn } from '@/lib/utils';
-import { Avatar, useClickOutside } from './kit';
+import { Avatar, FloatingPanel } from './kit';
 import { useAgents, useGroups, useDepartments } from '@/lib/itsm/hooks';
 
 /** Searchable picker over agents and/or requesters. */
@@ -23,7 +23,7 @@ export function PersonPicker({ value, onChange, kind = 'all', placeholder = 'Sea
   const [q, setQ] = React.useState('');
   const [label, setLabel] = React.useState<string | undefined>(initialLabel);
   const ref = React.useRef<HTMLDivElement>(null);
-  useClickOutside(ref, () => setOpen(false));
+  const close = React.useCallback(() => setOpen(false), []);
   const debounced = useDebounced(q, 200);
   const { data, isFetching } = useQuery({
     queryKey: ['people-search', kind, debounced],
@@ -76,38 +76,36 @@ export function PersonPicker({ value, onChange, kind = 'all', placeholder = 'Sea
           <ChevronDown className="h-4 w-4 text-slate-400" />
         </span>
       </button>
-      {open && (
-        <div className="menu-panel absolute z-40 mt-1 w-full min-w-[260px] rounded-md border border-slate-200 bg-white shadow-lg">
-          <div className="border-b border-slate-100 p-2">
-            <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Type a name or email…" className="w-full rounded border border-slate-200 px-2 py-1.5 text-sm focus:outline-none" />
-          </div>
-          <div className="max-h-64 overflow-y-auto py-1">
-            {isFetching && !data && <div className="px-3 py-2 text-sm text-slate-500">Searching…</div>}
-            {data?.length === 0 && <div className="px-3 py-2 text-sm text-slate-500">No people found</div>}
-            {data?.map((p) => (
-              <button
-                type="button"
-                key={p.id}
-                onClick={() => {
-                  onChange(p.id, p);
-                  setLabel(p.name);
-                  setOpen(false);
-                }}
-                className="flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-slate-50"
-              >
-                <Avatar name={p.name} src={p.avatar_url} size="sm" />
-                <span className="min-w-0">
-                  <span className="block truncate text-sm text-slate-800">{p.name}</span>
-                  <span className="block truncate text-xs text-slate-500">
-                    {p.email}
-                    {p.is_agent ? ' · Agent' : ''}
-                  </span>
-                </span>
-              </button>
-            ))}
-          </div>
+      <FloatingPanel anchorRef={ref} open={open} onClose={close}>
+        <div className="border-b border-slate-100 p-2">
+          <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Type a name or email…" className="w-full rounded border border-slate-200 px-2 py-1.5 text-sm focus:outline-none" />
         </div>
-      )}
+        <div className="max-h-64 overflow-y-auto py-1">
+          {isFetching && !data && <div className="px-3 py-2 text-sm text-slate-500">Searching…</div>}
+          {data?.length === 0 && <div className="px-3 py-2 text-sm text-slate-500">No people found</div>}
+          {data?.map((p) => (
+            <button
+              type="button"
+              key={p.id}
+              onClick={() => {
+                onChange(p.id, p);
+                setLabel(p.name);
+                setOpen(false);
+              }}
+              className="flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-slate-50"
+            >
+              <Avatar name={p.name} src={p.avatar_url} size="sm" />
+              <span className="min-w-0">
+                <span className="block truncate text-sm text-slate-800">{p.name}</span>
+                <span className="block truncate text-xs text-slate-500">
+                  {p.email}
+                  {p.is_agent ? ' · Agent' : ''}
+                </span>
+              </span>
+            </button>
+          ))}
+        </div>
+      </FloatingPanel>
     </div>
   );
 }

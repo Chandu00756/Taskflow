@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { v2, parseApiError } from '@/lib/itsm/api';
 
 interface EmailStatus {
+  sender_note?: string;
   configured: boolean;
   host: string;
   port: string;
@@ -45,6 +46,14 @@ export function EmailDeliveryPanel({ defaultTo }: { defaultTo?: string }) {
     onError: (e) => setResult({ ok: false, message: parseApiError(e).message }),
   });
   const s = status.data;
+  const retry = useMutation({
+    mutationFn: () => v2.post<{ message: string }>('/platform/email/retry'),
+    onSuccess: (r) => {
+      toast.success(r.message);
+      status.refetch();
+    },
+    onError: (e) => toast.error(parseApiError(e).message),
+  });
 
   return (
     <div className="space-y-6">
@@ -72,6 +81,7 @@ export function EmailDeliveryPanel({ defaultTo }: { defaultTo?: string }) {
                   </p>
                 </div>
               </div>
+              {s.sender_note && <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">{s.sender_note}</p>}
               <dl className="grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
                 {[
                   ['Mail server', s.host ? `${s.host}:${s.port}` : '—'],
@@ -92,6 +102,10 @@ export function EmailDeliveryPanel({ defaultTo }: { defaultTo?: string }) {
                   </Badge>
                 ))}
                 <span className="self-center text-slate-500">in the last 24 hours</span>
+                <Button size="sm" variant="outline" className="ml-auto" disabled={retry.isPending} onClick={() => retry.mutate()}>
+                  <RefreshCw className="mr-2 h-3.5 w-3.5" />
+                  Retry failed emails
+                </Button>
               </div>
             </>
           )}

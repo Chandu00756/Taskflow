@@ -2,7 +2,9 @@
 
 import * as React from 'react';
 import { FieldSpec } from './crud';
+import { CategoryPicker } from './forms';
 import { useAgentOptions, useDepartmentOptions, useGroupOptions } from './pickers';
+import { useChangeTypes, useChoiceOptions, useFormFields } from '@/lib/itsm/hooks';
 import { CHANGE_STATUSES, CHANGE_TYPES, LEVELS, PRIORITIES, PROBLEM_STATUSES, RELEASE_STATUSES, RISKS, toLocalInput, fromLocalInput } from '@/lib/itsm/format';
 
 const priorityOptions = PRIORITIES.map((p) => ({ value: String(p.value), label: p.label }));
@@ -26,18 +28,54 @@ export function useOwnershipFields(): FieldSpec[] {
 const num = (v: unknown) => (v === '' || v === null || v === undefined ? undefined : Number(v));
 const iso = (v: unknown) => (v ? fromLocalInput(String(v)) : '');
 
+type CategoryPath = { category: string; sub_category: string; item_category: string };
+const emptyPath: CategoryPath = { category: '', sub_category: '', item_category: '' };
+
+/** Category → sub-category → item and business impact, from Admin → Categories. */
+function useClassificationFields(entity: 'problem' | 'change'): FieldSpec[] {
+  const fields = useFormFields(entity);
+  const impact = useChoiceOptions(entity, 'business_impact');
+  return React.useMemo(
+    () => [
+      {
+        name: 'category_path',
+        label: 'Category',
+        type: 'custom',
+        render: (value, onChange) => (
+          <CategoryPicker fields={fields.data} value={(value as CategoryPath) ?? emptyPath} onChange={(v) => onChange(v)} labels={['Category', 'Sub-category', 'Item']} />
+        ),
+      },
+      ...(impact.length ? [{ name: 'business_impact', label: 'Business impact', type: 'select' as const, options: impact }] : []),
+    ],
+    [fields.data, impact]
+  );
+}
+
+const pathOf = (r: Record<string, unknown>): CategoryPath => ({
+  category: (r.category as string) ?? '',
+  sub_category: (r.sub_category as string) ?? '',
+  item_category: (r.item_category as string) ?? '',
+});
+
+/** Turns the category picker's value back into the API's three fields. */
+function withPath(v: Record<string, unknown>): Record<string, unknown> {
+  const { category_path, ...rest } = v;
+  return category_path ? { ...rest, ...(category_path as CategoryPath) } : rest;
+}
+
 // ---------------------------------------------------------------------------
 // Problems
 // ---------------------------------------------------------------------------
 
 export function useProblemFields() {
   const own = useOwnershipFields();
+  const classification = useClassificationFields('problem');
   const properties: FieldSpec[] = [
     { name: 'status', label: 'Status', type: 'select', options: PROBLEM_STATUSES, required: true },
     { name: 'priority', label: 'Priority', type: 'select', options: priorityOptions, required: true },
     { name: 'impact', label: 'Impact', type: 'select', options: levelOptions, required: true },
     ...own,
-    { name: 'category', label: 'Category', type: 'text' },
+    ...classification,
     { name: 'due_by', label: 'Due by', type: 'datetime' },
     { name: 'known_error', label: 'Known error', type: 'toggle', description: 'Root cause identified and a workaround exists' },
     { name: 'tags', label: 'Tags', type: 'tags' },
@@ -60,14 +98,14 @@ export function useProblemFields() {
 export function problemToForm(p: Record<string, unknown>): Record<string, unknown> {
   return {
     subject: p.subject, description: p.description, status: p.status, priority: String(p.priority), impact: String(p.impact),
-    group_id: p.group_id ?? '', agent_id: p.agent_id ?? '', department_id: p.department_id ?? '', category: p.category ?? '',
-    due_by: toLocalInput(p.due_by as string), known_error: p.known_error, tags: p.tags ?? [], root_cause: p.root_cause ?? '',
+    group_id: p.group_id ?? '', agent_id: p.agent_id ?? '', department_id: p.department_id ?? '', category_path: pathOf(p),
+    business_impact: p.business_impact ?? '', due_by: toLocalInput(p.due_by as string), known_error: p.known_error, tags: p.tags ?? [], root_cause: p.root_cause ?? '',
     impact_analysis: p.impact_analysis ?? '', symptoms: p.symptoms ?? '', workaround: p.workaround ?? '',
   };
 }
 
 export function problemPayload(v: Record<string, unknown>) {
-  return { ...v, priority: num(v.priority), impact: num(v.impact), due_by: iso(v.due_by) };
+  return { ...withPath(v), priority: num(v.priority), impact: num(v.impact), due_by: iso(v.due_by) };
 }
 
 // ---------------------------------------------------------------------------
@@ -76,14 +114,16 @@ export function problemPayload(v: Record<string, unknown>) {
 
 export function useChangeFields() {
   const own = useOwnershipFields();
+  const classification = useClassificationFields('change');
+  const changeTypes = useChangeTypes();
   const properties: FieldSpec[] = [
     { name: 'status', label: 'Status', type: 'select', options: CHANGE_STATUSES, required: true },
-    { name: 'change_type', label: 'Change type', type: 'select', options: CHANGE_TYPES, required: true },
+    { name: 'change_type', label: 'Change type', type: 'select', options: changeTypes.options, required: true },
     { name: 'priority', label: 'Priority', type: 'select', options: priorityOptions, required: true },
     { name: 'impact', label: 'Impact', type: 'select', options: levelOptions, required: true },
     { name: 'risk', label: 'Risk', type: 'select', options: riskOptions, required: true },
     ...own,
-    { name: 'category', label: 'Category', type: 'text' },
+    ...classification,
     { name: 'planned_start', label: 'Planned start', type: 'datetime' },
     { name: 'planned_end', label: 'Planned end', type: 'datetime' },
     { name: 'tags', label: 'Tags', type: 'tags' },
@@ -107,13 +147,13 @@ export function changeToForm(c: Record<string, unknown>): Record<string, unknown
   return {
     subject: c.subject, description: c.description, status: c.status, change_type: c.change_type, priority: String(c.priority),
     impact: String(c.impact), risk: String(c.risk), group_id: c.group_id ?? '', agent_id: c.agent_id ?? '', department_id: c.department_id ?? '',
-    category: c.category ?? '', planned_start: toLocalInput(c.planned_start as string), planned_end: toLocalInput(c.planned_end as string),
+    category_path: pathOf(c), business_impact: c.business_impact ?? '', planned_start: toLocalInput(c.planned_start as string), planned_end: toLocalInput(c.planned_end as string),
     tags: c.tags ?? [], reason: c.reason ?? '', impact_plan: c.impact_plan ?? '', rollout_plan: c.rollout_plan ?? '', backout_plan: c.backout_plan ?? '',
   };
 }
 
 export function changePayload(v: Record<string, unknown>) {
-  return { ...v, priority: num(v.priority), impact: num(v.impact), risk: num(v.risk), planned_start: iso(v.planned_start), planned_end: iso(v.planned_end) };
+  return { ...withPath(v), priority: num(v.priority), impact: num(v.impact), risk: num(v.risk), planned_start: iso(v.planned_start), planned_end: iso(v.planned_end) };
 }
 
 // ---------------------------------------------------------------------------

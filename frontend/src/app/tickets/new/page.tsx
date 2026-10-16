@@ -11,6 +11,7 @@ import { PersonPicker, useAgentOptions, useDebounced, useGroupOptions, useDepart
 import { AttachmentInput, CategoryPicker, CustomFields } from '@/components/desk/forms';
 import { v2, parseApiError } from '@/lib/itsm/api';
 import { useTicketFields } from '@/lib/itsm/hooks';
+import { NewTicketProjectFields } from '@/components/projects/ticket-project';
 import { LEVELS, PRIORITIES, TICKET_SOURCES, TICKET_STATUSES, fromLocalInput } from '@/lib/itsm/format';
 import type { Article, Ticket } from '@/lib/itsm/types';
 
@@ -43,6 +44,7 @@ function NewTicketContent() {
   });
   const [category, setCategory] = React.useState({ category: '', sub_category: '', item_category: '' });
   const [custom, setCustom] = React.useState<Record<string, unknown>>({});
+  const [project, setProject] = React.useState({ project_id: '', project_state: 'todo' });
   const [files, setFiles] = React.useState<{ id: string; name: string; size: number }[]>([]);
   const [errors, setErrors] = React.useState<Record<string, string>>({});
   const set = (k: keyof typeof form, v: string | string[]) => setForm((f) => ({ ...f, [k]: v }));
@@ -75,6 +77,7 @@ function NewTicketContent() {
         tags: form.tags,
         cc_emails: form.cc.split(/[,;\s]+/).filter(Boolean),
         custom_fields: custom,
+        ...(project.project_id ? project : {}),
         attachment_ids: files.map((f) => f.id),
         ...category,
       }),
@@ -155,6 +158,7 @@ function NewTicketContent() {
               </Field>
               <CategoryPicker fields={fields.data} value={category} onChange={setCategory} />
               <CustomFields fields={fields.data ?? []} values={custom} onChange={setCustom} errors={errors} />
+              <NewTicketProjectFields projectId={project.project_id} state={project.project_state} onChange={setProject} />
               <Field label="Tags">
                 <TagInput value={form.tags} onChange={(v) => set('tags', v)} />
               </Field>

@@ -3,16 +3,17 @@
 import * as React from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
-import { CircleDot, Pencil, Plus, Trash2 } from 'lucide-react';
+import { CircleDot, ImagePlus, Loader2, Paperclip, Pencil, Plus, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { v2, parseApiError } from '@/lib/itsm/api';
+import { v2, parseApiError, uploadAttachment } from '@/lib/itsm/api';
+import { fmtBytes } from '@/lib/itsm/format';
 import { useAgents, useMe } from '@/lib/itsm/hooks';
 import type { Cycle, Project, UserBrief, WorkItem, WorkItemPriority, WorkItemState } from '@/lib/itsm/types';
 import { PROJECT_COLORS, PROJECT_STATUSES, fmtDay, toDayInput } from '@/lib/itsm/projects';
 import { Badge, Btn, Card, EmptyState, Field, LoadingBlock, Modal, MultiSelect, SelectBox, TextArea, TextInput, Toggle, useConfirm } from '@/components/desk/kit';
 import { AssigneeSelect, CycleSelect, DateSelect, LabelsSelect, PrioritySelect, StateSelect } from './properties';
-import { useCreateWorkItem, useCycles } from './hooks';
+import { useCreateWorkItem, useCycles, useModules, useWorkItems } from './hooks';
 import { celebrate } from '@/lib/theme';
 
 // ---------------------------------------------------------------------------
@@ -29,6 +30,35 @@ interface Draft {
   due_date: string | null;
   cycle: { id: string; name: string } | null;
   labels: string[];
+  module_ids: string[];
+  parent_id: string;
+  estimate: string;
+}
+
+type PendingFile = { id: string; name: string; size: number; preview?: string };
+
+/** Uploads files right away so they can be attached when the item is created. */
+function usePendingFiles() {
+  const [files, setFiles] = React.useState<PendingFile[]>([]);
+  const [busy, setBusy] = React.useState(0);
+  const add = async (list: FileList | File[] | null) => {
+    const arr = Array.from(list ?? []);
+    if (!arr.length) return;
+    setBusy((b) => b + arr.length);
+    for (const f of arr) {
+      try {
+        if (f.size > 15 * 1024 * 1024) throw new Error('larger than 15 MB');
+        const res = await uploadAttachment(f);
+        const preview = f.type.startsWith('image/') ? URL.createObjectURL(f) : undefined;
+        setFiles((x) => [...x, { id: res.id, name: res.name || f.name || 'pasted-image.png', size: res.size, preview }]);
+      } catch (e) {
+        toast.error(`${f.name || 'File'}: ${e instanceof Error && !('response' in e) ? e.message : parseApiError(e).message}`);
+      } finally {
+        setBusy((b) => b - 1);
+      }
+    }
+  };
+  return { files, setFiles, add, busy: busy > 0 };
 }
 
 export function CreateWorkItemModal({ open, onClose, project, cycles, labels, defaults, onCreated }: {
@@ -41,19 +71,25 @@ export function CreateWorkItemModal({ open, onClose, project, cycles, labels, de
   onCreated?: (item: WorkItem) => void;
 }) {
   const blank = React.useCallback(
-    (): Draft => ({ title: '', description: '', state: 'todo', priority: 'none', assignee: null, start_date: null, due_date: null, cycle: null, labels: [], ...defaults }),
+    (): Draft => ({ title: '', description: '', state: 'todo', priority: 'none', assignee: null, start_date: null, due_date: null, cycle: null, labels: [], module_ids: [], parent_id: '', estimate: '', ...defaults }),
     [defaults]
   );
   const [d, setD] = React.useState<Draft>(blank);
   const [more, setMore] = React.useState(false);
   const [errors, setErrors] = React.useState<Record<string, string>>({});
   const create = useCreateWorkItem(project.id);
+  const modules = useModules(open ? project.id : '');
+  const parents = useWorkItems(open ? project.id : '', {});
+  const pending = usePendingFiles();
+  const fileRef = React.useRef<HTMLInputElement>(null);
+  const { setFiles } = pending;
   React.useEffect(() => {
     if (open) {
       setD(blank());
       setErrors({});
+      setFiles([]);
     }
-  }, [open, blank]);
+  }, [open, blank, setFiles]);
   const set = (p: Partial<Draft>) => setD((x) => ({ ...x, ...p }));
   const submit = () => {
     if (!d.title.trim()) {
@@ -71,14 +107,19 @@ export function CreateWorkItemModal({ open, onClose, project, cycles, labels, de
         due_date: d.due_date ?? '',
         cycle_id: d.cycle?.id ?? '',
         labels: d.labels,
+        module_ids: d.module_ids,
+        parent_id: d.parent_id,
+        ...(d.estimate.trim() ? { estimate: Number(d.estimate) } : {}),
+        attachment_ids: pending.files.map((f) => f.id),
       },
       {
         onSuccess: (item) => {
           toast.success(`${item.display_id} created`);
           onCreated?.(item);
           if (more) {
-            setD({ ...blank(), state: d.state, cycle: d.cycle, assignee: d.assignee });
+            setD({ ...blank(), state: d.state, cycle: d.cycle, assignee: d.assignee, module_ids: d.module_ids });
             setErrors({});
+            pending.setFiles([]);
           } else onClose();
         },
         onError: (e) => setErrors(Object.fromEntries(Object.entries(parseApiError(e).fields).map(([k, v]) => [k, String(v)]))),
@@ -117,8 +158,20 @@ export function CreateWorkItemModal({ open, onClose, project, cycles, labels, de
             placeholder="What needs to be done?"
           />
         </Field>
-        <Field label="Description" hint="Markdown is supported.">
-          <TextArea rows={5} value={d.description} onChange={(e) => set({ description: e.target.value })} placeholder="Add details, acceptance criteria or links" />
+        <Field label="Description" hint="Markdown is supported. Paste a screenshot to attach it.">
+          <TextArea
+            rows={5}
+            value={d.description}
+            onChange={(e) => set({ description: e.target.value })}
+            onPaste={(e) => {
+              const imgs = Array.from(e.clipboardData.files).filter((f) => f.type.startsWith('image/'));
+              if (imgs.length) {
+                e.preventDefault();
+                pending.add(imgs);
+              }
+            }}
+            placeholder="Add details, acceptance criteria or links"
+          />
         </Field>
         <div className="flex flex-wrap gap-1.5" aria-label="Properties">
           <StateSelect value={d.state} onChange={(state) => set({ state })} />
@@ -128,7 +181,41 @@ export function CreateWorkItemModal({ open, onClose, project, cycles, labels, de
           <DateSelect label="Due date" value={d.due_date} onChange={(v) => set({ due_date: v || null })} />
           {cycles.length > 0 && <CycleSelect value={d.cycle} cycles={cycles} onChange={(id) => set({ cycle: cycles.find((c) => c.id === id) ?? null })} />}
           <LabelsSelect value={d.labels} suggestions={labels} onChange={(l) => set({ labels: l })} />
+          <button type="button" onClick={() => fileRef.current?.click()} className="inline-flex h-7 items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2 text-xs text-slate-700 hover:bg-slate-50">
+            {pending.busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ImagePlus className="h-3.5 w-3.5" />} Attach
+          </button>
+          <input ref={fileRef} type="file" multiple className="hidden" onChange={(e) => { pending.add(e.target.files); e.target.value = ''; }} />
         </div>
+        <div className="grid gap-3 sm:grid-cols-3">
+          <Field label="Modules">
+            <MultiSelect value={d.module_ids} onChange={(module_ids) => set({ module_ids })} options={(modules.data ?? []).map((m) => ({ value: m.id, label: m.name }))} placeholder={(modules.data ?? []).length ? 'Add to modules' : 'No modules yet'} />
+          </Field>
+          <Field label="Parent">
+            <SelectBox value={d.parent_id} onChange={(parent_id) => set({ parent_id })} placeholder="None" options={[{ value: '', label: 'None' }, ...(parents.data ?? []).map((w) => ({ value: w.id, label: `${w.display_id} · ${w.title}` }))]} />
+          </Field>
+          <Field label="Estimate (points)">
+            <TextInput type="number" min={0} max={1000} value={d.estimate} onChange={(e) => set({ estimate: e.target.value })} placeholder="—" />
+          </Field>
+        </div>
+        {pending.files.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            {pending.files.map((f) => (
+              <span key={f.id} className="group relative inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 p-1 pr-2 text-xs text-slate-700">
+                {f.preview ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={f.preview} alt={f.name} className="h-12 w-16 rounded object-cover" />
+                ) : (
+                  <Paperclip className="ml-1 h-4 w-4 text-slate-400" />
+                )}
+                <span className="max-w-[10rem] truncate">{f.name}</span>
+                <span className="text-slate-400">{fmtBytes(f.size)}</span>
+                <button type="button" aria-label={`Remove ${f.name}`} onClick={() => pending.setFiles((x) => x.filter((y) => y.id !== f.id))} className="rounded p-0.5 text-slate-400 hover:text-rose-600">
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
         {Object.entries(errors)
           .filter(([k]) => k !== 'title')
           .map(([k, v]) => (

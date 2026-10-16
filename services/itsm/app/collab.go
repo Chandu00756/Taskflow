@@ -300,7 +300,8 @@ func (a *App) addConversation(module, kind string) handlerFunc {
 					notify(c.DB(), id, "mention", c.P.Name+" mentioned you on "+disp, truncate(in.Body, 140), meta)
 				}
 			}
-			for _, id := range []string{deref(w.AssigneeID), w.ReporterID} {
+			subscribeWorkItem(c.DB(), c.P.OrgID, w.ID, c.P.UserID)
+			for _, id := range c.workItemAudience(w) {
 				if id != "" && !notified[id] {
 					notified[id] = true
 					notify(c.DB(), id, "work_item_comment", c.P.Name+" commented on "+disp, truncate(in.Body, 140), meta)
@@ -1021,7 +1022,7 @@ func (a *App) canSeeAttachment(c *Ctx, att *Attachment) bool {
 		if conv.Private && !c.P.IsAgent {
 			return false
 		}
-		module := map[string]string{"ticket": "tickets", "problem": "problems", "change": "changes", "release": "releases"}[conv.EntityType]
+		module := map[string]string{"ticket": "tickets", "problem": "problems", "change": "changes", "release": "releases", "work_item": "work-items"}[conv.EntityType]
 		_, err := c.resolveEntity(module, conv.EntityID)
 		return err == nil
 	case "problem", "change", "release":
@@ -1030,6 +1031,9 @@ func (a *App) canSeeAttachment(c *Ctx, att *Attachment) bool {
 		return err == nil
 	case "kb_article":
 		return c.canSeeArticle(att.EntityID)
+	case "work_item":
+		_, err := c.resolveEntity("work-items", att.EntityID)
+		return err == nil
 	default:
 		return c.P.IsAgent
 	}

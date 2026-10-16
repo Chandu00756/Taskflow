@@ -164,6 +164,9 @@ export interface Problem {
   group_id: string | null;
   department_id: string | null;
   category: string;
+  sub_category: string;
+  item_category: string;
+  business_impact: string;
   due_by: string | null;
   known_error: boolean;
   root_cause: string;
@@ -189,7 +192,8 @@ export interface Change {
   subject: string;
   description: string;
   status: string;
-  change_type: 'minor' | 'standard' | 'major' | 'emergency';
+  /** minor | standard | major | emergency, or an admin-defined type. */
+  change_type: string;
   priority: number;
   impact: number;
   risk: number;
@@ -199,6 +203,9 @@ export interface Change {
   group_id: string | null;
   department_id: string | null;
   category: string;
+  sub_category: string;
+  item_category: string;
+  business_impact: string;
   planned_start: string | null;
   planned_end: string | null;
   reason: string;
@@ -490,6 +497,8 @@ export interface Person {
   has_logged_in: boolean;
   last_login: string | null;
   must_change_password: boolean;
+  /** False until an invited person opens their activation link. */
+  email_verified?: boolean;
   created_at: string;
   user_id: string;
   is_agent: boolean;
@@ -497,6 +506,8 @@ export interface Person {
   role_ids: string[];
   ticket_scope: string;
   job_title: string;
+  job_role_id?: string | null;
+  job_role?: JobRoleRef | null;
   phone: string;
   mobile: string;
   department_id: string | null;
@@ -760,7 +771,7 @@ export interface FormField {
   label: string;
   label_for_requester: string;
   field_type: string;
-  choices: { value: string; children?: { value: string; children?: { value: string }[] }[] }[];
+  choices: ClassificationChoice[];
   required_for_agents: boolean;
   required_for_closure: boolean;
   required_for_requesters: boolean;
@@ -769,6 +780,52 @@ export interface FormField {
   position: number;
   is_default: boolean;
   active: boolean;
+}
+
+export interface JobRoleRef {
+  id: string;
+  name: string;
+  /** 1 is the most senior. */
+  level: number;
+}
+
+export interface JobRole extends JobRoleRef {
+  parent_id: string | null;
+  description: string;
+  position: number;
+  people_count: number;
+}
+
+export interface OrgChartPerson {
+  id: string;
+  name: string;
+  email: string;
+  job_title: string;
+  manager_id: string | null;
+  is_agent: boolean;
+  department: Ref | null;
+  job_role: JobRoleRef | null;
+  avatar_url?: string;
+}
+
+/** One entry of an admin-managed list (categories, business impact, change types). */
+export interface ClassificationChoice {
+  value: string;
+  label?: string;
+  description?: string;
+  requires_approval?: boolean;
+  system?: boolean;
+  children?: ClassificationChoice[];
+}
+
+export interface Classification {
+  entity: 'ticket' | 'problem' | 'change';
+  name: string;
+  label: string;
+  field_type: 'nested' | 'dropdown';
+  field_id: string | null;
+  active: boolean;
+  choices: ClassificationChoice[];
 }
 
 export interface Announcement {
@@ -945,9 +1002,51 @@ export interface WorkItem {
   sub_items_done: number;
   comments: number;
   links: number;
+  module_ids?: string[];
+  web_links?: WebLink[];
   can_edit?: boolean;
+  /** Present on the detail endpoint. */
+  modules?: Ref[];
+  attachments?: Attachment[];
+  relations?: WorkItemRelation[];
+  tickets?: { id: string; display_id: string; subject: string; status: string; tracked: boolean }[];
+  subscribed?: boolean;
+  subscribers?: UserBrief[];
   created_at: string;
   updated_at: string;
+}
+
+export interface WebLink {
+  url: string;
+  title: string;
+}
+
+export type RelationType = 'blocks' | 'blocked_by' | 'relates_to' | 'duplicate_of' | 'duplicated_by';
+
+export interface WorkItemRelation {
+  link_id: string;
+  type: RelationType;
+  item: WorkItemBrief;
+}
+
+export interface ProjectModule {
+  id: string;
+  project_id: string;
+  name: string;
+  description: string;
+  status: 'backlog' | 'planned' | 'in_progress' | 'paused' | 'completed' | 'cancelled';
+  lead_id: string | null;
+  lead: UserBrief | null;
+  start_date: string | null;
+  target_date: string | null;
+  total: number;
+  done: number;
+}
+
+export interface TicketProjectLink {
+  project: { id: string; key: string; name: string; color: string };
+  work_item: WorkItemBrief;
+  can_edit: boolean;
 }
 
 export interface Cycle {

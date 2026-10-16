@@ -3,7 +3,7 @@
 import { useMutation, useQuery, useQueryClient, type QueryKey } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { v2, parseApiError } from '@/lib/itsm/api';
-import type { Cycle, Project, WorkItem } from '@/lib/itsm/types';
+import type { Cycle, Project, ProjectModule, WebLink, WorkItem } from '@/lib/itsm/types';
 import { celebrate } from '@/lib/theme';
 
 export interface WorkItemFilters {
@@ -12,6 +12,7 @@ export interface WorkItemFilters {
   priority?: string[];
   assignee_id?: string;
   cycle_id?: string;
+  module_id?: string;
   label?: string;
   parent_id?: string;
 }
@@ -27,6 +28,7 @@ export function useWorkItems(projectId: string, filters: WorkItemFilters) {
     priority: filters.priority?.join(',') || undefined,
     assignee_id: filters.assignee_id || undefined,
     cycle_id: filters.cycle_id || undefined,
+    module_id: filters.module_id || undefined,
     label: filters.label || undefined,
     parent_id: filters.parent_id || undefined,
   };
@@ -43,6 +45,10 @@ export function useCycles(projectId: string) {
 }
 
 /** Every label used in the project, for label pickers. */
+export function useModules(projectId: string) {
+  return useQuery({ queryKey: ['modules', projectId], queryFn: () => v2.items<ProjectModule>(`/projects/${projectId}/modules`), enabled: !!projectId });
+}
+
 export function useProjectLabels(projectId: string) {
   return useQuery({
     queryKey: ['project-labels', projectId],
@@ -66,6 +72,8 @@ export type WorkItemPatch = Partial<{
   start_date: string;
   due_date: string;
   sort_order: number;
+  module_ids: string[];
+  web_links: WebLink[];
 }>;
 
 /** Updates a work item with an optimistic change to every cached list. */
@@ -112,7 +120,7 @@ export function useUpdateWorkItem(projectId: string) {
 export function useCreateWorkItem(projectId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (body: WorkItemPatch & { title: string; ticket_id?: string }) => v2.post<WorkItem>(`/projects/${projectId}/work-items`, body),
+    mutationFn: (body: WorkItemPatch & { title: string; ticket_id?: string; attachment_ids?: string[] }) => v2.post<WorkItem>(`/projects/${projectId}/work-items`, body),
     onSuccess: (item) => {
       qc.invalidateQueries({ queryKey: ['work-items', projectId] });
       qc.invalidateQueries({ queryKey: ['project', projectId] });

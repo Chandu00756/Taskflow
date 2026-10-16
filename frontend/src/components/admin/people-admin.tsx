@@ -3,7 +3,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Copy, Download, KeyRound, Lock, MoreHorizontal, Plus, Power, Repeat, Unlock, Upload, UserX, X } from 'lucide-react';
+import { Copy, Download, KeyRound, Lock, MailPlus, MoreHorizontal, Plus, Power, Repeat, Unlock, Upload, UserX, X } from 'lucide-react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import { Avatar, Badge, Btn, Card, Checkbox, Drawer, EmptyState, LoadingBlock, Menu, MenuItem, Modal, PageHeader, Pagination, SearchInput, SelectBox, StatusBadge, Table, Td, Th, useConfirm } from '@/components/desk/kit';
@@ -11,7 +11,7 @@ import { ImportPeopleDialog } from './people-import';
 import { SchemaForm, FieldSpec } from '@/components/desk/crud';
 import { PersonPicker, useDebounced, useDepartmentOptions, useGroupOptions } from '@/components/desk/pickers';
 import { v2, parseApiError, downloadFile } from '@/lib/itsm/api';
-import { useCan, useLocations, useMe, useRoles } from '@/lib/itsm/hooks';
+import { useCan, useJobRoleOptions, useLocations, useMe, useRoles } from '@/lib/itsm/hooks';
 import { TIME_ZONES, timeAgo } from '@/lib/itsm/format';
 import type { ListResponse, Person, Team } from '@/lib/itsm/types';
 
@@ -93,11 +93,11 @@ function PeopleAdminInner({ agents }: { agents: boolean }) {
         : v2.post<unknown>(path, v);
     },
     onSuccess: (res) => {
-      const r = res as { person?: Person; temporary_password?: string };
+      const r = res as { person?: Person; temporary_password?: string; invitation_sent?: boolean };
       if (!editing!.person && r.temporary_password) {
         setSecret({ email: String(editing!.values.email), password: r.temporary_password, title: `${agents ? 'Agent' : 'Requester'} created` });
       } else {
-        toast.success(editing!.person ? 'Saved' : 'Invitation email queued');
+        toast.success(editing!.person ? 'Saved' : `Invitation sent to ${String(editing!.values.email)}. They activate their account from the email.`);
       }
       setEditing(null);
       setErrors({});
@@ -120,10 +120,12 @@ function PeopleAdminInner({ agents }: { agents: boolean }) {
   });
 
   const roleOptions = (roles.data?.items ?? []).map((r) => ({ value: r.id, label: r.name }));
+  const jobRoleOptions = useJobRoleOptions();
   const fields: FieldSpec[] = [
     { name: 'name', label: 'Full name', required: true, span: 1 },
     { name: 'email', label: 'Email', type: 'email', required: true, span: 1 },
-    { name: 'job_title', label: 'Job title', span: 1 },
+    { name: 'job_role_id', label: 'Job role', type: 'select', span: 1, options: jobRoleOptions, hint: 'Seniority for the org chart (Admin → Job roles)' },
+    { name: 'job_title', label: 'Job title', span: 1, hint: 'Shown on their profile, e.g. Network Engineer' },
     { name: 'phone', label: 'Phone', span: 1 },
     { name: 'mobile', label: 'Mobile', span: 1 },
     { name: 'time_zone', label: 'Time zone', type: 'select', span: 1, options: TIME_ZONES.map((t) => ({ value: t, label: t })) },
@@ -147,7 +149,7 @@ function PeopleAdminInner({ agents }: { agents: boolean }) {
         ] as FieldSpec[])),
   ];
   const toForm = (p: Person): Record<string, unknown> => ({
-    name: p.name, email: p.email, job_title: p.job_title, phone: p.phone, mobile: p.mobile, time_zone: p.time_zone, department_id: p.department_id ?? '',
+    name: p.name, email: p.email, job_title: p.job_title, job_role_id: p.job_role_id ?? '', phone: p.phone, mobile: p.mobile, time_zone: p.time_zone, department_id: p.department_id ?? '',
     location_id: p.location_id ?? '', reporting_manager_id: p.reporting_manager_id ?? '', reporting_manager_id__label: p.reporting_manager?.name,
     role_ids: p.role_ids, group_ids: p.groups.map((g) => g.id), ticket_scope: p.ticket_scope || 'global', agent_type: p.agent_type || 'full_time',
     is_account_admin: p.is_account_admin, signature: p.signature, vip: p.vip, external_id: p.external_id, address: p.address, background: p.background,
@@ -189,7 +191,7 @@ function PeopleAdminInner({ agents }: { agents: boolean }) {
             className="w-40"
             options={[
               { value: 'active', label: 'Active' },
-              { value: 'invited', label: 'Never signed in' },
+              { value: 'invited', label: 'Invited / never signed in' },
               { value: 'locked', label: 'Locked out' },
               { value: 'out_of_office', label: 'Out of office' },
               ...(agents ? [] : [{ value: 'vip', label: 'VIP' }]),
@@ -279,7 +281,7 @@ function PeopleAdminInner({ agents }: { agents: boolean }) {
                           {p.is_account_admin && <Badge className="ml-1.5 bg-violet-50 text-violet-700 ring-violet-600/20">Admin</Badge>}
                           {p.vip && <Badge className="ml-1.5 bg-amber-100 text-amber-800 ring-amber-600/20">VIP</Badge>}
                         </span>
-                        <span className="block truncate text-xs text-slate-500">{p.email}{p.job_title ? ` · ${p.job_title}` : ''}</span>
+                        <span className="block truncate text-xs text-slate-500">{p.email}{p.job_title || p.job_role ? ` · ${p.job_title || p.job_role?.name}` : ''}</span>
                       </span>
                     </Link>
                   </Td>
@@ -289,7 +291,11 @@ function PeopleAdminInner({ agents }: { agents: boolean }) {
                     <div className="flex flex-wrap gap-1">
                       {p.active ? <StatusBadge status="active" label="Active" /> : <StatusBadge status="cancelled" label="Deactivated" />}
                       {p.locked && <StatusBadge status="rejected" label="Locked" />}
-                      {p.must_change_password && <StatusBadge status="pending" label="Invited" />}
+                      {p.email_verified === false ? (
+                        <StatusBadge status="pending" label="Invited · email not verified" />
+                      ) : (
+                        p.must_change_password && <StatusBadge status="pending" label="Temporary password" />
+                      )}
                       {p.out_of_office && <StatusBadge status="on_hold" label="Out of office" />}
                     </div>
                   </Td>
@@ -309,7 +315,12 @@ function PeopleAdminInner({ agents }: { agents: boolean }) {
                             ) : (
                               <MenuItem icon={<Repeat className="h-4 w-4" />} onClick={() => { close(); setConverting(p); }}>Convert to agent</MenuItem>
                             )}
-                            <MenuItem icon={<KeyRound className="h-4 w-4" />} onClick={async () => { close(); if (await confirm({ title: `Reset password for ${p.name}?`, message: 'A temporary password is issued and they must choose a new one at next sign in. Existing sessions are signed out.', confirmLabel: 'Reset password' })) act.mutate({ person: p, action: 'reset-password' }); }}>
+                            {p.active && (p.email_verified === false || !p.has_logged_in) && (
+                              <MenuItem icon={<MailPlus className="h-4 w-4" />} onClick={() => { close(); act.mutate({ person: p, action: 'invite' }); }}>
+                                {p.email_verified === false ? 'Resend invitation' : 'Send invitation'}
+                              </MenuItem>
+                            )}
+                            <MenuItem icon={<KeyRound className="h-4 w-4" />} onClick={async () => { close(); if (await confirm({ title: `Reset password for ${p.name}?`, message: 'Their current password stops working and existing sessions are signed out. If email is set up they get a link to choose a new password; otherwise you get a temporary password to hand over.', confirmLabel: 'Reset password' })) act.mutate({ person: p, action: 'reset-password' }); }}>
                               Reset password
                             </MenuItem>
                             {p.locked && <MenuItem icon={<Unlock className="h-4 w-4" />} onClick={() => { close(); act.mutate({ person: p, action: 'unlock' }); }}>Unlock account</MenuItem>}

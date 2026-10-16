@@ -70,6 +70,22 @@ def call(method, path, token=None, body=None, headers=None, expect=None, raw=Fal
     return status, result
 
 
+def upload(token, name, data, ctype):
+    """Uploads a file with multipart/form-data and returns the pending attachment."""
+    boundary = "smoke" + uuid.uuid4().hex
+    body = (f"--{boundary}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"{name}\"\r\nContent-Type: {ctype}\r\n\r\n").encode() + data + f"\r\n--{boundary}--\r\n".encode()
+    req = urllib.request.Request(BASE + "/api/v2/attachments", data=body, method="POST")
+    req.add_header("Content-Type", "multipart/form-data; boundary=" + boundary)
+    req.add_header("Authorization", "Bearer " + token)
+    with urllib.request.urlopen(req, timeout=30, context=SSL_CONTEXT) as resp:
+        return json.loads(resp.read())
+
+
+# A 1x1 PNG.
+PNG = bytes.fromhex("89504e470d0a1a0a0000000d4948445200000001000000010806000000"
+                    "1f15c4890000000d49444154789c6360000002000154a24f5d0000000049454e44ae426082")
+
+
 def check(cond, label):
     global PASSES
     if cond:
@@ -120,17 +136,27 @@ def link_token(body, path):
     return urllib.parse.unquote(m.group(1)) if m else None
 
 
-def with_temp_password(res, addr):
-    """Fills res["temporary_password"] from the welcome email when it was emailed instead of returned."""
+def accept_invitation(res, addr):
+    """Email off: the admin was given a temporary password. Email on: follow the
+    activation link the way the invited person would and choose a password."""
     if "temporary_password" in res:
         return res
+    check(res.get("invitation_sent") is True, f"{addr} is invited by email")
     if not MAIL_DIR:
-        raise SystemExit("temporary passwords are emailed on this server: pass --mail-dir to read them")
-    mail = wait_mail(addr, "account")
-    check(mail is not None, f"welcome email delivered to {addr}")
-    m = re.search(r"Temporary password: (\S+)", mail[1] if mail else "")
-    check(m is not None, "welcome email contains the temporary password")
-    res["temporary_password"] = m.group(1) if m else ""
+        raise SystemExit("invitations are emailed on this server: pass --mail-dir to follow them")
+    mail = wait_mail(addr, "invited")
+    check(mail is not None, f"invitation email delivered to {addr}")
+    token = link_token(mail[1] if mail else "", "/activate")
+    check(token is not None, "invitation email contains an activation link")
+    status, _ = call("POST", "/api/v1/auth/login", body={"email": addr, "password": "Guess@12345"})
+    check(status == 401, f"an invited person cannot sign in before activating (got {status})")
+    _, info = call("POST", "/api/v2/auth/activate/check", body={"token": token}, expect=200)
+    check(info.get("email") == addr, "activation link identifies the invited person")
+    call("POST", "/api/v2/auth/activate", body={"token": token, "new_password": "short"}, expect=422)
+    pw = "Act1v@te-" + uuid.uuid4().hex[:6]
+    call("POST", "/api/v2/auth/activate", body={"token": token, "new_password": pw}, expect=200)
+    call("POST", "/api/v2/auth/activate", body={"token": token, "new_password": pw}, expect=400)
+    res["temporary_password"] = pw
     return res
 
 
@@ -215,6 +241,17 @@ def main():
         _, res = call("GET", path, admin, expect=200)
         check(len(res["items"]) > 0, f"{path} seeded")
 
+    section("Analytics on a new organization")
+    # A brand-new organization has no tickets yet: every report must still
+    # return lists (an empty period used to come back as null and crash the page).
+    for kind in ("ticket-volume", "sla", "agent-performance", "group-performance", "csat", "assets"):
+        _, rep_ = call("GET", f"/api/v2/reports/{kind}?range=30d", admin, expect=200)
+        check(isinstance(rep_.get("rows"), list), f"{kind} report rows are a list on an empty organization")
+        if kind == "csat":
+            check(isinstance(rep_.get("distribution"), list), "csat distribution is a list on an empty organization")
+    call("GET", "/api/v2/dashboard", admin, expect=200)
+    check({"Release Manager", "Knowledge Manager", "Reporting Analyst"} <= set(rmap), "extra default agent roles seeded")
+
     section("People management")
     _, dept = call("POST", "/api/v2/departments", admin, {"name": "Finance"}, expect=201)
     _, loc = call("POST", "/api/v2/locations", admin, {"name": "HQ", "city": "Austin"}, expect=201)
@@ -223,8 +260,9 @@ def main():
         "group_ids": [gmap["Network Team"]["id"], gmap["Service Desk"]["id"]], "job_title": "Engineer"}, expect=201)
     agent_id = agent_res["person"]["id"]
     if email_on:
-        check("temporary_password" not in agent_res, "temporary password is emailed, not shown, when email is configured")
-        with_temp_password(agent_res, f"agent@{domain}")
+        check("temporary_password" not in agent_res, "no temporary password is shown when invitations are emailed")
+        check(agent_res["person"].get("email_verified") is False, "an invited agent's email is unverified until they activate")
+        accept_invitation(agent_res, f"agent@{domain}")
     else:
         check("temporary_password" in agent_res, "temporary password returned when SMTP is not configured")
     call("POST", "/api/v2/agents", admin, {"email": f"agent@{domain}", "name": "Dup"}, expect=422)
@@ -235,13 +273,13 @@ def main():
         "reporting_manager_id": me["user"]["id"]}, expect=201)
     requester_id = req_res["person"]["id"]
     _, other_res = call("POST", "/api/v2/requesters", admin, {"email": f"omar@{domain}", "name": "Omar Other"}, expect=201)
-    with_temp_password(req_res, f"rita@{domain}")
-    with_temp_password(other_res, f"omar@{domain}")
+    accept_invitation(req_res, f"rita@{domain}")
+    accept_invitation(other_res, f"omar@{domain}")
 
     agent_tok, _ = login(f"agent@{domain}", agent_res["temporary_password"])
     time.sleep(1.1)  # JWT iat has one-second precision
     _, ame = call("GET", "/api/v2/me", agent_tok, expect=200)
-    check(ame["user"]["must_change_password"], "new agent must change password")
+    check(ame["user"]["must_change_password"] or email_on, "new agent must change a temporary password")
     call("POST", "/api/v2/me/password", agent_tok, {"current_password": "wrong", "new_password": "Agent@12345"}, expect=422)
     call("POST", "/api/v2/me/password", agent_tok, {"current_password": agent_res["temporary_password"], "new_password": "short"}, expect=422)
     _, pw = call("POST", "/api/v2/me/password", agent_tok, {"current_password": agent_res["temporary_password"], "new_password": "Agent@12345"}, expect=200)
@@ -499,6 +537,69 @@ def main():
     check(w2["cycle_id"] is None, "deleting a cycle keeps its work items")
     call("DELETE", f"/api/v2/work-items/{sub['id']}", agent_tok, expect=200)
     call("GET", f"/api/v2/work-items/{sub['id']}", agent_tok, expect=404)
+    section("Work item details, modules and tickets")
+    _, mod = call("POST", f"/api/v2/projects/{pid}/modules", agent_tok, {"name": "Home page", "status": "in_progress", "lead_id": agent_id}, expect=201)
+    call("POST", f"/api/v2/projects/{pid}/modules", agent_tok, {"name": "Bad", "status": "someday"}, expect=422)
+    _, d1 = call("PUT", f"/api/v2/work-items/{w1['id']}", agent_tok, {"module_ids": [mod["id"]],
+                 "web_links": [{"url": "https://kairvo.com", "title": "Site"}]}, expect=200)
+    check([m["name"] for m in d1["modules"]] == ["Home page"] and d1["web_links"][0]["title"] == "Site", "work item keeps modules and web links")
+    call("PUT", f"/api/v2/work-items/{w1['id']}", agent_tok, {"web_links": [{"url": "javascript:alert(1)"}]}, expect=422)
+    call("PUT", f"/api/v2/work-items/{w1['id']}", agent_tok, {"module_ids": [str(uuid.uuid4())]}, expect=422)
+    _, mods = call("GET", f"/api/v2/projects/{pid}/modules", agent_tok, expect=200)
+    check(mods["items"][0]["total"] == 1, "module counts its work items")
+    _, inmod = call("GET", f"/api/v2/projects/{pid}/work-items?module_id={mod['id']}", agent_tok, expect=200)
+    check([x["id"] for x in inmod["items"]] == [w1["id"]], "work items filter by module")
+    up = upload(agent_tok, "screenshot.png", PNG, "image/png")
+    _, d1 = call("POST", f"/api/v2/work-items/{w1['id']}/attachments", agent_tok, {"attachment_ids": [up["id"]]}, expect=200)
+    check(len(d1["attachments"]) == 1 and d1["attachments"][0]["content_type"] == "image/png", "images attach to the work item")
+    status, img = call("GET", f"/api/v2/attachments/{up['id']}", agent_tok, raw=True)
+    check(status == 200 and img == PNG, "attached image downloads for preview")
+    _, d1 = call("POST", f"/api/v2/work-items/{w1['id']}/relations", agent_tok, {"type": "blocks", "target_id": w2["id"]}, expect=200)
+    check(any(r["type"] == "blocks" and r["item"]["id"] == w2["id"] for r in d1["relations"]), "relation recorded")
+    _, d2 = call("GET", f"/api/v2/work-items/{w2['id']}", agent_tok, expect=200)
+    check(any(r["type"] == "blocked_by" and r["item"]["id"] == w1["id"] for r in d2["relations"]), "relation shows its inverse on the other item")
+    call("POST", f"/api/v2/work-items/{w1['id']}/relations", agent_tok, {"type": "relates_to", "target_id": w2["id"]}, expect=422)
+    call("POST", f"/api/v2/work-items/{w1['id']}/relations", agent_tok, {"type": "owns", "target_id": w2["id"]}, expect=422)
+    call("DELETE", f"/api/v2/work-items/{w1['id']}/relations/{d1['relations'][0]['link_id']}", agent_tok, expect=200)
+    _, d1 = call("POST", f"/api/v2/work-items/{w1['id']}/subscribe", admin, expect=200)
+    check(d1["subscribed"] and any(u["id"] == admin_uid for u in d1["subscribers"]), "subscribing adds you to the subscribers")
+    before_mails = len(mails_to(admin_email, "updated KAIRV-1"))
+    call("PUT", f"/api/v2/work-items/{w1['id']}", agent_tok, {"state": "in_progress", "priority": "high"}, expect=200)
+    if email_on and MAIL_DIR:
+        check(wait_mail(admin_email, "updated KAIRV-1", count_before=before_mails) is not None, "subscribers get an email when a work item changes")
+    _, d1 = call("DELETE", f"/api/v2/work-items/{w1['id']}/subscribe", admin, expect=200)
+    check(not d1["subscribed"], "unsubscribe works")
+    call("DELETE", f"/api/v2/modules/{mod['id']}", agent_tok, expect=200)
+    _, d1 = call("GET", f"/api/v2/work-items/{w1['id']}", agent_tok, expect=200)
+    check(d1["module_ids"] == [], "deleting a module keeps its work items")
+    # Tickets on project boards, with the status kept in sync both ways.
+    _, link = call("PUT", f"/api/v2/tickets/{tid}/project", admin, {"project_id": pid, "state": "in_progress"}, expect=200)
+    tw = link["link"]["work_item"]
+    check(link["link"]["project"]["id"] == pid and tw["state"] == "in_progress", "ticket added to a project with a status")
+    call("PUT", f"/api/v2/work-items/{tw['id']}", agent_tok, {"state": "done"}, expect=200)
+    _, link = call("GET", f"/api/v2/tickets/{tid}/project", admin, expect=200)
+    check(link["link"]["work_item"]["state"] == "done", "moving the work item updates the ticket's project status")
+    _, link = call("PUT", f"/api/v2/tickets/{tid}/project", admin, {"project_id": pid, "state": "backlog"}, expect=200)
+    _, tdet = call("GET", f"/api/v2/work-items/{tw['id']}", agent_tok, expect=200)
+    check(tdet["state"] == "backlog" and any(x["id"] == tid and x["tracked"] for x in tdet["tickets"]), "changing the ticket's project status moves the work item")
+    call("PUT", f"/api/v2/tickets/{tid}/project", admin, {"project_id": pid, "state": "sideways"}, expect=422)
+    call("PUT", f"/api/v2/tickets/{tid}/project", admin, {"project_id": str(uuid.uuid4())}, expect=422)
+    _, nt = call("POST", "/api/v2/tickets", admin, {"subject": "Logo link in header", "project_id": pid, "project_state": "todo"}, expect=201)
+    _, link = call("GET", f"/api/v2/tickets/{nt['id']}/project", admin, expect=200)
+    check(link["link"] and link["link"]["work_item"]["state"] == "todo", "a ticket can be created straight into a project")
+    call("POST", "/api/v2/tickets", admin, {"subject": "x", "project_id": str(uuid.uuid4())}, expect=422)
+    call("DELETE", f"/api/v2/tickets/{nt['id']}/project", admin, expect=200)
+    _, link = call("GET", f"/api/v2/tickets/{nt['id']}/project", admin, expect=200)
+    check(link["link"] is None, "removing a ticket from its project keeps the work item but stops the sync")
+    _, tfull = call("GET", f"/api/v2/tickets/{tid}", admin, expect=200)
+    req_email = (tfull.get("requester") or {}).get("email", "")
+    before_mails = len(mails_to(req_email, "is now Pending")) if req_email else 0
+    call("PUT", f"/api/v2/tickets/{tid}", admin, {"status": "pending"}, expect=200)
+    if email_on and MAIL_DIR and req_email:
+        check(wait_mail(req_email, "is now Pending", count_before=before_mails) is not None, "requesters are emailed when their ticket's status changes")
+    call("POST", "/api/v2/email-outbox/retry", admin, expect=200)
+    call("POST", "/api/v2/email-outbox/retry", agent_tok, expect=403)
+
     call("PUT", f"/api/v2/projects/{pid}", admin, {"archived": True}, expect=200)
     call("POST", f"/api/v2/projects/{pid}/work-items", agent_tok, {"title": "Archived"}, expect=403)
     _, plist = call("GET", "/api/v2/projects", admin, expect=200)
@@ -633,17 +734,101 @@ def main():
     _, conv = call("POST", f"/api/v2/people/{requester_id}/convert-to-agent", admin, {"role_ids": [rmap["SD Agent"]["id"]]}, expect=200)
     check(conv["is_agent"], "requester converted to agent")
     call("POST", f"/api/v2/people/{requester_id}/convert-to-requester", admin, expect=200)
-    welcomes = len(mails_to(f"agent@{domain}", "account"))
+    resets = len(mails_to(f"agent@{domain}", "Choose a new password"))
     _, rp = call("POST", f"/api/v2/people/{agent_id}/reset-password", admin, expect=200)
-    if email_on and MAIL_DIR:
-        check(wait_mail(f"agent@{domain}", "account", count_before=welcomes) is not None, "admin password reset emails the temporary password")
+    if email_on:
+        check(rp.get("link_sent") and "temporary_password" not in rp, "admin password reset emails a link instead of showing a password")
+        if MAIL_DIR:
+            mail = wait_mail(f"agent@{domain}", "Choose a new password", count_before=resets)
+            check(mail is not None and link_token(mail[1], "/reset-password"), "admin password reset email contains a reset link")
     else:
-        check("temporary_password" in rp or email_on, "admin password reset issues a temporary password")
+        check("temporary_password" in rp, "admin password reset issues a temporary password")
     call("POST", f"/api/v2/people/{me['user']['id']}/deactivate", admin, expect=400)
     _, key = call("POST", "/api/v2/me/api-key", admin, expect=201)
     import base64
     basic = base64.b64encode((key["key"] + ":X").encode()).decode()
     call("GET", "/api/v2/tickets", headers={"Authorization": "Basic " + basic}, expect=200)
+
+    section("Categories and change types")
+    # A fresh agent: the first agent's password was reset above.
+    _, viewer = call("POST", "/api/v2/agents", admin, {"email": f"viewer@{domain}", "name": "Vic Viewer", "role_ids": [rmap["SD Agent"]["id"]]}, expect=201)
+    accept_invitation(viewer, f"viewer@{domain}")
+    viewer_tok, _ = login(f"viewer@{domain}", viewer["temporary_password"])
+    _, vpw = call("POST", "/api/v2/me/password", viewer_tok, {"current_password": viewer["temporary_password"], "new_password": "Viewer@12345"}, expect=200)
+    viewer_tok = vpw["access_token"]
+    _, cls = call("GET", "/api/v2/classifications?entity=ticket", admin, expect=200)
+    tcat = next(c for c in cls["items"] if c["name"] == "category")
+    check(len(tcat["choices"]) >= 10 and any(c["value"] == "Network" for c in tcat["choices"]), "rich default ticket categories")
+    call("GET", "/api/v2/classifications", req_tok, expect=403)
+    call("PUT", "/api/v2/classifications/ticket/category", viewer_tok, {"choices": tcat["choices"]}, expect=403)
+    call("POST", "/api/v2/tickets", admin, {"subject": "Bad category", "category": "Nope"}, expect=422)
+    call("POST", "/api/v2/tickets", admin, {"subject": "Bad item", "category": "Network", "sub_category": "VPN", "item_category": "Toaster"}, expect=422)
+    _, okt = call("POST", "/api/v2/tickets", admin, {"subject": "Good path", "category": "Network", "sub_category": "VPN", "item_category": "Slow"}, expect=201)
+    custom = tcat["choices"] + [{"value": "Smoke Category", "children": [{"value": "Sub", "children": [{"value": "Item"}]}]}]
+    call("PUT", "/api/v2/classifications/ticket/category", admin, {"choices": custom}, expect=200)
+    call("POST", "/api/v2/tickets", admin, {"subject": "Custom path", "category": "Smoke Category", "sub_category": "Sub", "item_category": "Item"}, expect=201)
+    call("PUT", "/api/v2/classifications/ticket/category", admin, {"choices": [{"value": "A", "children": [{"value": "B", "children": [{"value": "C", "children": [{"value": "D"}]}]}]}]}, expect=422)
+    call("PUT", "/api/v2/classifications/ticket/category", admin, {"choices": [{"value": "Dup"}, {"value": "dup"}]}, expect=422)
+    _, after = call("POST", "/api/v2/classifications/ticket/category/reset", admin, expect=200)
+    check(not any(c["value"] == "Smoke Category" for c in next(i for i in after["items"] if i["name"] == "category")["choices"]), "restore defaults replaces the list")
+    call("PUT", f"/api/v2/tickets/{okt['id']}", admin, {"subject": "Good path (edited)"}, expect=200)
+    _, pr = call("POST", "/api/v2/problems", admin, {"subject": "DB slow", "category": "Database", "sub_category": "Performance",
+                                                     "business_impact": "High: major services degraded"}, expect=201)
+    check(pr["sub_category"] == "Performance" and pr["business_impact"].startswith("High"), "problem keeps category path and business impact")
+    call("POST", "/api/v2/problems", admin, {"subject": "x", "category": "Hardware", "sub_category": "Laptop"}, expect=422)
+    call("POST", "/api/v2/problems", admin, {"subject": "x", "business_impact": "Apocalyptic"}, expect=422)
+    _, ct = call("GET", "/api/v2/classifications?entity=change", admin, expect=200)
+    types = next(c for c in ct["items"] if c["name"] == "change_type")["choices"]
+    check({t["value"] for t in types} >= {"minor", "standard", "major", "emergency"}, "built-in change types present")
+    _, ct = call("PUT", "/api/v2/classifications/change/change_type", admin,
+                 {"choices": [{"value": "minor", "label": "Small"}, {"label": "Smoke Migration", "requires_approval": True}]}, expect=200)
+    types = next(c for c in ct["items"] if c["name"] == "change_type")["choices"]
+    check(any(t["value"] == "major" and t["requires_approval"] for t in types), "built-in change types cannot be removed or lose their approval rule")
+    check(any(t["value"] == "minor" and t["label"] == "Small" for t in types), "built-in change types can be renamed")
+    _, mig = call("POST", "/api/v2/changes", admin, {"subject": "Migrate", "change_type": "smoke_migration", "category": "Infrastructure",
+                                                     "sub_category": "Cloud resource", "business_impact": "No user impact"}, expect=201)
+    status, _ = call("PUT", f"/api/v2/changes/{mig['id']}", admin, {"status": "pending_release"})
+    check(status == 400, f"a custom change type that needs CAB approval blocks release until approved (got {status})")
+    call("POST", "/api/v2/changes", admin, {"subject": "x", "change_type": "yolo"}, expect=422)
+    call("POST", "/api/v2/classifications/change/change_type/reset", admin, expect=200)
+
+    section("Job roles and org chart")
+    _, jr = call("GET", "/api/v2/job-roles", admin, expect=200)
+    jmap = {r["name"]: r for r in jr["items"]}
+    check(jmap.get("Chief Executive Officer", {}).get("level") == 1 and jmap["Vice President"]["level"] > jmap["Senior Vice President"]["level"],
+          "default job role hierarchy seeded (CEO at the top, SVP above VP)")
+    _, mine = call("POST", "/api/v2/job-roles", admin, {"name": "Head of IT Operations", "parent_id": jmap["Vice President"]["id"]}, expect=201)
+    check(mine["level"] == jmap["Vice President"]["level"] + 1, "a new job role defaults to one level below the role it reports to")
+    call("POST", "/api/v2/job-roles", admin, {"name": "head of it operations"}, expect=422)
+    call("POST", "/api/v2/job-roles", admin, {"name": "Too Senior", "parent_id": jmap["Manager"]["id"], "level": 2}, expect=422)
+    call("PUT", f"/api/v2/job-roles/{jmap['Senior Vice President']['id']}", admin, {"parent_id": mine["id"]}, expect=422)
+    call("POST", "/api/v2/job-roles", viewer_tok, {"name": "Nope"}, expect=403)
+    call("GET", "/api/v2/job-roles", viewer_tok, expect=200)
+    call("PUT", f"/api/v2/agents/{agent_id}", admin, {"job_role_id": mine["id"], "reporting_manager_id": me["user"]["id"]}, expect=200)
+    call("PUT", f"/api/v2/agents/{me['user']['id']}", admin, {"job_role_id": jmap["Chief Information Officer"]["id"], "reporting_manager_id": agent_id}, expect=422)
+    _, ag = call("GET", f"/api/v2/people/{agent_id}", admin, expect=200)
+    check((ag["person"].get("job_role") or {}).get("name") == "Head of IT Operations", "people show their job role")
+    _, chart = call("GET", "/api/v2/org-chart/people", admin, expect=200)
+    node = next((n for n in chart["items"] if n["id"] == agent_id), None)
+    check(node and node["manager_id"] == me["user"]["id"] and node["job_role"]["name"] == "Head of IT Operations", "org chart shows reporting line and job role")
+    call("GET", "/api/v2/org-chart/people", req_tok, expect=403)
+    call("DELETE", f"/api/v2/job-roles/{mine['id']}", admin, expect=200)
+    _, ag = call("GET", f"/api/v2/people/{agent_id}", admin, expect=200)
+    check(ag["person"].get("job_role") is None, "deleting a job role clears it from people")
+
+    section("Invitations")
+    _, inv = call("POST", "/api/v2/requesters", admin, {"email": f"ivy@{domain}", "name": "Ivy Invite"}, expect=201)
+    if email_on:
+        check(inv.get("invitation_sent") and inv["person"]["email_verified"] is False, "new requester is invited and unverified")
+        status, _ = call("POST", f"/api/v2/people/{inv['person']['id']}/invite", admin)
+        check(status == 429, f"invitations are limited to one a minute (got {status})")
+        _, invited = call("GET", "/api/v2/requesters?state=invited&q=ivy", admin, expect=200)
+        check(any(p["id"] == inv["person"]["id"] for p in invited["items"]), "invited filter lists people who have not activated")
+    else:
+        call("POST", f"/api/v2/people/{inv['person']['id']}/invite", admin, expect=400)
+    call("POST", f"/api/v2/people/{agent_id}/invite", admin, expect=400)
+    call("POST", "/api/v2/requesters", admin, {"email": admin_email.upper(), "name": "Dup across case"}, expect=422)
+    call("POST", "/api/v2/auth/activate", body={"token": "bogus", "new_password": "Whatever@123"}, expect=400)
 
     section("Password reset by email")
     if not email_on:
@@ -694,6 +879,8 @@ def main():
         _, est = call("GET", "/api/v2/platform/email", super_token, expect=200)
         check(est["configured"] == email_on and "pass" not in est and isinstance(est["recent"], list), "platform email status never exposes the password")
         call("POST", "/api/v2/platform/email/test", super_token, {"to": "not-an-email"}, expect=422)
+        _, rq = call("POST", "/api/v2/platform/email/retry", super_token, expect=200)
+        check(isinstance(rq.get("requeued"), int), "platform can queue failed emails again")
         if email_on:
             call("POST", "/api/v2/platform/email/test", super_token, {"to": f"ops@{domain}"}, expect=200)
             if MAIL_DIR:

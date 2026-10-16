@@ -1094,6 +1094,9 @@ func (a *App) importPeople(c *Ctx) error {
 	if !in.DryRun {
 		c.audit("people.imported", "user", "", fmt.Sprintf("Imported %s: %d created, %d updated, %d failed", in.Kind, summary["create"], summary["update"], summary["error"]), summary)
 	}
+	if !in.DryRun {
+		a.kickMail() // invitations queued inside the import transaction
+	}
 	return c.JSON(http.StatusOK, map[string]interface{}{"rows": results, "summary": summary, "dry_run": in.DryRun, "columns": importColumns})
 }
 
@@ -1110,10 +1113,8 @@ func (a *App) applyImportRow(c *Ctx, row *ImportRow, existingID string, agent bo
 				return fmt.Errorf("email %s", err.Error())
 			}
 			id = newID
-			if a.Cfg.SMTPHost == "" {
+			if !a.inviteUser(tx, c, id, row.Email, row.Name) {
 				row.Temp = temp
-			} else {
-				a.queueWelcome(c, id, row.Email, row.Name, temp)
 			}
 			if agent && pin.RoleIDs == nil {
 				var r Role

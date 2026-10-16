@@ -163,3 +163,95 @@ func TestVerificationRequired(t *testing.T) {
 		t.Fatal("required must enable")
 	}
 }
+
+// relaySMTP mimics Zoho: it accepts any login but rejects a message whose
+// sender is not the signed-in mailbox, after the data is sent.
+func startRelaySMTP(t *testing.T, allowed string) (addr string, got chan string) {
+	t.Helper()
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { ln.Close() })
+	got = make(chan string, 4)
+	go func() {
+		for {
+			conn, err := ln.Accept()
+			if err != nil {
+				return
+			}
+			go func(conn net.Conn) {
+				defer conn.Close()
+				r := bufio.NewReader(conn)
+				write := func(s string) { _, _ = conn.Write([]byte(s + "\r\n")) }
+				write("220 fake")
+				var from string
+				for {
+					line, err := r.ReadString('\n')
+					if err != nil {
+						return
+					}
+					cmd := strings.TrimSpace(line)
+					up := strings.ToUpper(cmd)
+					switch {
+					case strings.HasPrefix(up, "EHLO"):
+						write("250-fake")
+						write("250 AUTH PLAIN")
+					case strings.HasPrefix(up, "AUTH"):
+						write("235 ok")
+					case strings.HasPrefix(up, "MAIL FROM:"):
+						from = cmd[len("MAIL FROM:"):]
+						write("250 ok")
+					case up == "DATA":
+						write("354 go")
+						var b strings.Builder
+						for {
+							l, err := r.ReadString('\n')
+							if err != nil || l == ".\r\n" {
+								break
+							}
+							b.WriteString(l)
+						}
+						if from != "<"+allowed+">" {
+							write("550 5.7.1 Sender is not allowed to relay emails")
+							continue
+						}
+						got <- b.String()
+						write("250 queued")
+					case up == "QUIT":
+						write("221 bye")
+						return
+					default:
+						write("250 ok")
+					}
+				}
+			}(conn)
+		}
+	}()
+	return ln.Addr().String(), got
+}
+
+func TestSendFallsBackToSignedInMailbox(t *testing.T) {
+	addr, got := startRelaySMTP(t, "service@example.com")
+	host, port, _ := net.SplitHostPort(addr)
+	c := Config{Host: host, Port: port, User: "service@example.com", Pass: "x", From: "TaskFlow <no-reply@example.com>", Timeout: 5 * time.Second}
+	res, err := c.SendWithResult(Message{To: "ann@example.org", Subject: "Hi", Text: "Body"})
+	if err != nil {
+		t.Fatalf("expected fallback delivery, got %v", err)
+	}
+	if !res.Fallback || !strings.Contains(res.From, "service@example.com") {
+		t.Fatalf("result should report the fallback sender: %+v", res)
+	}
+	msg := <-got
+	for _, want := range []string{"From: \"TaskFlow\" <service@example.com>", "Reply-To: \"TaskFlow\" <no-reply@example.com>"} {
+		if !strings.Contains(msg, want) {
+			t.Fatalf("message missing %q:\n%s", want, msg)
+		}
+	}
+	// When the signed-in mailbox is the sender already, the error is returned as is.
+	c.From = "TaskFlow <other@example.com>"
+	c.User = "other@example.com"
+	if _, err := c.SendWithResult(Message{To: "ann@example.org", Subject: "Hi", Text: "Body"}); err == nil || !strings.Contains(err.Error(), "relay") {
+		t.Fatalf("expected the relay error to surface, got %v", err)
+	}
+}

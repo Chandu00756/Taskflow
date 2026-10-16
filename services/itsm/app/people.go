@@ -156,18 +156,21 @@ type PersonDTO struct {
 	HasLoggedIn        bool       `json:"has_logged_in"`
 	LastLogin          *time.Time `json:"last_login"`
 	MustChangePassword bool       `json:"must_change_password"`
-	CreatedAt          time.Time  `json:"created_at"`
+	// EmailVerified is false while an invitation has not been accepted.
+	EmailVerified bool      `json:"email_verified"`
+	CreatedAt     time.Time `json:"created_at"`
 	Person
-	Department       *Ref       `json:"department"`
-	Location         *Ref       `json:"location"`
-	ReportingManager *UserBrief `json:"reporting_manager"`
-	Roles            []Ref      `json:"roles"`
-	Groups           []Ref      `json:"groups"`
-	ObserverOf       []Ref      `json:"observer_of"`
-	RoleIDList       []string   `json:"role_ids"`
-	AvatarURL        string     `json:"avatar_url,omitempty"`
-	OutOfOffice      bool       `json:"out_of_office"`
-	OOODelegate      *UserBrief `json:"ooo_delegate"`
+	Department       *Ref        `json:"department"`
+	Location         *Ref        `json:"location"`
+	ReportingManager *UserBrief  `json:"reporting_manager"`
+	Roles            []Ref       `json:"roles"`
+	Groups           []Ref       `json:"groups"`
+	ObserverOf       []Ref       `json:"observer_of"`
+	RoleIDList       []string    `json:"role_ids"`
+	AvatarURL        string      `json:"avatar_url,omitempty"`
+	JobRole          *JobRoleRef `json:"job_role"`
+	OutOfOffice      bool        `json:"out_of_office"`
+	OOODelegate      *UserBrief  `json:"ooo_delegate"`
 }
 
 type personRow struct {
@@ -181,13 +184,14 @@ type personRow struct {
 	LastLogin          *time.Time
 	LockedUntil        *time.Time
 	MustChangePassword bool
+	Pending            bool
 	CreatedAt          time.Time
 }
 
 func (c *Ctx) peopleQuery(agents bool) *gorm.DB {
 	q := c.DB().Table("users u").
 		Select(`u.id, u.email, u.username, u.full_name, u.role, u.is_active, u.has_logged_in, u.last_login, u.locked_until,
-			u.must_change_password, u.created_at`).
+			u.must_change_password, COALESCE(u.email_verification_pending, false) AS pending, u.created_at`).
 		Joins("LEFT JOIN itsm_people p ON p.user_id = u.id").
 		Where("u.org_id = ?", c.P.OrgID)
 	if agents {
@@ -234,6 +238,18 @@ func (c *Ctx) peopleDTOs(rows []personRow) []PersonDTO {
 			roles[r.ID] = Ref{ID: r.ID, Name: r.Name}
 		}
 	}
+	jobRoles := map[string]*JobRoleRef{}
+	var jrIDs []string
+	for _, p := range persons {
+		jrIDs = append(jrIDs, deref(p.JobRoleID))
+	}
+	if ids := uniq(jrIDs); len(ids) > 0 {
+		var js []JobRole
+		c.T(&JobRole{}).Where("id IN ?", ids).Find(&js)
+		for _, j := range js {
+			jobRoles[j.ID] = &JobRoleRef{ID: j.ID, Name: j.Name, Level: j.Level}
+		}
+	}
 	groups := map[string][]Ref{}
 	observes := map[string][]Ref{}
 	var gm []struct {
@@ -269,9 +285,12 @@ func (c *Ctx) peopleDTOs(rows []personRow) []PersonDTO {
 		}
 		d := PersonDTO{ID: r.ID, Email: r.Email, Username: r.Username, Name: name, PlatformRole: r.Role,
 			IsAccountAdmin: auth.IsOrgAdminRole(r.Role), Active: r.IsActive, HasLoggedIn: r.HasLoggedIn, LastLogin: r.LastLogin,
-			Locked: r.LockedUntil != nil && r.LockedUntil.After(now()), MustChangePassword: r.MustChangePassword, CreatedAt: r.CreatedAt,
+			Locked: r.LockedUntil != nil && r.LockedUntil.After(now()), MustChangePassword: r.MustChangePassword, EmailVerified: !r.Pending, CreatedAt: r.CreatedAt,
 			Person: p, Department: l.dept(p.DepartmentID), ReportingManager: l.user(p.ReportingManagerID), Roles: []Ref{}, Groups: groups[r.ID],
 			ObserverOf: observes[r.ID], RoleIDList: stringsFrom(p.RoleIDs), OutOfOffice: oooActive(&p, now())}
+		if p.JobRoleID != nil {
+			d.JobRole = jobRoles[*p.JobRoleID]
+		}
 		if d.OutOfOffice {
 			d.OOODelegate = l.user(p.OOODelegateID)
 		}
@@ -332,7 +351,7 @@ func (a *App) listPeople(agents bool) handlerFunc {
 			case "locked":
 				q = q.Where("u.is_active AND u.locked_until > ?", now())
 			case "invited":
-				q = q.Where("u.is_active AND NOT u.has_logged_in")
+				q = q.Where("u.is_active AND (NOT u.has_logged_in OR COALESCE(u.email_verification_pending, false))")
 			case "out_of_office":
 				q = q.Where("u.is_active AND p.ooo_start <= ? AND p.ooo_end > ?", now(), now())
 			case "vip":
@@ -400,7 +419,7 @@ func (c *Ctx) loadPersonRow(id string) (*personRow, error) {
 	var r personRow
 	err := c.DB().Table("users u").
 		Select(`u.id, u.email, u.username, u.full_name, u.role, u.is_active, u.has_logged_in, u.last_login, u.locked_until,
-			u.must_change_password, u.created_at`).
+			u.must_change_password, COALESCE(u.email_verification_pending, false) AS pending, u.created_at`).
 		Where("u.id = ? AND u.org_id = ?", id, c.P.OrgID).Take(&r).Error
 	if err != nil {
 		return nil, errNotFound("user")
@@ -444,6 +463,7 @@ type personInput struct {
 	Email              string    `json:"email"`
 	Name               *string   `json:"name"`
 	JobTitle           *string   `json:"job_title"`
+	JobRoleID          *string   `json:"job_role_id"`
 	Phone              *string   `json:"phone"`
 	Mobile             *string   `json:"mobile"`
 	DepartmentID       *string   `json:"department_id"`
@@ -499,8 +519,14 @@ func (c *Ctx) applyPersonInput(p *Person, in *personInput, agent bool) map[strin
 		p.ReportingManagerID = strPtr(*in.ReportingManagerID)
 		if p.ReportingManagerID != nil && *p.ReportingManagerID == p.UserID {
 			errs["reporting_manager_id"] = "cannot be the same person"
+		} else if p.ReportingManagerID != nil && p.UserID != "" && c.managerLoop(p.UserID, *p.ReportingManagerID) {
+			errs["reporting_manager_id"] = "already reports to this person, directly or indirectly"
 		}
 		c.optionalRef(errs, "reporting_manager_id", p.ReportingManagerID, c.userInOrg)
+	}
+	if in.JobRoleID != nil {
+		p.JobRoleID = strPtr(*in.JobRoleID)
+		c.optionalRef(errs, "job_role_id", p.JobRoleID, func(id string) bool { return c.existsInOrg(&JobRole{}, id) })
 	}
 	if agent {
 		set(&p.Signature, in.Signature)
@@ -623,24 +649,15 @@ func (a *App) createPerson(agent bool) handlerFunc {
 			kind = "agent"
 		}
 		c.audit(kind+".created", kind, userID, "Created "+kind+" "+email, nil)
-		a.queueWelcome(c, userID, email, name, temp)
+		invited := a.inviteUser(c.DB(), c, userID, email, name)
 		r, _ := c.loadPersonRow(userID)
-		resp := map[string]interface{}{"person": c.peopleDTOs([]personRow{*r})[0]}
-		if a.Cfg.SMTPHost == "" {
+		resp := map[string]interface{}{"person": c.peopleDTOs([]personRow{*r})[0], "invitation_sent": invited}
+		if !invited {
 			// Without email delivery the admin must hand over the temporary password.
 			resp["temporary_password"] = temp
 		}
 		return c.JSON(http.StatusCreated, resp)
 	}
-}
-
-func (a *App) queueWelcome(c *Ctx, userID, email, name, temp string) {
-	s := c.settings()
-	body := fmt.Sprintf("Hi %s,\n\nAn account has been created for you on %s.\n\nSign in at %s/login with:\nEmail: %s\nTemporary password: %s\n\nYou will be asked to choose a new password after signing in.",
-		name, s.HelpdeskName, strings.TrimRight(a.Cfg.PublicURL, "/"), email, temp)
-	c.DB().Create(&EmailOutbox{Base: Base{OrgID: c.P.OrgID}, ToAddr: email, Subject: "Your " + s.HelpdeskName + " account",
-		Body: body, Status: "queued", EntityType: "user", EntityID: userID})
-	a.kickMail()
 }
 
 func (a *App) updatePerson(agent bool) handlerFunc {
@@ -850,12 +867,16 @@ func (a *App) adminResetPassword(c *Ctx) error {
 	c.DB().Model(&RefreshSession{}).Where("user_id = ? AND revoked_at IS NULL", r.ID).Update("revoked_at", now())
 	a.Invalidate(r.ID)
 	c.audit("person.password_reset", "user", r.ID, "Reset password for "+r.Email, nil)
-	a.queueWelcome(c, r.ID, r.Email, r.FullName, pw)
-	resp := map[string]interface{}{"message": "password reset; the user must choose a new password at next sign in"}
-	if a.Cfg.SMTPHost == "" {
-		resp["temporary_password"] = pw
+	if a.mailConfig().Enabled() {
+		// The old password stopped working; the person picks a new one from the link.
+		if raw, ok := issueAuthToken(c.DB(), r.ID, tokenResetPassword, adminResetTTL); ok {
+			body := fmt.Sprintf("Hi %s,\n\nAn administrator of %s reset the password for your account (%s).\n\nChoose a new password here:\n\n%s\n\nThe link expires in 24 hours and works once.\n\n— %s",
+				displayName(r.FullName, r.Email), c.settings().HelpdeskName, r.Email, a.link("/reset-password", raw), c.settings().HelpdeskName)
+			a.queueSystemEmail(c.DB(), &c.P.OrgID, r.Email, "Choose a new password for "+c.settings().HelpdeskName, body, r.ID)
+		}
+		return c.JSON(http.StatusOK, map[string]interface{}{"message": "password reset; a link to choose a new password was emailed to " + r.Email, "link_sent": true})
 	}
-	return c.JSON(http.StatusOK, resp)
+	return c.JSON(http.StatusOK, map[string]interface{}{"message": "password reset; the user must choose a new password at next sign in", "temporary_password": pw})
 }
 
 func (a *App) unlockPerson(c *Ctx) error {

@@ -11,6 +11,7 @@ import { CategoryPicker, CustomFields, AttachmentList } from '@/components/desk/
 import { Markdown } from '@/components/desk/markdown';
 import { ActivityPanel, AssociationsPanel, Composer, ConversationThread, TasksPanel, TimePanel } from '@/components/desk/record-panels';
 import { WorkItemFromTicket } from '@/components/projects/from-ticket';
+import { TicketProjectCard } from '@/components/projects/ticket-project';
 import { useAgentOptions, useGroupOptions, useDepartmentOptions } from '@/components/desk/pickers';
 import { v2, parseApiError } from '@/lib/itsm/api';
 import { useCan, useMe, useTicketFields } from '@/lib/itsm/hooks';
@@ -209,6 +210,7 @@ export default function TicketDetailPage() {
         </div>
         <div className="space-y-5">
           <PropertiesPanel ticket={t} onSaved={invalidate} customStatuses={me?.settings.custom_statuses ?? []} />
+          {me?.is_agent && <TicketProjectCard ticketId={t.id} canManage={can('tickets.manage')} />}
           <SLACard ticket={t} />
           {data.satisfaction && (
             <Card title="Customer satisfaction">

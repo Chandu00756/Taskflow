@@ -278,6 +278,9 @@ type ticketInput struct {
 	AttachmentIDs []string               `json:"attachment_ids"`
 	AssetIDs      []string               `json:"asset_ids"`
 	Resolution    *string                `json:"resolution_notes"`
+	// ProjectID adds the new ticket to a project as a work item in ProjectState.
+	ProjectID    string `json:"project_id"`
+	ProjectState string `json:"project_state"`
 }
 
 var ticketSources = []string{"portal", "email", "phone", "chat", "walkup", "slack", "ms_teams", "api", "monitoring", "feedback_widget"}
@@ -309,13 +312,16 @@ func (a *App) createTicket(c *Ctx) error {
 		}
 	}
 	if in.Category != nil {
-		t.Category = *in.Category
+		t.Category = strings.TrimSpace(*in.Category)
 	}
 	if in.SubCategory != nil {
-		t.SubCategory = *in.SubCategory
+		t.SubCategory = strings.TrimSpace(*in.SubCategory)
 	}
 	if in.ItemCategory != nil {
-		t.ItemCategory = *in.ItemCategory
+		t.ItemCategory = strings.TrimSpace(*in.ItemCategory)
+	}
+	if t.Category != "" || t.SubCategory != "" || t.ItemCategory != "" {
+		c.checkCategory(errs, "ticket", t.Category, t.SubCategory, t.ItemCategory)
 	}
 	if in.Urgency != nil {
 		t.Urgency = clampInt(*in.Urgency, 1, 3, 1)
@@ -412,6 +418,15 @@ func (a *App) createTicket(c *Ctx) error {
 			t.Priority = clampInt(*in.Priority, 1, 3, 2)
 		}
 	}
+	if in.ProjectID != "" && c.P.IsAgent {
+		if p, perms, err := c.loadProject(in.ProjectID); err != nil {
+			errs["project_id"] = "is not a project you can see"
+		} else if !perms.edit {
+			errs["project_id"] = "you are not a member of " + p.Name
+		} else if in.ProjectState != "" && !oneOf(in.ProjectState, workItemStates...) {
+			errs["project_state"] = "must be one of " + strings.Join(workItemStates, ", ")
+		}
+	}
 	if len(errs) > 0 {
 		return errValidation(errs)
 	}
@@ -465,6 +480,12 @@ func (a *App) createTicket(c *Ctx) error {
 		return err
 	}
 	a.afterTicketCreated(c, &t, s)
+	if in.ProjectID != "" && c.P.IsAgent {
+		// The ticket exists either way; a project the agent cannot use is reported, not fatal.
+		if err := a.linkTicketToProject(c, &t, in.ProjectID, in.ProjectState); err != nil {
+			c.W.Header().Set("X-Project-Link-Error", "the ticket was created but could not be added to the project")
+		}
+	}
 	return c.JSON(http.StatusCreated, c.ticketDTOs([]Ticket{t})[0])
 }
 
@@ -639,17 +660,24 @@ func (a *App) updateTicket(c *Ctx) error {
 			t.RequesterID = *in.RequesterID
 		}
 	}
-	if in.Category != nil {
-		track("category", t.Category, *in.Category)
-		t.Category = *in.Category
-	}
-	if in.SubCategory != nil {
-		track("sub_category", t.SubCategory, *in.SubCategory)
-		t.SubCategory = *in.SubCategory
-	}
-	if in.ItemCategory != nil {
-		track("item_category", t.ItemCategory, *in.ItemCategory)
-		t.ItemCategory = *in.ItemCategory
+	if in.Category != nil || in.SubCategory != nil || in.ItemCategory != nil {
+		oc, os, oi := t.Category, t.SubCategory, t.ItemCategory
+		if in.Category != nil {
+			track("category", t.Category, strings.TrimSpace(*in.Category))
+			t.Category = strings.TrimSpace(*in.Category)
+		}
+		if in.SubCategory != nil {
+			track("sub_category", t.SubCategory, strings.TrimSpace(*in.SubCategory))
+			t.SubCategory = strings.TrimSpace(*in.SubCategory)
+		}
+		if in.ItemCategory != nil {
+			track("item_category", t.ItemCategory, strings.TrimSpace(*in.ItemCategory))
+			t.ItemCategory = strings.TrimSpace(*in.ItemCategory)
+		}
+		// Only a changed path is checked, so older tickets keep their values.
+		if t.Category != oc || t.SubCategory != os || t.ItemCategory != oi {
+			c.checkCategory(errs, "ticket", t.Category, t.SubCategory, t.ItemCategory)
+		}
 	}
 	if in.Tags != nil {
 		nt := normalizeTags(*in.Tags)
@@ -791,7 +819,40 @@ func (a *App) afterTicketUpdated(c *Ctx, before, t *Ticket, s *Settings) {
 		notify(db, t.RequesterID, "ticket_resolved", "Your ticket "+vars["ticket.id"]+" was resolved", t.Subject, map[string]string{"ticket_id": t.ID})
 		a.sendSurvey(c, t, s, vars)
 	}
+	a.syncWorkItemFromTicket(c, before, t)
+	meta := map[string]string{"ticket_id": t.ID}
+	if before.Status != t.Status && t.Status != "resolved" && t.Status != "closed" && t.RequesterID != c.P.UserID {
+		notify(db, t.RequesterID, "ticket_status", "Your ticket "+vars["ticket.id"]+" is now "+labelOf(t.Status), t.Subject, meta)
+	}
+	// The assignee hears about changes others make to their ticket.
+	if t.ResponderID != nil && *t.ResponderID != c.P.UserID && deref(before.ResponderID) == *t.ResponderID {
+		var parts []string
+		if before.Status != t.Status {
+			parts = append(parts, "status → "+labelOf(t.Status))
+		}
+		if before.Priority != t.Priority {
+			parts = append(parts, "priority → "+priorityName(t.Priority))
+		}
+		if deref(before.GroupID) != deref(t.GroupID) {
+			parts = append(parts, "group → "+vars["ticket.group"])
+		}
+		if !sameTime(before.DueBy, t.DueBy) {
+			parts = append(parts, "due date changed")
+		}
+		if len(parts) > 0 {
+			notify(db, *t.ResponderID, "ticket_update", c.P.Name+" updated "+vars["ticket.id"]+": "+strings.Join(parts, ", "), t.Subject, meta)
+		}
+	}
 	a.notifyWatchers(c, t, "Ticket "+vars["ticket.id"]+" was updated")
+}
+
+func labelOf(v string) string { return titleCase(strings.ReplaceAll(v, "_", " ")) }
+
+func sameTime(a, b *time.Time) bool {
+	if a == nil || b == nil {
+		return a == nil && b == nil
+	}
+	return a.Equal(*b)
 }
 
 func (a *App) notifyWatchers(c *Ctx, t *Ticket, title string) {

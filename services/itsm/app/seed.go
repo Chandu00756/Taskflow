@@ -83,23 +83,49 @@ func defaultSLATargets() []map[string]interface{} {
 	}
 }
 
-func defaultCategories() []map[string]interface{} {
-	sub := func(names ...string) []map[string]interface{} {
-		out := []map[string]interface{}{}
-		for _, n := range names {
-			out = append(out, map[string]interface{}{"value": n})
+// currentDefaultsVersion is bumped whenever new built-in defaults are added.
+// Version 2: more agent roles and the job role hierarchy.
+const currentDefaultsVersion = 2
+
+// moreDefaultRoles are the agent roles added in defaults version 2.
+func moreDefaultRoles() []Role {
+	role := func(name, desc string, privs ...string) Role {
+		return Role{Name: name, Description: desc, IsDefault: true, Privileges: jsonOf(privs)}
+	}
+	return []Role{
+		role("Release Manager", "Plan and ship releases.", PrivTicketsManage, PrivChangesView, PrivReleasesView, PrivReleasesManage, PrivAssetsView, PrivReportsView),
+		role("Knowledge Manager", "Curate the knowledge base and announcements.", PrivTicketsManage, PrivSolutionsManage, PrivAnnouncementsManage, PrivReportsView),
+		role("Service Catalog Manager", "Design the service catalog and request forms.", PrivTicketsManage, PrivCatalogManage, PrivReportsView),
+		role("Project Manager", "Run projects, cycles and work items.", PrivTicketsManage, PrivProjectsManage, PrivChangesView, PrivReleasesView, PrivReportsView),
+		role("Contract Manager", "Track vendors, contracts and renewals.", PrivTicketsManage, PrivAssetsView, PrivContractsManage, PrivReportsView),
+		role("User Administrator", "Add and manage agents, requesters, org units and teams.", PrivTicketsManage, PrivUsersManage, PrivReportsView),
+		role("Reporting Analyst", "Read-only access to analytics and ITIL records.", PrivProblemsView, PrivChangesView, PrivReleasesView, PrivAssetsView, PrivReportsView),
+	}
+}
+
+// upgradeOrgDefaults adds built-in defaults introduced after an organization
+// was set up, once.
+func upgradeOrgDefaults(tx *gorm.DB, orgID string, s *Settings) error {
+	if s.DefaultsVersion >= currentDefaultsVersion {
+		return nil
+	}
+	if s.DefaultsVersion < 2 {
+		for _, r := range moreDefaultRoles() {
+			var n int64
+			tx.Model(&Role{}).Where("org_id = ? AND LOWER(name) = LOWER(?)", orgID, r.Name).Count(&n)
+			if n > 0 {
+				continue
+			}
+			r.Base = Base{OrgID: orgID}
+			if err := tx.Create(&r).Error; err != nil {
+				return err
+			}
 		}
-		return out
+		if err := seedJobRoles(tx, orgID); err != nil {
+			return err
+		}
 	}
-	return []map[string]interface{}{
-		{"value": "Hardware", "children": sub("Laptop", "Desktop", "Monitor", "Printer", "Peripherals")},
-		{"value": "Software", "children": sub("Operating system", "Productivity suite", "Business application", "Installation request")},
-		{"value": "Network", "children": sub("VPN", "Wi-Fi", "Internet access", "Firewall")},
-		{"value": "Access", "children": sub("Password reset", "Account unlock", "Permissions", "New account")},
-		{"value": "Email & Collaboration", "children": sub("Mailbox", "Calendar", "Video conferencing", "Chat")},
-		{"value": "Office Facilities", "children": sub("Desk", "Meeting room", "Badge access")},
-		{"value": "Other"},
-	}
+	return tx.Model(&Settings{}).Where("org_id = ?", orgID).Update("defaults_version", currentDefaultsVersion).Error
 }
 
 // seedOrg installs default helpdesk configuration once per organization.
@@ -111,7 +137,12 @@ func (a *App) seedOrg(ctx context.Context, orgID string) error {
 		var s Settings
 		err := tx.Where("org_id = ?", orgID).Take(&s).Error
 		if err == nil && s.Seeded {
-			return nil
+			// Already set up: add defaults introduced since (problem and
+			// change categories, change types, more roles, job roles).
+			if err := upgradeOrgDefaults(tx, orgID, &s); err != nil {
+				return err
+			}
+			return ensureClassifications(tx, orgID)
 		}
 		var orgName string
 		tx.Table("organizations").Select("name").Where("id = ?", orgID).Scan(&orgName)
@@ -125,7 +156,7 @@ func (a *App) seedOrg(ctx context.Context, orgID string) error {
 			DeptHeadSeesDeptTickets: true, CSATEnabled: true, CreateRequesterFromEmail: true,
 			InboundEmailKey: randomKey(24), PasswordMinLength: 8, PasswordRequireNumber: true,
 			SessionTimeoutMinutes: 1440, PrefixIncident: "INC", PrefixServiceRequest: "SR", PrefixProblem: "PRB",
-			PrefixChange: "CHN", PrefixRelease: "REL", CustomStatuses: jsonOf([]interface{}{}), Seeded: true,
+			PrefixChange: "CHN", PrefixRelease: "REL", CustomStatuses: jsonOf([]interface{}{}), Seeded: true, DefaultsVersion: currentDefaultsVersion,
 		}
 		if err := tx.Save(&s).Error; err != nil {
 			return err
@@ -148,7 +179,14 @@ func (a *App) seedOrg(ctx context.Context, orgID string) error {
 			{Base: base(), Name: "Asset Manager", Description: "Manage CMDB, contracts, software and procurement.", IsDefault: true, Privileges: jsonOf([]string{
 				PrivTicketsManage, PrivAssetsView, PrivAssetsManage, PrivContractsManage, PrivReportsView})},
 		}
+		for _, r := range moreDefaultRoles() {
+			r.Base = base()
+			roles = append(roles, r)
+		}
 		if err := tx.Create(&roles).Error; err != nil {
+			return err
+		}
+		if err := seedJobRoles(tx, orgID); err != nil {
 			return err
 		}
 
@@ -178,12 +216,9 @@ func (a *App) seedOrg(ctx context.Context, orgID string) error {
 			return err
 		}
 
-		fields := []FormField{
-			{Base: base(), Entity: "ticket", Name: "category", Label: "Category", LabelForRequester: "Category", FieldType: "nested",
-				Choices: jsonOf(defaultCategories()), DisplayedToRequester: true, EditableByRequester: true, Position: 1, IsDefault: true, Active: true},
-			{Base: base(), Name: "impact_on_business", Entity: "ticket", Label: "Business impact", LabelForRequester: "How is this affecting your work?",
-				FieldType: "dropdown", Choices: jsonOf([]map[string]string{{"value": "Blocking my work"}, {"value": "Slowing me down"}, {"value": "Minor inconvenience"}}),
-				DisplayedToRequester: true, EditableByRequester: true, Position: 2, Active: true},
+		fields := []FormField{}
+		for _, sp := range classificationSpecs {
+			fields = append(fields, sp.newField(orgID))
 		}
 		if err := tx.Create(&fields).Error; err != nil {
 			return err

@@ -10,6 +10,9 @@ import { v2, downloadFile, parseApiError } from '@/lib/itsm/api';
 import { fmtMinutes, fmtMoney, priorityMeta, labelize } from '@/lib/itsm/format';
 import type { Ref, UserBrief } from '@/lib/itsm/types';
 
+/** Report rows as an array; an empty period may come back as null. */
+const list = <T,>(v: unknown): T[] => (Array.isArray(v) ? (v as T[]) : []);
+
 const pct = (v: number | null | undefined) => (v === null || v === undefined ? '—' : `${Math.round(v)}%`);
 
 export default function ReportsPage() {
@@ -47,12 +50,12 @@ export default function ReportsPage() {
       />
       {isLoading ? <LoadingBlock /> : error ? <Card><p className="text-sm text-rose-600">{parseApiError(error).message}</p></Card> : data && (
         <>
-          {tab === 'ticket-volume' && <VolumeReport rows={data.rows as VolumeRow[]} interval={interval} setInterval={setInterval} />}
-          {tab === 'sla' && <SLAReport rows={data.rows as SLARow[]} />}
-          {tab === 'agent-performance' && <AgentReport rows={data.rows as AgentRow[]} />}
-          {tab === 'group-performance' && <GroupReport rows={data.rows as GroupRow[]} />}
-          {tab === 'csat' && <CSATReport rows={data.rows as { period: string; responses: number; average: number }[]} dist={data.distribution as { rating: number; count: number }[]} />}
-          {tab === 'assets' && <AssetReport rows={data.rows as { type: string; state: string; count: number; total_cost: number }[]} />}
+          {tab === 'ticket-volume' && <VolumeReport rows={list<VolumeRow>(data.rows)} interval={interval} setInterval={setInterval} />}
+          {tab === 'sla' && <SLAReport rows={list<SLARow>(data.rows)} />}
+          {tab === 'agent-performance' && <AgentReport rows={list<AgentRow>(data.rows)} />}
+          {tab === 'group-performance' && <GroupReport rows={list<GroupRow>(data.rows)} />}
+          {tab === 'csat' && <CSATReport rows={list<{ period: string; responses: number; average: number }>(data.rows)} dist={list<{ rating: number; count: number }>(data.distribution)} />}
+          {tab === 'assets' && <AssetReport rows={list<{ type: string; state: string; count: number; total_cost: number }>(data.rows)} />}
         </>
       )}
     </>

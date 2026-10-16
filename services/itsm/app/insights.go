@@ -225,20 +225,20 @@ func (a *App) report(c *Ctx) error {
 	}
 	switch c.Param("kind") {
 	case "ticket-volume":
-		var rows []struct {
+		rows := []struct {
 			Period   string `json:"period"`
 			Created  int64  `json:"created"`
 			Resolved int64  `json:"resolved"`
 			Incident int64  `json:"incidents"`
 			Request  int64  `json:"service_requests"`
-		}
+		}{}
 		base().Select(fmt.Sprintf(`to_char(date_trunc('%s', created_at), 'YYYY-MM-DD') AS period, count(*) AS created,
 			count(*) FILTER (WHERE resolved_at IS NOT NULL) AS resolved,
 			count(*) FILTER (WHERE type = 'incident') AS incident, count(*) FILTER (WHERE type = 'service_request') AS request`, bucket)).
 			Where("created_at BETWEEN ? AND ?", from, to).Group("period").Order("period").Scan(&rows)
 		return c.JSON(http.StatusOK, map[string]interface{}{"rows": rows})
 	case "agent-performance":
-		var rows []struct {
+		rows := []struct {
 			ID         string
 			Assigned   int64
 			Resolved   int64
@@ -247,7 +247,7 @@ func (a *App) report(c *Ctx) error {
 			FrTotal    int64
 			AvgResHour float64
 			AvgFrMin   float64
-		}
+		}{}
 		base().Select(`responder_id AS id, count(*) AS assigned,
 			count(*) FILTER (WHERE resolved_at IS NOT NULL) AS resolved,
 			count(*) FILTER (WHERE fr_due_by IS NOT NULL AND first_responded_at IS NOT NULL AND first_responded_at <= fr_due_by) AS fr_met,
@@ -277,13 +277,13 @@ func (a *App) report(c *Ctx) error {
 		}
 		return c.JSON(http.StatusOK, map[string]interface{}{"rows": out})
 	case "group-performance":
-		var rows []struct {
+		rows := []struct {
 			ID        string
 			Created   int64
 			Resolved  int64
 			Violated  int64
 			AvgResHrs float64
-		}
+		}{}
 		base().Select(`group_id AS id, count(*) AS created, count(*) FILTER (WHERE resolved_at IS NOT NULL) AS resolved,
 			count(*) FILTER (WHERE due_by IS NOT NULL AND COALESCE(resolved_at, now()) > due_by) AS violated,
 			COALESCE(AVG(EXTRACT(EPOCH FROM resolved_at - created_at))/3600, 0) AS avg_res_hrs`).
@@ -300,14 +300,14 @@ func (a *App) report(c *Ctx) error {
 		}
 		return c.JSON(http.StatusOK, map[string]interface{}{"rows": out})
 	case "sla":
-		var rows []struct {
+		rows := []struct {
 			Priority int   `json:"priority"`
 			Total    int64 `json:"total"`
 			FrMet    int64 `json:"first_response_met"`
 			FrMissed int64 `json:"first_response_missed"`
 			ResMet   int64 `json:"resolution_met"`
 			ResMiss  int64 `json:"resolution_missed"`
-		}
+		}{}
 		base().Select(`priority, count(*) AS total,
 			count(*) FILTER (WHERE fr_due_by IS NOT NULL AND first_responded_at <= fr_due_by) AS fr_met,
 			count(*) FILTER (WHERE fr_due_by IS NOT NULL AND COALESCE(first_responded_at, now()) > fr_due_by) AS fr_missed,
@@ -316,29 +316,29 @@ func (a *App) report(c *Ctx) error {
 			Where("created_at BETWEEN ? AND ?", from, to).Group("priority").Order("priority DESC").Scan(&rows)
 		return c.JSON(http.StatusOK, map[string]interface{}{"rows": rows})
 	case "csat":
-		var rows []struct {
+		rows := []struct {
 			Period  string  `json:"period"`
 			Count   int64   `json:"responses"`
 			Average float64 `json:"average"`
-		}
+		}{}
 		c.T(&SurveyResponse{}).Select(fmt.Sprintf("to_char(date_trunc('%s', created_at), 'YYYY-MM-DD') AS period, count(*) AS count, AVG(rating) AS average", bucket)).
 			Where("created_at BETWEEN ? AND ?", from, to).Group("period").Order("period").Scan(&rows)
-		var dist []struct {
+		dist := []struct {
 			Rating int   `json:"rating"`
 			N      int64 `json:"count"`
-		}
+		}{}
 		c.T(&SurveyResponse{}).Select("rating, count(*) AS n").Where("created_at BETWEEN ? AND ?", from, to).Group("rating").Order("rating").Scan(&dist)
 		return c.JSON(http.StatusOK, map[string]interface{}{"rows": rows, "distribution": dist})
 	case "assets":
 		if !c.P.Can(PrivAssetsView) {
 			return errForbidden("")
 		}
-		var rows []struct {
+		rows := []struct {
 			Type  string  `json:"type"`
 			State string  `json:"state"`
 			N     int64   `json:"count"`
 			Cost  float64 `json:"total_cost"`
-		}
+		}{}
 		c.DB().Table("itsm_assets a").Select("t.name AS type, a.state, count(*) AS n, COALESCE(SUM(a.cost),0) AS cost").
 			Joins("JOIN itsm_asset_types t ON t.id = a.asset_type_id").Where("a.org_id = ? AND NOT a.is_deleted", c.P.OrgID).
 			Group("t.name, a.state").Order("t.name").Scan(&rows)

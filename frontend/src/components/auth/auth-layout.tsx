@@ -1,44 +1,72 @@
-import * as React from 'react';
-import { BookOpen, LifeBuoy, ShieldCheck, Workflow } from 'lucide-react';
+'use client';
 
-/** Two-column layout shared by sign-in and account recovery pages; styled per theme. */
+import * as React from 'react';
+import { GradientWord } from '@/components/brand/logo';
+import { AnimatedBrand, FlowLines, LivePreview, RotatingHeadline } from './auth-hero';
+
+const HIGHLIGHTS = ['SLA timers', 'CAB approvals', 'Project boards', 'Self-service portal', 'Email notifications'];
+
+/** Sign-in and account recovery layout: a live product hero beside the form; styled per theme. */
 export function AuthLayout({ title, subtitle, children, footer }: { title: string; subtitle?: React.ReactNode; children: React.ReactNode; footer?: React.ReactNode }) {
-  const features = [
-    { icon: Workflow, text: 'Incidents, service requests, problems, changes and releases in one place' },
-    { icon: ShieldCheck, text: 'SLA policies, approvals and automation built in' },
-    { icon: BookOpen, text: 'Self-service portal and knowledge base for your employees' },
-  ];
+  const rootRef = React.useRef<HTMLDivElement>(null);
+  // The preview tilts toward the pointer (CSS ignores it when motion is reduced).
+  const onMove = (e: React.MouseEvent) => {
+    const el = rootRef.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    el.style.setProperty('--tf-mx', (((e.clientX - r.left) / r.width) * 2 - 1).toFixed(3));
+    el.style.setProperty('--tf-my', (((e.clientY - r.top) / r.height) * 2 - 1).toFixed(3));
+  };
   return (
-    <div className="app-shell flex min-h-screen bg-white">
-      <div className="auth-hero relative hidden w-[44%] flex-col justify-between overflow-hidden p-10 lg:flex">
+    <div ref={rootRef} onMouseMove={onMove} className="app-shell relative flex min-h-screen overflow-hidden bg-white">
+      <div className="tf-aurora pointer-events-none absolute inset-0" aria-hidden>
+        <span />
+        <span />
+        <span />
+      </div>
+      <section className="auth-hero relative hidden w-[54%] flex-col overflow-hidden px-12 py-10 lg:flex xl:px-16">
         <div className="pointer-events-none absolute inset-0 opacity-[0.07]" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, currentColor 1px, transparent 0)', backgroundSize: '24px 24px' }} />
-        <div className="relative flex items-center gap-2.5">
-          <span className="brand-mark flex h-9 w-9 items-center justify-center rounded-lg bg-blue-600 text-white">
-            <LifeBuoy className="h-5 w-5" />
-          </span>
-          <span className="text-lg font-semibold">TaskFlow Service Desk</span>
+        <div className="relative z-[2]">
+          <AnimatedBrand />
         </div>
-        <div className="relative max-w-md">
-          <h2 className="text-3xl font-semibold leading-tight">IT service management that keeps every request moving.</h2>
-          <ul className="auth-hero-text mt-8 space-y-3 text-sm">
-            {features.map(({ icon: Icon, text }) => (
-              <li key={text} className="auth-hero-chip flex items-start gap-3 rounded-2xl p-3.5">
-                <Icon className="auth-hero-accent h-5 w-5 shrink-0" />
-                <span>{text}</span>
-              </li>
-            ))}
-          </ul>
+        <div className="relative z-[2] mt-12 max-w-xl">
+          <RotatingHeadline />
+          <p className="auth-hero-text mt-4 max-w-lg text-base leading-relaxed">
+            Incidents, requests, problems, changes and projects in one place, with SLAs, approvals and automation that keep work flowing.
+          </p>
         </div>
-        <p className="auth-hero-text relative text-xs opacity-70">© {new Date().getFullYear()} TaskFlow</p>
+        <div className="relative z-[2] mt-10 max-w-xl flex-1" style={{ perspective: '1200px' }}>
+          <LivePreview />
+        </div>
+        <div className="relative z-[2] mt-12 flex flex-wrap gap-2">
+          {HIGHLIGHTS.map((h) => (
+            <span key={h} className="auth-hero-chip auth-hero-text rounded-full px-3 py-1 text-xs font-medium">
+              {h}
+            </span>
+          ))}
+        </div>
+        <p className="auth-hero-text relative z-[2] mt-6 text-xs opacity-70">© {new Date().getFullYear()} TaskFlow</p>
+      </section>
+      {/* Work flowing through the page: over the hero background, under the content. */}
+      <div className="pointer-events-none absolute inset-0 z-[1] hidden lg:block">
+        <FlowLines />
       </div>
-      <div className="flex flex-1 items-center justify-center px-6 py-12">
-        <div className="auth-card page-enter w-full max-w-[26rem]">
-          <h1 className="page-title text-2xl font-semibold text-slate-900">{title}</h1>
-          {subtitle && <p className="mt-1.5 text-sm text-slate-500">{subtitle}</p>}
-          <div className="mt-8">{children}</div>
-          {footer && <div className="mt-8 text-center text-sm text-slate-500">{footer}</div>}
+      <main className="relative z-[2] flex flex-1 items-center justify-center px-6 py-12">
+        <div className="w-full max-w-[27rem]">
+          <div className="mb-8 flex justify-center lg:hidden">
+            <AnimatedBrand size="md" variant="card" />
+          </div>
+          <div className="auth-card page-enter">
+            <h1 className="page-title text-2xl font-semibold text-slate-900">{title}</h1>
+            {subtitle && <p className="mt-1.5 text-sm text-slate-500">{subtitle}</p>}
+            <div className="mt-8">{children}</div>
+            {footer && <div className="mt-8 text-center text-sm text-slate-500">{footer}</div>}
+          </div>
+          <p className="mt-7 text-center text-sm font-medium text-slate-500">
+            From the first ticket to the final fix, <GradientWord shine>in one flow.</GradientWord>
+          </p>
         </div>
-      </div>
+      </main>
     </div>
   );
 }

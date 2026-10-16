@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import {
-  BadgeCheck, Bell, BookOpen, Boxes, CalendarClock, Clock3, FileText, FormInput, Gauge, Headphones, KeyRound, LayoutGrid, Mail, MapPin, Megaphone, MessageSquareText, PhoneCall, ScrollText, Settings2, ShoppingBag, Smile, UserPlus, Users, Workflow, Wand2, Network, Users2,
+  BadgeCheck, Bell, BookOpen, GitBranch, Boxes, CalendarClock, Clock3, FileText, FormInput, Gauge, Headphones, KeyRound, LayoutGrid, Mail, MapPin, Megaphone, MessageSquareText, PhoneCall, ScrollText, Settings2, ShoppingBag, Smile, Tags, UserPlus, Users, Workflow, Wand2, Network, Users2,
 } from 'lucide-react';
 import { PageHeader } from '@/components/desk/kit';
 import { useCan } from '@/lib/itsm/hooks';
@@ -24,6 +24,8 @@ const SECTIONS: { title: string; items: Item[] }[] = [
       { href: '/admin/departments', title: 'Org units', text: 'Company, divisions, business units and departments, with an org chart', icon: Network, priv: 'users.manage' },
       { href: '/admin/teams', title: 'Teams', text: 'Cross-functional teams with hand-picked or rule-based members', icon: Users2, priv: 'users.manage' },
       { href: '/admin/locations', title: 'Locations', text: 'Offices and sites for people and assets', icon: MapPin, priv: 'users.manage' },
+      { href: '/admin/job-roles', title: 'Job roles & hierarchy', text: 'Designations from CEO down, with levels and who reports to whom', icon: GitBranch, priv: 'users.manage' },
+      { href: '/people/org-chart', title: 'People org chart', text: 'Reporting lines across the organization', icon: Network, priv: 'users.manage' },
     ],
   },
   {
@@ -32,7 +34,7 @@ const SECTIONS: { title: string; items: Item[] }[] = [
       { href: '/admin/agents', title: 'Agents', text: 'Add agents, assign roles and groups, reset access', icon: Headphones, priv: 'users.manage' },
       { href: '/admin/requesters', title: 'Requesters', text: 'Employees who use the self-service portal', icon: Users, priv: 'users.manage' },
       { href: '/admin/groups', title: 'Agent groups', text: 'Routing, round-robin assignment and escalation', icon: LayoutGrid, priv: 'users.manage' },
-      { href: '/admin/roles', title: 'Roles & permissions', text: 'Control what each agent can see and do', icon: KeyRound, priv: 'users.manage' },
+      { href: '/admin/roles', title: 'Roles & permissions', text: 'Agent roles (Account Admin, SD Agent, Change Manager…) and what each can see and do', icon: KeyRound, priv: 'users.manage' },
       { href: '/admin/oncall', title: 'On-call schedules', text: 'Daily or weekly rotations per group', icon: PhoneCall, priv: 'users.manage' },
       { href: '/admin/invites', title: 'Invitations', text: 'Pending organization invitations', icon: UserPlus, priv: 'users.manage' },
     ],
@@ -40,7 +42,8 @@ const SECTIONS: { title: string; items: Item[] }[] = [
   {
     title: 'Service desk',
     items: [
-      { href: '/admin/fields', title: 'Form fields', text: 'Ticket categories and custom fields', icon: FormInput, priv: 'settings.manage' },
+      { href: '/admin/categories', title: 'Categories & classifications', text: 'Categories, sub-categories, business impact and change types for tickets, problems and changes', icon: Tags, priv: 'settings.manage' },
+      { href: '/admin/fields', title: 'Form fields', text: 'Custom fields on tickets, problems, changes and more', icon: FormInput, priv: 'settings.manage' },
       { href: '/admin/sla', title: 'SLA policies', text: 'Response and resolution targets per priority', icon: Gauge, priv: 'settings.manage' },
       { href: '/admin/business-hours', title: 'Business hours', text: 'Working hours and holidays for SLA timers', icon: Clock3, priv: 'settings.manage' },
       { href: '/admin/workflows', title: 'Workflow automator', text: 'Route, prioritize and notify automatically', icon: Workflow, priv: 'settings.manage' },

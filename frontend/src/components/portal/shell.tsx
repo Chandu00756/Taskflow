@@ -4,7 +4,8 @@ import * as React from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
-import { LayoutDashboard, LifeBuoy, LogOut, Menu as MenuIcon, UserRound, X, FolderKanban } from 'lucide-react';
+import { LayoutDashboard, LogOut, Menu as MenuIcon, UserRound, X, FolderKanban } from 'lucide-react';
+import { LogoMark } from '@/components/brand/logo';
 import { ThemeSwatches } from '@/components/theme/theme-picker';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/store/auth';
@@ -76,9 +77,7 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={s.logo_url} alt="" className="h-8 w-8 rounded-md object-contain" />
               ) : (
-                <span className="flex h-8 w-8 items-center justify-center rounded-md text-white" style={{ background: color }}>
-                  <LifeBuoy className="h-4 w-4" />
-                </span>
+                <LogoMark size={32} title="TaskFlow" />
               )}
               <span className="hidden text-base font-semibold text-slate-900 sm:block">{s.portal_name}</span>
             </Link>

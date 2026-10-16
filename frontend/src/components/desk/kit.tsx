@@ -225,7 +225,7 @@ export function MultiSelect({ value, onChange, options, placeholder = 'Select…
   const [open, setOpen] = React.useState(false);
   const [q, setQ] = React.useState('');
   const ref = React.useRef<HTMLDivElement>(null);
-  useClickOutside(ref, () => setOpen(false));
+  const closePanel = React.useCallback(() => setOpen(false), []);
   const selected = options.filter((o) => value.includes(String(o.value)));
   const filtered = options.filter((o) => o.label.toLowerCase().includes(q.toLowerCase()));
   return (
@@ -241,8 +241,8 @@ export function MultiSelect({ value, onChange, options, placeholder = 'Select…
         </span>
         <ChevronDown className="h-4 w-4 shrink-0 text-slate-400" />
       </button>
-      {open && (
-        <div className="menu-panel absolute z-30 mt-1 w-full rounded-md border border-slate-200 bg-white shadow-lg">
+      <FloatingPanel anchorRef={ref} open={open} onClose={closePanel} minWidth={220}>
+        <div>
           <div className="border-b border-slate-100 p-2">
             <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search…" className="w-full rounded border border-slate-200 px-2 py-1 text-sm focus:outline-none" />
           </div>
@@ -267,7 +267,7 @@ export function MultiSelect({ value, onChange, options, placeholder = 'Select…
             })}
           </div>
         </div>
-      )}
+      </FloatingPanel>
     </div>
   );
 }
@@ -586,6 +586,76 @@ function useEscape(open: boolean, onClose: () => void) {
   }, [open, onClose]);
 }
 
+/**
+ * Dropdown panel rendered at the document root, positioned under (or above)
+ * its trigger. Cards with glass effects create their own layers, so an
+ * in-place dropdown would be painted under the next card.
+ */
+export function FloatingPanel({ anchorRef, open, onClose, children, minWidth = 260, matchWidth = true, align = 'left', className }: {
+  anchorRef: React.RefObject<HTMLElement>;
+  open: boolean;
+  onClose: () => void;
+  children: React.ReactNode;
+  minWidth?: number;
+  /** Stretch to the trigger's width (pickers); menus keep minWidth. */
+  matchWidth?: boolean;
+  align?: 'left' | 'right';
+  className?: string;
+}) {
+  const panelRef = React.useRef<HTMLDivElement>(null);
+  const [pos, setPos] = React.useState<{ top: number; left: number; width: number; above: boolean } | null>(null);
+  const place = React.useCallback(() => {
+    const r = anchorRef.current?.getBoundingClientRect();
+    if (!r) return;
+    const width = matchWidth ? Math.max(r.width, minWidth) : minWidth;
+    const start = align === 'right' ? r.right - width : r.left;
+    const left = Math.max(8, Math.min(start, window.innerWidth - width - 8));
+    const above = window.innerHeight - r.bottom < 300 && r.top > window.innerHeight - r.bottom;
+    setPos({ top: above ? r.top - 4 : r.bottom + 4, left, width, above });
+  }, [anchorRef, minWidth, matchWidth, align]);
+  React.useLayoutEffect(() => {
+    if (open) place();
+  }, [open, place]);
+  React.useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      const t = e.target as Node;
+      if (panelRef.current?.contains(t) || anchorRef.current?.contains(t)) return;
+      onClose();
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    const onScroll = (e: Event) => {
+      if (!panelRef.current?.contains(e.target as Node)) place();
+    };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    window.addEventListener('scroll', onScroll, true);
+    window.addEventListener('resize', place);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
+      window.removeEventListener('scroll', onScroll, true);
+      window.removeEventListener('resize', place);
+    };
+  }, [open, onClose, place, anchorRef]);
+  if (!open || !pos || typeof document === 'undefined') return null;
+  return createPortal(
+    <div
+      ref={panelRef}
+      // Portals bubble React events to the trigger's ancestors (e.g. a
+      // clickable table row); keep clicks inside the panel.
+      onClick={(e) => e.stopPropagation()}
+      style={{ position: 'fixed', top: pos.top, left: pos.left, width: pos.width, transform: pos.above ? 'translateY(-100%)' : undefined }}
+      className={cn('menu-panel z-[70] rounded-md border border-slate-200 bg-white shadow-lg', className)}
+    >
+      {children}
+    </div>,
+    document.body
+  );
+}
+
 function Portal({ children }: { children: React.ReactNode }) {
   const [mounted, setMounted] = React.useState(false);
   React.useEffect(() => setMounted(true), []);
@@ -682,15 +752,12 @@ export function Menu({ trigger, children, align = 'right', className }: { trigge
   const [open, setOpen] = React.useState(false);
   const ref = React.useRef<HTMLDivElement>(null);
   const close = React.useCallback(() => setOpen(false), []);
-  useClickOutside(ref, close);
   return (
     <div ref={ref} className="relative">
       <div onClick={() => setOpen((v) => !v)}>{trigger(open)}</div>
-      {open && (
-        <div className={cn('menu-panel absolute z-40 mt-1 min-w-[200px] rounded-lg border border-slate-200 bg-white py-1 shadow-lg', align === 'right' ? 'right-0' : 'left-0', className)}>
-          {children(close)}
-        </div>
-      )}
+      <FloatingPanel anchorRef={ref} open={open} onClose={close} minWidth={200} matchWidth={false} align={align} className={cn('rounded-lg py-1', className)}>
+        {children(close)}
+      </FloatingPanel>
     </div>
   );
 }

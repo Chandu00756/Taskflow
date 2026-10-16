@@ -221,7 +221,11 @@ func (a *App) deliverEmail(db *gorm.DB) {
 			return
 		}
 		for _, e := range batch {
-			if err := mc.Send(mailer.Message{To: e.ToAddr, Subject: e.Subject, Text: e.Body}); err != nil {
+			res, err := mc.SendWithResult(mailer.Message{To: e.ToAddr, Subject: e.Subject, Text: e.Body})
+			if err == nil && res.Fallback {
+				a.noteSenderFallback(mc, res.From)
+			}
+			if err != nil {
 				status := "queued"
 				if e.Attempts+1 >= 5 {
 					status = "failed"
@@ -268,4 +272,16 @@ func (a *App) cleanup(db *gorm.DB) {
 	// A delivery interrupted by a restart is retried.
 	db.Model(&EmailOutbox{}).Where("status = 'sending' AND updated_at < ?", now().Add(-10*time.Minute)).Update("status", "queued")
 	db.Where("created_at < ?", now().AddDate(0, 0, -7)).Delete(&AuthToken{})
+}
+
+// noteSenderFallback records (once) that the mail server refused SMTP_FROM and
+// mail went out from the signed-in mailbox instead.
+func (a *App) noteSenderFallback(mc mailer.Config, used string) {
+	from, _ := mc.Sender()
+	note := fmt.Sprintf("The mail server does not let %s send as %s, so emails are sent from %s (replies still go to %s). Add %s as an alias of that mailbox, or set SMTP_FROM to it.",
+		mc.User, from.Address, used, from.Address, from.Address)
+	if prev, _ := a.mailNote.Load().(string); prev != note {
+		log.Printf("itsm email: %s", note)
+		a.mailNote.Store(note)
+	}
 }

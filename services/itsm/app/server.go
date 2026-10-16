@@ -49,6 +49,8 @@ type App struct {
 
 	mailMu    sync.Mutex  // one immediate delivery run at a time
 	mailAgain atomic.Bool // more mail was queued while a run was busy
+	// mailNote explains a sender fallback (SMTP_FROM refused by the server).
+	mailNote atomic.Value
 }
 
 // New builds the application and registers every route.
@@ -61,6 +63,7 @@ func New(db *gorm.DB, jwt *auth.JWTManager, cfg Config) *App {
 	}
 	a := &App{DB: db, JWT: jwt, Cfg: cfg, mux: http.NewServeMux(), cache: newPrincipalCache(20 * time.Second)}
 	a.routes()
+	notificationMailer = a.mailNotification
 	return a
 }
 

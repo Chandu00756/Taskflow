@@ -8,7 +8,8 @@ import { CalendarDays, ChevronLeft, ChevronRight, List } from 'lucide-react';
 import { RecordList } from '@/components/desk/itil';
 import { Avatar, Btn, Card, LoadingBlock, PageHeader, PriorityBadge, StatusBadge } from '@/components/desk/kit';
 import { useAgentOptions } from '@/components/desk/pickers';
-import { CHANGE_STATUSES, CHANGE_TYPES, RISKS, fmtDateTime, labelize } from '@/lib/itsm/format';
+import { CHANGE_STATUSES, RISKS, fmtDateTime, labelize } from '@/lib/itsm/format';
+import { useChangeTypes } from '@/lib/itsm/hooks';
 import { v2 } from '@/lib/itsm/api';
 import type { Change, Release } from '@/lib/itsm/types';
 import { cn } from '@/lib/utils';
@@ -17,6 +18,7 @@ function ChangesContent() {
   const sp = useSearchParams();
   const [view, setView] = React.useState(sp.get('view') === 'calendar' ? 'calendar' : 'list');
   const agents = useAgentOptions();
+  const changeTypes = useChangeTypes();
   const toggle = (
     <div className="flex rounded-md border border-slate-200 bg-white p-0.5">
       <button onClick={() => setView('list')} className={cn('flex items-center gap-1 rounded px-2 py-1 text-xs', view === 'list' ? 'bg-slate-100 font-medium' : 'text-slate-500')}>
@@ -46,7 +48,7 @@ function ChangesContent() {
       headerExtra={toggle}
       filters={[
         { name: 'status', label: 'Status', options: CHANGE_STATUSES },
-        { name: 'change_type', label: 'Type', options: CHANGE_TYPES },
+        { name: 'change_type', label: 'Type', options: changeTypes.options },
         { name: 'approval_status', label: 'Approval', options: ['not_requested', 'requested', 'approved', 'rejected'].map((v) => ({ value: v, label: labelize(v) })) },
         { name: 'agent_id', label: 'Agent', options: [{ value: 'me', label: 'Me' }, ...agents] },
       ]}
@@ -58,7 +60,7 @@ function ChangesContent() {
             <div>
               <div className="font-medium text-slate-900">{c.subject}</div>
               <div className="text-xs text-slate-500">
-                <span className="font-mono">{c.display_id}</span> · {labelize(c.change_type)} · Risk {RISKS.find((r) => r.value === c.risk)?.label}
+                <span className="font-mono">{c.display_id}</span> · {changeTypes.label(c.change_type)} · Risk {RISKS.find((r) => r.value === c.risk)?.label}
               </div>
             </div>
           ),

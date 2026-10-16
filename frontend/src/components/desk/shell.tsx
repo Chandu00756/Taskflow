@@ -6,8 +6,9 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   AlertOctagon, Bell, BookOpen, Boxes, CheckSquare, ChevronsLeft, ChevronsRight, ClipboardCheck, FolderKanban, GitBranch,
-  HelpCircle, LayoutDashboard, LifeBuoy, LogOut, PieChart, Plus, Rocket, Search, Settings, Ticket, UserRound, Inbox, X,
+  HelpCircle, LayoutDashboard, LogOut, PieChart, Plus, Rocket, Search, Settings, Ticket, UserRound, Inbox, X,
 } from 'lucide-react';
+import { LogoMark } from '@/components/brand/logo';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/store/auth';
@@ -137,9 +138,7 @@ function ShellFrame({ children }: { children: React.ReactNode }) {
             // eslint-disable-next-line @next/next/no-img-element
             <img src={me.settings.logo_url} alt="" className="h-8 w-8 rounded-md bg-white object-contain" />
           ) : (
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-sm font-bold text-white" style={{ background: me.settings.primary_color || '#2563eb' }}>
-              <LifeBuoy className="h-4 w-4" />
-            </span>
+            <LogoMark size={32} title="TaskFlow" />
           )}
           {!collapsed && (
             <div className="min-w-0">

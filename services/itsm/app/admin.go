@@ -1120,3 +1120,15 @@ func (a *App) deleteByID(model interface{}, entity string) handlerFunc {
 		return c.JSON(http.StatusOK, map[string]string{"message": "deleted"})
 	}
 }
+
+// retryOutbox queues this organization's failed emails from the last 7 days again.
+func (a *App) retryOutbox(c *Ctx) error {
+	res := c.T(&EmailOutbox{}).Where("status = 'failed' AND created_at > ?", now().AddDate(0, 0, -7)).
+		Updates(map[string]interface{}{"status": "queued", "attempts": 0, "last_error": "", "updated_at": now()})
+	if res.Error != nil {
+		return res.Error
+	}
+	a.kickMail()
+	c.audit("email.retried", "email_outbox", "", fmt.Sprintf("Queued %d failed emails again", res.RowsAffected), nil)
+	return c.JSON(http.StatusOK, map[string]interface{}{"requeued": res.RowsAffected, "message": fmt.Sprintf("%d failed emails queued again", res.RowsAffected)})
+}

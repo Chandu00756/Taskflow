@@ -19,6 +19,7 @@ import { StateIcon } from './icons';
 import { AssigneeSelect, CycleSelect, DateSelect, LabelsSelect, PrioritySelect, StateSelect } from './properties';
 import { QuickAdd } from './board';
 import { useCreateWorkItem, useDeleteWorkItem, useUpdateWorkItem, useWorkItems, type WorkItemPatch } from './hooks';
+import { AttachmentsSection, DetailToolbar, LinkedTickets, LinksSection, ModulesSelect, RelationsSection, SubscribeButton, useAttachFiles } from './detail-sections';
 
 function useEscape(onClose: () => void) {
   React.useEffect(() => {
@@ -111,58 +112,148 @@ function PeekBody({ id, project, cycles, labels, onClose, onOpen }: {
     navigator.clipboard?.writeText(url).then(() => toast.success('Link copied'), () => toast.error('Could not copy the link'));
   };
 
+  return <DetailLayout item={item} project={project} cycles={cycles} labels={labels} editable={editable} patch={patch} onClose={onClose} onOpen={onOpen} tab={tab} setTab={setTab} resolve={resolve} copyLink={copyLink} onDelete={async () => {
+    if (await confirm({ title: `Delete ${item.display_id}?`, message: 'The work item, its comments and links are removed. Sub-items are kept and moved to the top level.', confirmLabel: 'Delete', danger: true })) {
+      del.mutate(item.id, { onSuccess: onClose });
+    }
+  }} onCommentPosted={() => qc.invalidateQueries({ queryKey: ['work-items', project.id] })} />;
+}
+
+function DetailLayout({ item, project, cycles, labels, editable, patch, onClose, onOpen, tab, setTab, resolve, copyLink, onDelete, onCommentPosted }: {
+  item: WorkItem;
+  project: Project;
+  cycles: Cycle[];
+  labels: string[];
+  editable: boolean;
+  patch: (p: WorkItemPatch) => void;
+  onClose: () => void;
+  onOpen: (id: string) => void;
+  tab: string;
+  setTab: (v: string) => void;
+  resolve: ActivityResolver;
+  copyLink: () => void;
+  onDelete: () => void;
+  onCommentPosted: () => void;
+}) {
+  const fileRef = React.useRef<HTMLInputElement>(null);
+  const { attach, busy: attaching } = useAttachFiles(item, project.id);
+  const [addingSub, setAddingSub] = React.useState(false);
+  const [addingLink, setAddingLink] = React.useState(false);
+  const [dragging, setDragging] = React.useState(false);
+  const subRef = React.useRef<HTMLDivElement>(null);
   return (
     <>
       <header className="flex items-center gap-2 border-b border-slate-100 px-5 py-3">
+        <button onClick={onClose} aria-label="Close" title="Close" className="rounded p-1.5 text-slate-500 hover:bg-slate-100">
+          <X className="h-4 w-4" />
+        </button>
         <span className="inline-flex h-6 items-center rounded px-1.5 text-xs font-semibold text-white" style={{ background: project.color || '#2563eb' }}>
           {project.key}
         </span>
-        <span className="text-sm text-slate-500">{project.name}</span>
-        <span className="text-sm text-slate-300">/</span>
-        <span className="text-sm font-medium text-slate-700">{item.display_id}</span>
-        <div className="ml-auto flex items-center gap-1">
-          <button onClick={copyLink} aria-label="Copy link" title="Copy link" className="rounded p-1.5 text-slate-500 hover:bg-slate-100">
+        <span className="truncate text-sm text-slate-500">{project.name}</span>
+        <div className="ml-auto flex items-center gap-1.5">
+          <SubscribeButton item={item} project={project} />
+          <button onClick={copyLink} aria-label="Copy link" title="Copy link" className="rounded-md border border-slate-200 p-1.5 text-slate-500 hover:bg-slate-100">
             <LinkIcon className="h-4 w-4" />
           </button>
           {editable && (
-            <Menu trigger={() => <span className="block rounded p-1.5 text-slate-500 hover:bg-slate-100" aria-label="More actions"><MoreHorizontal className="h-4 w-4" /></span>}>
+            <Menu trigger={() => <span className="block rounded-md border border-slate-200 p-1.5 text-slate-500 hover:bg-slate-100" aria-label="More actions"><MoreHorizontal className="h-4 w-4" /></span>}>
               {(close) => (
-                <MenuItem
-                  danger
-                  icon={<Trash2 className="h-4 w-4" />}
-                  onClick={async () => {
-                    close();
-                    if (await confirm({ title: `Delete ${item.display_id}?`, message: 'The work item, its comments and links are removed. Sub-items are kept and moved to the top level.', confirmLabel: 'Delete', danger: true })) {
-                      del.mutate(item.id, { onSuccess: onClose });
-                    }
-                  }}
-                >
+                <MenuItem danger icon={<Trash2 className="h-4 w-4" />} onClick={() => { close(); onDelete(); }}>
                   Delete work item
                 </MenuItem>
               )}
             </Menu>
           )}
-          <button onClick={onClose} aria-label="Close" className="rounded p-1.5 text-slate-500 hover:bg-slate-100">
-            <X className="h-4 w-4" />
-          </button>
         </div>
       </header>
 
-      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto lg:flex-row lg:overflow-hidden">
-        <div className="min-w-0 flex-1 space-y-6 px-6 py-5 lg:overflow-y-auto">
+      <div
+        className={cn('relative min-h-0 flex-1 overflow-y-auto', dragging && 'ring-2 ring-inset ring-blue-400')}
+        onDragOver={(e) => {
+          if (!editable || !e.dataTransfer.types.includes('Files')) return;
+          e.preventDefault();
+          setDragging(true);
+        }}
+        onDragLeave={(e) => {
+          if (e.currentTarget === e.target) setDragging(false);
+        }}
+        onDrop={(e) => {
+          if (!editable || !e.dataTransfer.files.length) return;
+          e.preventDefault();
+          setDragging(false);
+          attach(e.dataTransfer.files);
+        }}
+      >
+        <div className="mx-auto max-w-3xl space-y-6 px-6 py-6">
           {item.parent && (
             <button onClick={() => onOpen(item.parent!.id)} className="inline-flex items-center gap-1.5 rounded-md bg-slate-100 px-2 py-1 text-xs text-slate-600 hover:bg-slate-200">
               <CornerDownRight className="h-3.5 w-3.5" />
               Sub-item of <span className="font-medium">{item.parent.display_id}</span> {item.parent.title}
             </button>
           )}
-          <TitleEditor value={item.title} editable={editable} onSave={(title) => patch({ title })} />
+          <div>
+            <div className="mb-1 text-sm font-medium text-slate-500">{item.display_id}</div>
+            <TitleEditor value={item.title} editable={editable} onSave={(title) => patch({ title })} />
+          </div>
+          <div className="flex flex-wrap items-center gap-x-1 gap-y-2 border-y border-slate-100 py-2">
+            <StateSelect value={item.state} disabled={!editable} onChange={(state) => patch({ state })} />
+            <PrioritySelect value={item.priority} disabled={!editable} onChange={(priority) => patch({ priority })} />
+            <AssigneeSelect value={item.assignee} members={project.members} disabled={!editable} onChange={(assignee_id) => patch({ assignee_id })} />
+            <DateSelect label="Start date" value={item.start_date} disabled={!editable} onChange={(start_date) => patch({ start_date })} />
+            <DateSelect label="Due date" value={item.due_date} tone={isOverdue(item) ? 'overdue' : undefined} disabled={!editable} onChange={(due_date) => patch({ due_date })} />
+          </div>
           <DescriptionEditor value={item.description} editable={editable} onSave={(description) => patch({ description })} />
-          <SubItems item={item} project={project} onOpen={onOpen} />
+          <DetailToolbar
+            item={item}
+            project={project}
+            attaching={attaching}
+            onAddSubItem={() => {
+              setAddingSub(true);
+              setTimeout(() => subRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50);
+            }}
+            onAddLink={() => setAddingLink(true)}
+            onAttach={() => fileRef.current?.click()}
+          />
+          <input ref={fileRef} type="file" multiple className="hidden" onChange={(e) => { attach(e.target.files); e.target.value = ''; }} />
+          <div ref={subRef}>
+            <SubItems item={item} project={project} onOpen={onOpen} adding={addingSub} onAdding={setAddingSub} />
+          </div>
+          <RelationsSection item={item} project={project} onOpen={onOpen} />
+          <LinksSection item={item} project={project} adding={addingLink} onAdding={setAddingLink} />
+          <AttachmentsSection item={item} project={project} onAttach={() => fileRef.current?.click()} attaching={attaching} />
+          <LinkedTickets item={item} />
+
           <section>
-            <h3 className="mb-2 text-sm font-semibold text-slate-800">Linked records</h3>
+            <h3 className="mb-3 text-base font-semibold text-slate-900">Properties</h3>
+            <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">Details</div>
+            <dl className="mb-4 space-y-0.5">
+              <Prop label="Parent"><ParentField item={item} project={project} editable={editable} onSave={(parent_id) => patch({ parent_id })} /></Prop>
+              <Prop label="Labels"><LabelsSelect variant="field" value={item.labels} suggestions={labels} disabled={!editable} onChange={(l) => patch({ labels: l })} /></Prop>
+              <Prop label="Estimate"><EstimateField value={item.estimate} editable={editable} onSave={(estimate) => patch({ estimate })} /></Prop>
+            </dl>
+            <div className="mb-1 border-t border-slate-100 pt-3 text-xs font-semibold uppercase tracking-wide text-slate-500">Project structure</div>
+            <dl className="space-y-0.5">
+              <Prop label="Cycle"><CycleSelect variant="field" value={item.cycle} cycles={cycles} disabled={!editable} onChange={(cycle_id) => patch({ cycle_id })} /></Prop>
+              <Prop label="Modules"><ModulesSelect item={item} project={project} disabled={!editable} onChange={(module_ids) => patch({ module_ids })} /></Prop>
+            </dl>
+            <dl className="mt-4 space-y-1.5 border-t border-slate-100 pt-3 text-sm text-slate-500">
+              <div className="flex items-center gap-2">
+                <UserRound className="h-4 w-4" />
+                <span>Created by</span>
+                {item.reporter ? <span className="flex items-center gap-1.5 text-slate-700"><Avatar name={item.reporter.name} src={item.reporter.avatar_url} size="xs" />{item.reporter.name}</span> : <span>Unknown</span>}
+              </div>
+              <div className="flex items-center gap-2"><Hash className="h-4 w-4" /><span>Created on {fmtDateTime(item.created_at)}</span></div>
+              <div className="flex items-center gap-2"><Hash className="h-4 w-4" /><span>Updated on {fmtDateTime(item.updated_at)} ({timeAgo(item.updated_at)})</span></div>
+              {item.completed_at && <div className="flex items-center gap-2"><Hash className="h-4 w-4" /><span>Completed on {fmtDateTime(item.completed_at)}</span></div>}
+            </dl>
+          </section>
+
+          <section>
+            <h3 className="mb-2 text-sm font-semibold text-slate-800">Other linked records</h3>
             <AssociationsPanel module="work-items" id={item.id} canManage={editable} allowed={['ticket', 'work_item', 'problem', 'change', 'release', 'asset']} />
           </section>
+
           <section>
             <Tabs
               value={tab}
@@ -173,36 +264,13 @@ function PeekBody({ id, project, cycles, labels, onClose, onOpen }: {
               ]}
             />
             <div className="pt-4">
-              {tab === 'comments' ? <Comments id={item.id} onPosted={() => qc.invalidateQueries({ queryKey: ['work-items', project.id] })} /> : <ActivityPanel module="work-items" id={item.id} resolve={resolve} />}
+              {tab === 'comments' ? <Comments id={item.id} onPosted={onCommentPosted} /> : <ActivityPanel module="work-items" id={item.id} resolve={resolve} />}
             </div>
           </section>
         </div>
-
-        <aside className="shrink-0 border-t border-slate-100 bg-slate-50/50 px-4 py-5 lg:w-80 lg:overflow-y-auto lg:border-l lg:border-t-0">
-          <h3 className="mb-2 px-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Properties</h3>
-          <dl className="space-y-0.5">
-            <Prop label="State"><StateSelect variant="field" value={item.state} disabled={!editable} onChange={(state) => patch({ state })} /></Prop>
-            <Prop label="Priority"><PrioritySelect variant="field" value={item.priority} disabled={!editable} onChange={(priority) => patch({ priority })} /></Prop>
-            <Prop label="Assignee"><AssigneeSelect variant="field" value={item.assignee} members={project.members} disabled={!editable} onChange={(assignee_id) => patch({ assignee_id })} /></Prop>
-            <Prop label="Start date"><DateSelect variant="field" label="Start date" value={item.start_date} disabled={!editable} onChange={(start_date) => patch({ start_date })} /></Prop>
-            <Prop label="Due date"><DateSelect variant="field" label="Due date" value={item.due_date} tone={isOverdue(item) ? 'overdue' : undefined} disabled={!editable} onChange={(due_date) => patch({ due_date })} /></Prop>
-            <Prop label="Cycle"><CycleSelect variant="field" value={item.cycle} cycles={cycles} disabled={!editable} onChange={(cycle_id) => patch({ cycle_id })} /></Prop>
-            <Prop label="Labels"><LabelsSelect variant="field" value={item.labels} suggestions={labels} disabled={!editable} onChange={(l) => patch({ labels: l })} /></Prop>
-            <Prop label="Estimate"><EstimateField value={item.estimate} editable={editable} onSave={(estimate) => patch({ estimate })} /></Prop>
-            <Prop label="Parent"><ParentField item={item} project={project} editable={editable} onSave={(parent_id) => patch({ parent_id })} /></Prop>
-          </dl>
-          <dl className="mt-5 space-y-2 border-t border-slate-200 px-2 pt-4 text-xs text-slate-500">
-            <div className="flex items-center gap-2">
-              <dt className="w-20 shrink-0">Reporter</dt>
-              <dd className="flex min-w-0 items-center gap-1.5 text-slate-700">
-                {item.reporter ? <><Avatar name={item.reporter.name} src={item.reporter.avatar_url} size="xs" /><span className="truncate">{item.reporter.name}</span></> : <><UserRound className="h-3.5 w-3.5" />Unknown</>}
-              </dd>
-            </div>
-            <div className="flex gap-2"><dt className="w-20 shrink-0">Created</dt><dd className="text-slate-700" title={fmtDateTime(item.created_at)}>{timeAgo(item.created_at)}</dd></div>
-            <div className="flex gap-2"><dt className="w-20 shrink-0">Updated</dt><dd className="text-slate-700" title={fmtDateTime(item.updated_at)}>{timeAgo(item.updated_at)}</dd></div>
-            {item.completed_at && <div className="flex gap-2"><dt className="w-20 shrink-0">Completed</dt><dd className="text-slate-700">{fmtDateTime(item.completed_at)}</dd></div>}
-          </dl>
-        </aside>
+        {dragging && (
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-blue-50/70 text-sm font-medium text-blue-700">Drop to attach</div>
+        )}
       </div>
     </>
   );
@@ -380,11 +448,11 @@ function ParentField({ item, project, editable, onSave }: { item: WorkItem; proj
   );
 }
 
-function SubItems({ item, project, onOpen }: { item: WorkItem; project: Project; onOpen: (id: string) => void }) {
+function SubItems({ item, project, onOpen, adding, onAdding }: { item: WorkItem; project: Project; onOpen: (id: string) => void; adding: boolean; onAdding: (v: boolean) => void }) {
   const { data: subs = [], isLoading } = useWorkItems(project.id, { parent_id: item.id });
   const create = useCreateWorkItem(project.id);
   const update = useUpdateWorkItem(project.id);
-  const [adding, setAdding] = React.useState(false);
+  const setAdding = onAdding;
   const qc = useQueryClient();
   const done = subs.filter((s) => s.state === 'done' || s.state === 'cancelled').length;
   const editable = !!item.can_edit;

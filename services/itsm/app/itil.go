@@ -144,6 +144,9 @@ type itilInput struct {
 	GroupID        *string   `json:"group_id"`
 	DepartmentID   *string   `json:"department_id"`
 	Category       *string   `json:"category"`
+	SubCategory    *string   `json:"sub_category"`
+	ItemCategory   *string   `json:"item_category"`
+	BusinessImpact *string   `json:"business_impact"`
 	DueBy          *string   `json:"due_by"`
 	KnownError     *bool     `json:"known_error"`
 	RootCause      *string   `json:"root_cause"`
@@ -238,7 +241,7 @@ func (c *Ctx) applyProblemInput(p *Problem, in *itilInput) map[string]string {
 		p.Impact = clampInt(*in.Impact, 1, 3, p.Impact)
 	}
 	c.applyOwnership(errs, in, ownership{agent: &p.AgentID, group: &p.GroupID, dept: &p.DepartmentID, requester: &p.RequesterID})
-	setText(&p.Category, in.Category)
+	c.applyClassification(errs, "problem", in, &p.Category, &p.SubCategory, &p.ItemCategory, &p.BusinessImpact)
 	setTime(errs, "due_by", &p.DueBy, in.DueBy)
 	if in.KnownError != nil {
 		p.KnownError = *in.KnownError
@@ -342,7 +345,7 @@ func (a *App) updateProblem(c *Ctx) error {
 	if errs := c.applyProblemInput(&p, &in); len(errs) > 0 {
 		return errValidation(errs)
 	}
-	changes := diffFields(before, p, "status", "priority", "impact", "agent_id", "group_id", "known_error", "category")
+	changes := diffFields(before, p, "status", "priority", "impact", "agent_id", "group_id", "known_error", "category", "sub_category", "item_category", "business_impact")
 	err := c.DB().Transaction(func(tx *gorm.DB) error {
 		if err := tx.Save(&p).Error; err != nil {
 			return err
@@ -488,9 +491,9 @@ func (c *Ctx) applyChangeInput(ch *Change, in *itilInput) map[string]string {
 			ch.Status = *in.Status
 		}
 	}
-	if in.ChangeType != nil {
-		if !oneOf(*in.ChangeType, "minor", "standard", "major", "emergency") {
-			errs["change_type"] = "must be minor, standard, major or emergency"
+	if in.ChangeType != nil && *in.ChangeType != ch.ChangeType {
+		if findChoice(c.changeTypes(), *in.ChangeType) == nil {
+			errs["change_type"] = "is not one of the configured change types"
 		} else {
 			ch.ChangeType = *in.ChangeType
 		}
@@ -505,7 +508,7 @@ func (c *Ctx) applyChangeInput(ch *Change, in *itilInput) map[string]string {
 		ch.Risk = clampInt(*in.Risk, 1, 4, ch.Risk)
 	}
 	c.applyOwnership(errs, in, ownership{agent: &ch.AgentID, group: &ch.GroupID, dept: &ch.DepartmentID, requester: &ch.RequesterID})
-	setText(&ch.Category, in.Category)
+	c.applyClassification(errs, "change", in, &ch.Category, &ch.SubCategory, &ch.ItemCategory, &ch.BusinessImpact)
 	setTime(errs, "planned_start", &ch.PlannedStart, in.PlannedStart)
 	setTime(errs, "planned_end", &ch.PlannedEnd, in.PlannedEnd)
 	if ch.PlannedStart != nil && ch.PlannedEnd != nil && !ch.PlannedEnd.After(*ch.PlannedStart) {
@@ -584,10 +587,10 @@ func (a *App) updateChange(c *Ctx) error {
 		return errValidation(errs)
 	}
 	if before.Status != ch.Status && (ch.Status == "pending_release" || ch.Status == "closed") &&
-		(ch.ChangeType == "major" || ch.ChangeType == "emergency") && ch.ApprovalStatus != "approved" {
-		return errBadRequest("major and emergency changes must be approved before release")
+		c.changeTypeNeedsApproval(ch.ChangeType) && ch.ApprovalStatus != "approved" {
+		return errBadRequest("this change type needs CAB approval before release")
 	}
-	changes := diffFields(before, ch, "status", "change_type", "priority", "impact", "risk", "agent_id", "group_id", "planned_start", "planned_end", "release_id")
+	changes := diffFields(before, ch, "status", "change_type", "priority", "impact", "risk", "agent_id", "group_id", "planned_start", "planned_end", "release_id", "category", "sub_category", "item_category", "business_impact")
 	err := c.DB().Transaction(func(tx *gorm.DB) error {
 		if err := tx.Save(&ch).Error; err != nil {
 			return err
@@ -1044,4 +1047,37 @@ func (a *App) resolveApprovalOutcome(c *Ctx, tx *gorm.DB, entityType, entityID s
 		recordActivity(tx, c.P.OrgID, "ticket", entityID, nil, "approval", "request "+outcome+" by approvers", nil)
 	}
 	return nil
+}
+
+// applyClassification sets category, sub-category, item and business impact,
+// validating them against the module's lists only when they change (records
+// keep values that were valid when they were set).
+func (c *Ctx) applyClassification(errs map[string]string, entity string, in *itilInput, cat, sub, item, impact *string) {
+	if in.Category != nil || in.SubCategory != nil || in.ItemCategory != nil {
+		nc, ns, ni := *cat, *sub, *item
+		if in.Category != nil {
+			nc = strings.TrimSpace(*in.Category)
+			if nc != *cat && in.SubCategory == nil {
+				ns, ni = "", ""
+			}
+		}
+		if in.SubCategory != nil {
+			ns = strings.TrimSpace(*in.SubCategory)
+			if ns != *sub && in.ItemCategory == nil {
+				ni = ""
+			}
+		}
+		if in.ItemCategory != nil {
+			ni = strings.TrimSpace(*in.ItemCategory)
+		}
+		if nc != *cat || ns != *sub || ni != *item {
+			c.checkCategory(errs, entity, nc, ns, ni)
+			*cat, *sub, *item = nc, ns, ni
+		}
+	}
+	if in.BusinessImpact != nil && strings.TrimSpace(*in.BusinessImpact) != *impact {
+		v := strings.TrimSpace(*in.BusinessImpact)
+		c.checkChoice(errs, entity, "business_impact", "business_impact", v)
+		*impact = v
+	}
 }

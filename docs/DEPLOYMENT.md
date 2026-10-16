@@ -202,6 +202,13 @@ app password at **accounts.zoho.com → Security → App passwords**, and use
 `SMTP_HOST=smtp.zoho.com` (paid plans: `smtppro.zoho.com`), `SMTP_PORT=465`,
 `SMTP_USER=` the mailbox and `SMTP_PASS=` the app password. `SMTP_FROM` must be
 that mailbox or one of its aliases, e.g. `TaskFlow <support@portalvii.com>`.
+If Zoho answers **"550 5.7.1 Sender is not allowed to relay emails"**, the
+address in `SMTP_FROM` is not the mailbox in `SMTP_USER` or one of its aliases.
+Either set `SMTP_FROM` to that mailbox, or add the address as an alias of it
+(Zoho Mail admin console → Users → the mailbox → Email alias). Until then
+TaskFlow sends from `SMTP_USER` (replies still go to `SMTP_FROM`) and the
+Email tab says so. After fixing the settings, use **Retry failed emails**.
+
 If the test email reports that sign-in failed even with an app password, your
 Zoho plan does not allow sending from apps: use **Zoho ZeptoMail**
 (`smtp.zeptomail.com`, port 587, user `emailapikey`) or **Brevo**

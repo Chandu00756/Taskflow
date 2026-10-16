@@ -62,8 +62,11 @@ type Settings struct {
 	PrefixRelease            string         `json:"prefix_release"`
 	CustomStatuses           datatypes.JSON `json:"custom_statuses"`
 	Seeded                   bool           `json:"-"`
-	CreatedAt                time.Time      `json:"created_at"`
-	UpdatedAt                time.Time      `json:"updated_at"`
+	// DefaultsVersion records which built-in defaults were added, so a
+	// default an admin later deletes is not added again.
+	DefaultsVersion int       `json:"-"`
+	CreatedAt       time.Time `json:"created_at"`
+	UpdatedAt       time.Time `json:"updated_at"`
 }
 
 // TableName pins the singular settings table name.
@@ -86,6 +89,7 @@ type Person struct {
 	RoleIDs            datatypes.JSON `json:"role_ids"`
 	TicketScope        string         `json:"ticket_scope"`
 	JobTitle           string         `json:"job_title"`
+	JobRoleID          *string        `gorm:"type:uuid;index" json:"job_role_id"`
 	Phone              string         `json:"phone"`
 	Mobile             string         `json:"mobile"`
 	DepartmentID       *string        `gorm:"type:uuid" json:"department_id"`
@@ -296,6 +300,9 @@ type Problem struct {
 	GroupID        *string        `gorm:"type:uuid" json:"group_id"`
 	DepartmentID   *string        `gorm:"type:uuid" json:"department_id"`
 	Category       string         `json:"category"`
+	SubCategory    string         `json:"sub_category"`
+	ItemCategory   string         `json:"item_category"`
+	BusinessImpact string         `json:"business_impact"`
 	DueBy          *time.Time     `json:"due_by"`
 	KnownError     bool           `json:"known_error"`
 	RootCause      string         `gorm:"type:text" json:"root_cause"`
@@ -326,6 +333,9 @@ type Change struct {
 	GroupID        *string        `gorm:"type:uuid" json:"group_id"`
 	DepartmentID   *string        `gorm:"type:uuid" json:"department_id"`
 	Category       string         `json:"category"`
+	SubCategory    string         `json:"sub_category"`
+	ItemCategory   string         `json:"item_category"`
+	BusinessImpact string         `json:"business_impact"`
 	PlannedStart   *time.Time     `gorm:"index" json:"planned_start"`
 	PlannedEnd     *time.Time     `json:"planned_end"`
 	Reason         string         `gorm:"type:text" json:"reason"`
@@ -905,6 +915,8 @@ type WorkItem struct {
 	ParentID    *string        `gorm:"type:uuid;index" json:"parent_id"`
 	CycleID     *string        `gorm:"type:uuid;index" json:"cycle_id"`
 	Labels      datatypes.JSON `json:"labels"`
+	ModuleIDs   datatypes.JSON `json:"module_ids"`
+	WebLinks    datatypes.JSON `json:"web_links"`
 	Estimate    *int           `json:"estimate"`
 	StartDate   *time.Time     `json:"start_date"`
 	DueDate     *time.Time     `json:"due_date"`
@@ -932,6 +944,6 @@ func AllModels() []interface{} {
 		&KBCategory{}, &KBFolder{}, &KBArticle{}, &Workflow{}, &Scenario{}, &CannedFolder{}, &CannedResponse{},
 		&FormField{}, &Announcement{}, &Survey{}, &SurveyResponse{}, &EmailTemplate{}, &EmailOutbox{},
 		&AuditLog{}, &OnCallSchedule{}, &APIKey{}, &RefreshSession{}, &Project{}, &WorkItem{}, &Cycle{},
-		&Team{}, &TeamMember{}, &Avatar{}, &AuthToken{},
+		&Team{}, &TeamMember{}, &Avatar{}, &AuthToken{}, &JobRole{}, &Module{},
 	}
 }

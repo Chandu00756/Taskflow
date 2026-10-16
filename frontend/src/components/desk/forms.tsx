@@ -7,6 +7,7 @@ import { uploadAttachment, parseApiError, downloadFile } from '@/lib/itsm/api';
 import type { Attachment, FormField } from '@/lib/itsm/types';
 import { fmtBytes } from '@/lib/itsm/format';
 import { Checkbox, Field, SelectBox, TextArea, TextInput, MultiSelect } from './kit';
+import { AttachmentThumb, isPreviewable, Lightbox } from './lightbox';
 
 type NestedChoice = { value: string; children?: NestedChoice[] };
 
@@ -165,21 +166,37 @@ export function AttachmentInput({ value, onChange, compact = false }: { value: U
 }
 
 export function AttachmentList({ items }: { items: Attachment[] }) {
+  const [open, setOpen] = React.useState<number | null>(null);
   if (!items?.length) return null;
+  // Images and PDFs show as thumbnails that open in the viewer; other files download.
+  const previews = items.filter(isPreviewable);
+  const files = items.filter((a) => !isPreviewable(a));
   return (
-    <div className="mt-2 flex flex-wrap gap-2">
-      {items.map((a) => (
-        <button
-          key={a.id}
-          type="button"
-          onClick={() => downloadFile(`/attachments/${a.id}`, a.name).catch((e) => toast.error(parseApiError(e).message))}
-          className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700 hover:border-blue-300 hover:text-blue-700"
-        >
-          <Paperclip className="h-3.5 w-3.5" />
-          {a.name}
-          <span className="text-slate-400">{fmtBytes(a.size)}</span>
-        </button>
-      ))}
+    <div className="mt-2 space-y-2">
+      {previews.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {previews.map((a, i) => (
+            <AttachmentThumb key={a.id} a={a} onOpen={() => setOpen(i)} />
+          ))}
+        </div>
+      )}
+      {files.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {files.map((a) => (
+            <button
+              key={a.id}
+              type="button"
+              onClick={() => downloadFile(`/attachments/${a.id}`, a.name).catch((e) => toast.error(parseApiError(e).message))}
+              className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700 hover:border-blue-300 hover:text-blue-700"
+            >
+              <Paperclip className="h-3.5 w-3.5" />
+              {a.name}
+              <span className="text-slate-400">{fmtBytes(a.size)}</span>
+            </button>
+          ))}
+        </div>
+      )}
+      {open !== null && <Lightbox items={previews} index={open} onIndex={setOpen} onClose={() => setOpen(null)} />}
     </div>
   );
 }

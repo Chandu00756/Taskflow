@@ -11,7 +11,7 @@ import { changePayload, changeToForm, useChangeFields } from '@/components/desk/
 import { Avatar, Btn, Card, Field, Modal, MultiSelect, PriorityBadge, SelectBox, StatusBadge, Badge } from '@/components/desk/kit';
 import { useAgentOptions, useGroupOptions } from '@/components/desk/pickers';
 import { v2, parseApiError } from '@/lib/itsm/api';
-import { useCan } from '@/lib/itsm/hooks';
+import { useCan, useChangeTypes } from '@/lib/itsm/hooks';
 import { fmtDateTime, labelize, timeAgo } from '@/lib/itsm/format';
 import type { Approval, Change } from '@/lib/itsm/types';
 
@@ -20,6 +20,7 @@ type ChangeData = { change: Change; approvals: Approval[]; conflicts: { id: stri
 export default function ChangePage() {
   const { id } = useParams<{ id: string }>();
   const { properties, sections } = useChangeFields();
+  const changeTypes = useChangeTypes();
   const can = useCan();
   const [approvalOpen, setApprovalOpen] = React.useState(false);
   return (
@@ -36,7 +37,7 @@ export default function ChangePage() {
         badges: (c) => (
           <>
             <StatusBadge status={c.status} />
-            <Badge className="bg-slate-100 text-slate-700 ring-slate-500/20">{labelize(c.change_type)}</Badge>
+            <Badge className="bg-slate-100 text-slate-700 ring-slate-500/20">{changeTypes.label(c.change_type)}</Badge>
             <PriorityBadge priority={c.priority} />
             <StatusBadge status={c.approval_status} label={`Approval: ${labelize(c.approval_status)}`} />
             {c.release && <Link href={`/releases/${c.release.id}`} className="text-xs text-blue-600 hover:underline">{c.release.name}</Link>}

@@ -225,6 +225,7 @@ func (a *App) platformRoutes() {
 
 	a.platform("GET /email", a.platformEmailStatus)
 	a.platform("POST /email/test", a.platformEmailTest)
+	a.platform("POST /email/retry", a.platformEmailRetry)
 }
 
 // platformEmailStatus reports the mail settings (never the password) and
@@ -265,7 +266,9 @@ func (a *App) platformEmailStatus(w http.ResponseWriter, r *http.Request, _ stri
 	if recent == nil {
 		recent = []recentRow{}
 	}
+	note, _ := a.mailNote.Load().(string)
 	writeJSON(w, http.StatusOK, map[string]interface{}{
+		"sender_note":        note,
 		"configured":         mc.Enabled(),
 		"host":               mc.Host,
 		"port":               mc.Port,
@@ -298,10 +301,30 @@ func (a *App) platformEmailTest(w http.ResponseWriter, r *http.Request, actor st
 	}
 	body := fmt.Sprintf("This is a test message from TaskFlow at %s.\n\nIf you can read this, outgoing email works.\n\nSent through %s:%s as %s.",
 		a.Cfg.PublicURL, mc.Host, mc.Port, mc.User)
-	if err := mc.Send(mailer.Message{To: to, Subject: "TaskFlow test email", Text: body}); err != nil {
+	res, err := mc.SendWithResult(mailer.Message{To: to, Subject: "TaskFlow test email", Text: body})
+	if err != nil {
 		return &APIError{Status: http.StatusBadGateway, Message: "The mail server refused the message: " + err.Error()}
 	}
-	writeJSON(w, http.StatusOK, map[string]string{"message": "Test email sent to " + to + ". Check the inbox (and spam folder)."})
+	msg := "Test email sent to " + to + ". Check the inbox (and spam folder)."
+	if res.Fallback {
+		a.noteSenderFallback(mc, res.From)
+		msg += " Note: it was sent from " + res.From + " because the mail server refused the configured sender."
+	}
+	writeJSON(w, http.StatusOK, map[string]interface{}{"message": msg, "fallback": res.Fallback, "from": res.From})
+	return nil
+}
+
+// platformEmailRetry queues failed emails from the last 7 days again, e.g.
+// after fixing the mail settings.
+func (a *App) platformEmailRetry(w http.ResponseWriter, r *http.Request, _ string) error {
+	res := a.DB.WithContext(r.Context()).Model(&EmailOutbox{}).
+		Where("status = 'failed' AND created_at > ?", now().AddDate(0, 0, -7)).
+		Updates(map[string]interface{}{"status": "queued", "attempts": 0, "last_error": "", "updated_at": now()})
+	if res.Error != nil {
+		return res.Error
+	}
+	a.kickMail()
+	writeJSON(w, http.StatusOK, map[string]interface{}{"requeued": res.RowsAffected, "message": fmt.Sprintf("%d failed emails queued again", res.RowsAffected)})
 	return nil
 }
 
