@@ -301,7 +301,14 @@ func (a *App) platformEmailTest(w http.ResponseWriter, r *http.Request, actor st
 	}
 	body := fmt.Sprintf("This is a test message from TaskFlow at %s.\n\nIf you can read this, outgoing email works.\n\nSent through %s:%s as %s.",
 		a.Cfg.PublicURL, mc.Host, mc.Port, mc.User)
-	res, err := mc.SendWithResult(mailer.Message{To: to, Subject: "TaskFlow test email", Text: body})
+	l := a.emailLayout(a.DB, systemOrgID)
+	l.Title = "Your email settings work"
+	l.Preheader = "This is a test message from TaskFlow."
+	l.Paragraphs = []string{"If you can read this, TaskFlow can send email. Notifications, invitations, verification and password reset links will reach your people."}
+	l.Details = []mailer.Detail{{Label: "Mail server", Value: mc.Host + ":" + mc.Port}, {Label: "Signed in as", Value: mc.User}, {Label: "Sent at", Value: now().UTC().Format("Jan 2, 2006 15:04 MST")}}
+	l.Button = &mailer.Button{Label: "Open TaskFlow", URL: a.publicURL("/")}
+	l.Footer = "Sent from the TaskFlow platform console."
+	res, err := mc.SendWithResult(mailer.Message{To: to, Subject: "TaskFlow test email", Text: body, HTML: mailer.RenderHTML(l)})
 	if err != nil {
 		return &APIError{Status: http.StatusBadGateway, Message: "The mail server refused the message: " + err.Error()}
 	}

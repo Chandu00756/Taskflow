@@ -221,7 +221,7 @@ func (a *App) deliverEmail(db *gorm.DB) {
 			return
 		}
 		for _, e := range batch {
-			res, err := mc.SendWithResult(mailer.Message{To: e.ToAddr, Subject: e.Subject, Text: e.Body})
+			res, err := mc.SendWithResult(mailer.Message{To: e.ToAddr, Subject: e.Subject, Text: e.Body, HTML: e.HTMLBody})
 			if err == nil && res.Fallback {
 				a.noteSenderFallback(mc, res.From)
 			}

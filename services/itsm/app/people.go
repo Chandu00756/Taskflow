@@ -12,6 +12,7 @@ import (
 	"unicode"
 
 	"github.com/chanduchitikam/task-management-system/pkg/auth"
+	"github.com/chanduchitikam/task-management-system/pkg/mailer"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
@@ -870,9 +871,14 @@ func (a *App) adminResetPassword(c *Ctx) error {
 	if a.mailConfig().Enabled() {
 		// The old password stopped working; the person picks a new one from the link.
 		if raw, ok := issueAuthToken(c.DB(), r.ID, tokenResetPassword, adminResetTTL); ok {
-			body := fmt.Sprintf("Hi %s,\n\nAn administrator of %s reset the password for your account (%s).\n\nChoose a new password here:\n\n%s\n\nThe link expires in 24 hours and works once.\n\n— %s",
-				displayName(r.FullName, r.Email), c.settings().HelpdeskName, r.Email, a.link("/reset-password", raw), c.settings().HelpdeskName)
-			a.queueSystemEmail(c.DB(), &c.P.OrgID, r.Email, "Choose a new password for "+c.settings().HelpdeskName, body, r.ID)
+			a.queueRich(c.DB(), &c.P.OrgID, r.Email, "Choose a new password for "+c.settings().HelpdeskName, mailer.Layout{
+				Title:      "Choose a new password",
+				Preheader:  "An administrator reset your password.",
+				Greeting:   "Hi " + displayName(r.FullName, r.Email) + ",",
+				Paragraphs: []string{c.P.Name + " reset the password for your account (" + r.Email + "). Your old password no longer works; choose a new one to sign in again."},
+				Button:     &mailer.Button{Label: "Choose a new password", URL: a.link("/reset-password", raw)},
+				Note:       "The link expires in 24 hours and works once.",
+			}, "user", r.ID)
 		}
 		return c.JSON(http.StatusOK, map[string]interface{}{"message": "password reset; a link to choose a new password was emailed to " + r.Email, "link_sent": true})
 	}

@@ -13,6 +13,7 @@ import (
 	"errors"
 	"fmt"
 	"mime"
+	"mime/quotedprintable"
 	"net"
 	"net/mail"
 	"net/smtp"
@@ -73,6 +74,8 @@ type Message struct {
 	Text    string
 	// ReplyTo is optional.
 	ReplyTo string
+	// HTML is the optional rich version; Text is always sent alongside it.
+	HTML string
 }
 
 // sanitizeHeader strips characters that could inject extra headers.
@@ -86,28 +89,46 @@ func messageID(domain string) string {
 	return "<" + hex.EncodeToString(b) + "@" + domain + ">"
 }
 
-// Build renders the RFC 5322 message for m sent from from.
+// Build renders the RFC 5322 message for m sent from from: plain text, or
+// multipart/alternative (text and HTML) when m.HTML is set.
 func Build(from *mail.Address, m Message, at time.Time) []byte {
 	domain := "localhost"
 	if i := strings.LastIndex(from.Address, "@"); i >= 0 {
 		domain = from.Address[i+1:]
 	}
-	body := strings.ReplaceAll(strings.ReplaceAll(m.Text, "\r\n", "\n"), "\n", "\r\n")
 	head := []string{"From: " + from.String()}
 	if m.ReplyTo != "" {
 		head = append(head, "Reply-To: "+sanitizeHeader(m.ReplyTo))
 	}
-	return []byte(strings.Join(append(head,
+	head = append(head,
 		"To: "+sanitizeHeader(m.To),
 		"Subject: "+mime.QEncoding.Encode("utf-8", sanitizeHeader(m.Subject)),
 		"Date: "+at.Format(time.RFC1123Z),
 		"Message-ID: "+messageID(domain),
 		"MIME-Version: 1.0",
-		"Content-Type: text/plain; charset=UTF-8",
-		"Content-Transfer-Encoding: 8bit",
 		"Auto-Submitted: auto-generated",
-		"", body,
-	), "\r\n"))
+	)
+	if m.HTML == "" {
+		body := strings.ReplaceAll(strings.ReplaceAll(m.Text, "\r\n", "\n"), "\n", "\r\n")
+		head = append(head, "Content-Type: text/plain; charset=UTF-8", "Content-Transfer-Encoding: 8bit")
+		return []byte(strings.Join(append(head, "", body), "\r\n"))
+	}
+	boundary := "tf-" + messageID("alt")[1:33]
+	head = append(head, `Content-Type: multipart/alternative; boundary="`+boundary+`"`)
+	var b strings.Builder
+	b.WriteString(strings.Join(head, "\r\n"))
+	b.WriteString("\r\n\r\nThis is a multi-part message in MIME format.\r\n")
+	for _, part := range []struct{ ctype, body string }{{"text/plain", m.Text}, {"text/html", m.HTML}} {
+		b.WriteString("\r\n--" + boundary + "\r\n")
+		b.WriteString("Content-Type: " + part.ctype + "; charset=UTF-8\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\n")
+		var qp strings.Builder
+		w := quotedprintable.NewWriter(&qp)
+		_, _ = w.Write([]byte(strings.ReplaceAll(part.body, "\r\n", "\n")))
+		_ = w.Close()
+		b.WriteString(qp.String())
+	}
+	b.WriteString("\r\n--" + boundary + "--\r\n")
+	return []byte(b.String())
 }
 
 // senderRefused reports whether the server rejected the From address because
@@ -226,7 +247,7 @@ func (c Config) send(from *mail.Address, m Message) error {
 	if err != nil {
 		return err
 	}
-	if _, err := w.Write(Build(from, Message{To: to.String(), Subject: m.Subject, Text: m.Text, ReplyTo: m.ReplyTo}, time.Now())); err != nil {
+	if _, err := w.Write(Build(from, Message{To: to.String(), Subject: m.Subject, Text: m.Text, ReplyTo: m.ReplyTo, HTML: m.HTML}, time.Now())); err != nil {
 		return err
 	}
 	if err := w.Close(); err != nil {

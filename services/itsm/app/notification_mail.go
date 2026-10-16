@@ -1,10 +1,10 @@
 package app
 
 import (
-	"fmt"
 	"strings"
 	"time"
 
+	"github.com/chanduchitikam/task-management-system/pkg/mailer"
 	"gorm.io/gorm"
 )
 
@@ -95,13 +95,17 @@ func (a *App) mailNotification(db *gorm.DB, userID, kind, title, message string,
 		}
 	}
 	base := strings.TrimRight(a.Cfg.PublicURL, "/")
-	var b strings.Builder
-	fmt.Fprintf(&b, "Hi %s,\n\n%s\n", displayName(u.FullName, u.Email), title)
+	l := a.emailLayout(db, org)
+	l.Brand = helpdesk
+	l.Title = title
+	l.Preheader = truncate(strings.TrimSpace(message), 140)
+	l.Greeting = "Hi " + displayName(u.FullName, u.Email) + ","
 	if strings.TrimSpace(message) != "" {
-		fmt.Fprintf(&b, "\n%s\n", strings.TrimSpace(message))
+		l.Paragraphs = []string{strings.TrimSpace(message)}
 	}
-	fmt.Fprintf(&b, "\nOpen it in %s:\n%s%s\n\n— %s\n\nYou get this email because of your notification settings. Change them at %s/profile#notifications",
-		helpdesk, base, notificationPath(meta, u.IsAgent), helpdesk, base)
+	l.Button = &mailer.Button{Label: "Open in " + helpdesk, URL: base + notificationPath(meta, u.IsAgent)}
+	l.Footer = "You get this email because of your notification settings in " + helpdesk + "."
+	l.FooterLinks = []mailer.Link{{Label: "Notification settings", URL: base + "/profile#notifications"}}
 	entityID := ""
 	for _, k := range []string{"ticket_id", "work_item_id", "problem_id", "change_id", "release_id", "asset_id", "approval_id", "project_id", "contract_id"} {
 		if meta[k] != "" {
@@ -109,7 +113,7 @@ func (a *App) mailNotification(db *gorm.DB, userID, kind, title, message string,
 			break
 		}
 	}
-	db.Create(&EmailOutbox{Base: Base{OrgID: org}, ToAddr: u.Email, Subject: truncate("["+helpdesk+"] "+title, 200), Body: b.String(),
+	db.Create(&EmailOutbox{Base: Base{OrgID: org}, ToAddr: u.Email, Subject: truncate("["+helpdesk+"] "+title, 200), Body: mailer.LayoutText(l), HTMLBody: mailer.RenderHTML(l),
 		Status: "queued", EntityType: kind, EntityID: entityID})
 	a.kickMail()
 	// Notifications written inside a transaction become visible when it

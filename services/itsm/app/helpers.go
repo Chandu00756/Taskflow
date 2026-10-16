@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/chanduchitikam/task-management-system/pkg/mailer"
 	"net/mail"
 	"regexp"
 	"sort"
@@ -373,9 +374,14 @@ func (a *App) queueEmail(ctx context.Context, db *gorm.DB, orgID, event, to stri
 	if !emailAllowed(prefs, event) {
 		return
 	}
+	subject, body := renderTemplate(tpl.Subject, vars), renderTemplate(tpl.Body, vars)
+	l := templateLayout(event, subject, body, vars)
+	base := a.emailLayout(db.WithContext(ctx), orgID)
+	l.Brand, l.Accent, l.LogoURL = base.Brand, base.Accent, base.LogoURL
+	l.Footer = "You received this email from " + l.Brand + " about your service desk activity."
 	db.WithContext(ctx).Create(&EmailOutbox{
 		Base:   Base{OrgID: orgID},
-		ToAddr: to, Subject: renderTemplate(tpl.Subject, vars), Body: renderTemplate(tpl.Body, vars),
+		ToAddr: to, Subject: subject, Body: body, HTMLBody: mailer.RenderHTML(l),
 		Status: "queued", EntityType: entityType, EntityID: entityID,
 	})
 	a.kickMail()

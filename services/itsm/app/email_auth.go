@@ -3,7 +3,6 @@ package app
 import (
 	"crypto/rand"
 	"encoding/base64"
-	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
@@ -93,17 +92,6 @@ func consumeAuthToken(db *gorm.DB, tok AuthToken) bool {
 	return res.Error == nil && res.RowsAffected == 1
 }
 
-// queueSystemEmail queues a message that bypasses the editable templates and
-// notification preferences (account security mail) and starts delivery now.
-func (a *App) queueSystemEmail(db *gorm.DB, orgID *string, to, subject, body, entityID string) {
-	org := systemOrgID
-	if orgID != nil && *orgID != "" {
-		org = *orgID
-	}
-	db.Create(&EmailOutbox{Base: Base{OrgID: org}, ToAddr: to, Subject: subject, Body: body, Status: "queued", EntityType: "user", EntityID: entityID})
-	a.kickMail()
-}
-
 type accountRow struct {
 	ID       string
 	OrgID    *string
@@ -153,9 +141,14 @@ func (a *App) sendVerification(c *Ctx) error {
 	}
 	raw, ok := issueAuthToken(c.DB(), r.ID, tokenVerifyEmail, verifyTokenTTL)
 	if ok {
-		body := fmt.Sprintf("Hi %s,\n\nConfirm your email address to finish setting up your TaskFlow account:\n\n%s\n\nThe link expires in 48 hours and works once. If you did not create a TaskFlow account, you can ignore this email.\n\n— TaskFlow",
-			r.name(), a.link("/verify-email", raw))
-		a.queueSystemEmail(c.DB(), r.OrgID, r.Email, "Verify your email for TaskFlow", body, r.ID)
+		a.queueRich(c.DB(), r.OrgID, r.Email, "Verify your email for TaskFlow", mailer.Layout{
+			Title:      "Confirm your email address",
+			Preheader:  "One click to finish setting up your TaskFlow account.",
+			Greeting:   "Hi " + r.name() + ",",
+			Paragraphs: []string{"Thanks for signing up. Confirm that " + r.Email + " is your address to activate your account."},
+			Button:     &mailer.Button{Label: "Verify my email", URL: a.link("/verify-email", raw)},
+			Note:       "The link expires in 48 hours and works once. If you did not create a TaskFlow account, you can ignore this email.",
+		}, "user", r.ID)
 	}
 	return c.JSON(http.StatusOK, reply)
 }
@@ -223,9 +216,15 @@ func (a *App) forgotEmail(c *Ctx) error {
 	}
 	raw, ok := issueAuthToken(c.DB(), r.ID, tokenResetPassword, resetTokenTTL)
 	if ok {
-		body := fmt.Sprintf("Hi %s,\n\nWe received a request to reset the password for your TaskFlow account (%s).\n\nChoose a new password here:\n\n%s\n\nThe link expires in 1 hour and works once. If you did not ask for this, ignore this email; your password stays the same.\n\nRequested from IP address %s.\n\n— TaskFlow",
-			r.name(), r.Email, a.link("/reset-password", raw), c.ClientIP())
-		a.queueSystemEmail(c.DB(), r.OrgID, r.Email, "Reset your TaskFlow password", body, r.ID)
+		a.queueRich(c.DB(), r.OrgID, r.Email, "Reset your TaskFlow password", mailer.Layout{
+			Title:      "Reset your password",
+			Preheader:  "Use this link to choose a new password. It expires in 1 hour.",
+			Greeting:   "Hi " + r.name() + ",",
+			Paragraphs: []string{"We received a request to reset the password for " + r.Email + ". Choose a new one with the button below."},
+			Button:     &mailer.Button{Label: "Choose a new password", URL: a.link("/reset-password", raw)},
+			Details:    []mailer.Detail{{Label: "Requested from", Value: c.ClientIP()}, {Label: "Requested at", Value: now().UTC().Format("Jan 2, 2006 15:04 MST")}},
+			Note:       "The link expires in 1 hour and works once. If you did not ask for this, ignore this email; your password stays the same.",
+		}, "user", r.ID)
 	}
 	return c.JSON(http.StatusOK, reply)
 }
@@ -300,8 +299,15 @@ func (a *App) forgotEmailReset(c *Ctx) error {
 		c.DB().Create(&AuditLog{Base: Base{OrgID: *r.OrgID}, ActorID: &r.ID, Action: "me.password_reset_email",
 			EntityType: "user", EntityID: r.ID, Summary: "Reset password with an emailed link", Details: jsonOf(nil), IP: c.ClientIP()})
 	}
-	body := fmt.Sprintf("Hi %s,\n\nThe password for your TaskFlow account (%s) was just changed using a reset link, and all devices were signed out.\n\nIf this was not you, reset your password again right away and tell your administrator.\n\n— TaskFlow", r.name(), r.Email)
-	a.queueSystemEmail(c.DB(), r.OrgID, r.Email, "Your TaskFlow password was changed", body, r.ID)
+	a.queueRich(c.DB(), r.OrgID, r.Email, "Your TaskFlow password was changed", mailer.Layout{
+		Title:      "Your password was changed",
+		Preheader:  "All devices were signed out.",
+		Greeting:   "Hi " + r.name() + ",",
+		Paragraphs: []string{"The password for " + r.Email + " was just changed using a reset link, and every device was signed out."},
+		Details:    []mailer.Detail{{Label: "Changed at", Value: now().UTC().Format("Jan 2, 2006 15:04 MST")}, {Label: "From", Value: c.ClientIP()}},
+		Button:     &mailer.Button{Label: "Sign in", URL: a.publicURL("/login")},
+		Note:       "If this was not you, reset your password again right away and tell your administrator.",
+	}, "user", r.ID)
 	return c.JSON(http.StatusOK, map[string]string{"message": "password updated; you can now sign in"})
 }
 
@@ -330,10 +336,16 @@ func (a *App) inviteUser(db *gorm.DB, c *Ctx, userID, email, name string) bool {
 		return true // an invitation went out moments ago and is still valid
 	}
 	s := c.settings()
-	body := fmt.Sprintf("Hi %s,\n\n%s invited you to %s.\n\nActivate your account and choose a password here:\n\n%s\n\nThe link confirms that this email address is yours, works once and expires in 7 days. If you were not expecting this, you can ignore this email.\n\n— %s",
-		displayName(name, email), c.P.Name, s.HelpdeskName, a.link("/activate", raw), s.HelpdeskName)
 	orgID := c.P.OrgID
-	a.queueSystemEmail(db, &orgID, email, "You're invited to "+s.HelpdeskName, body, userID)
+	a.queueRich(db, &orgID, email, "You're invited to "+s.HelpdeskName, mailer.Layout{
+		Title:      "You're invited to " + s.HelpdeskName,
+		Preheader:  c.P.Name + " invited you. Activate your account to get started.",
+		Greeting:   "Hi " + displayName(name, email) + ",",
+		Paragraphs: []string{c.P.Name + " invited you to " + s.HelpdeskName + ". Activate your account and choose a password to get started."},
+		Button:     &mailer.Button{Label: "Activate my account", URL: a.link("/activate", raw)},
+		Details:    []mailer.Detail{{Label: "Your sign-in email", Value: email}, {Label: "Invited by", Value: c.P.Name}},
+		Note:       "The link confirms that this address is yours, works once and expires in 7 days. If you were not expecting this, you can ignore this email.",
+	}, "user", userID)
 	return true
 }
 

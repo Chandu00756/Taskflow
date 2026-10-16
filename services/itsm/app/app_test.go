@@ -523,3 +523,32 @@ func TestWorkItemChangeSummaryAndRelations(t *testing.T) {
 		}
 	}
 }
+
+func TestTemplateLayout(t *testing.T) {
+	vars := map[string]string{"ticket.id": "INC-7", "ticket.subject": "VPN down", "ticket.status": "Open", "ticket.priority": "High", "ticket.group": ""}
+	l := templateLayout("ticket_created_requester", "[INC-7] We received your request",
+		"Hi Ann,\n\nYour request has been logged as INC-7.\n\nView it here: https://desk.example.com/portal/tickets/1", vars)
+	if l.Greeting != "Hi Ann," || l.Title != "We received your request" {
+		t.Fatalf("greeting/title: %+v", l)
+	}
+	if l.Button == nil || l.Button.URL != "https://desk.example.com/portal/tickets/1" || l.Button.Label != "View your request" {
+		t.Fatalf("link line becomes the button: %+v", l.Button)
+	}
+	if len(l.Paragraphs) != 1 || strings.Contains(l.Paragraphs[0], "View it here") {
+		t.Fatalf("link paragraph removed from text: %+v", l.Paragraphs)
+	}
+	got := map[string]string{}
+	for _, d := range l.Details {
+		got[d.Label] = d.Value
+	}
+	if got["Ticket"] != "INC-7" || got["Priority"] != "High" {
+		t.Fatalf("ticket details: %+v", l.Details)
+	}
+	if _, ok := got["Group"]; ok {
+		t.Fatal("empty details are skipped")
+	}
+	c := templateLayout("contract_expiring", "Contract X expires", "Contract X ends soon.", map[string]string{})
+	if c.Title != "A contract expires soon" || len(c.Details) != 0 {
+		t.Fatalf("non-ticket events have no ticket table: %+v", c)
+	}
+}

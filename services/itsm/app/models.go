@@ -825,6 +825,7 @@ type EmailOutbox struct {
 	CC         string     `json:"cc"`
 	Subject    string     `json:"subject"`
 	Body       string     `gorm:"type:text" json:"body"`
+	HTMLBody   string     `gorm:"type:text" json:"-"`
 	Status     string     `gorm:"index" json:"status"`
 	Attempts   int        `json:"attempts"`
 	LastError  string     `json:"last_error"`

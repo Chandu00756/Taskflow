@@ -194,7 +194,17 @@ func main() {
 				if mc := mailer.FromEnv(); strings.ToLower(cfg.Server.Environment) != "development" && mc.Enabled() {
 					link := strings.TrimRight(os.Getenv("PUBLIC_URL"), "/") + "/register?token=" + inviteToken
 					body := fmt.Sprintf("You have been invited to join TaskFlow.\n\nCreate your account here (the link expires %s):\n%s\n\nIf you were not expecting this invitation, you can ignore this email.", expires.UTC().Format("Jan 2, 2006 15:04 MST"), link)
-					if err := mc.Send(mailer.Message{To: invite.Email, Subject: "You're invited to TaskFlow", Text: body}); err != nil {
+					base := strings.TrimRight(os.Getenv("PUBLIC_URL"), "/")
+					html := mailer.RenderHTML(mailer.Layout{
+						Brand: "TaskFlow", LogoURL: base + "/icon-192.png",
+						Title:      "You're invited to TaskFlow",
+						Preheader:  "Create your account to join your team.",
+						Paragraphs: []string{"You have been invited to join your team on TaskFlow."},
+						Button:     &mailer.Button{Label: "Create my account", URL: link},
+						Note:       "The link expires " + expires.UTC().Format("Jan 2, 2006 15:04 MST") + ". If you were not expecting this invitation, you can ignore this email.",
+						Footer:     "You received this email because someone invited you to TaskFlow.",
+					})
+					if err := mc.Send(mailer.Message{To: invite.Email, Subject: "You're invited to TaskFlow", Text: body, HTML: html}); err != nil {
 						log.Printf("warning: failed to send invite email: %v", err)
 					} else {
 						emailed = true

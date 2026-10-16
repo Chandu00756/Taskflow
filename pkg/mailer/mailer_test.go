@@ -255,3 +255,47 @@ func TestSendFallsBackToSignedInMailbox(t *testing.T) {
 		t.Fatalf("expected the relay error to surface, got %v", err)
 	}
 }
+
+func TestBuildMultipartAlternative(t *testing.T) {
+	from, _ := mail.ParseAddress("TaskFlow <ops@example.com>")
+	long := strings.Repeat("x", 3000)
+	msg := string(Build(from, Message{To: "a@b.co", Subject: "Hi", Text: "Plain body", HTML: "<p>" + long + "</p>"}, time.Unix(0, 0)))
+	if !strings.Contains(msg, "Content-Type: multipart/alternative; boundary=") {
+		t.Fatalf("not multipart:\n%s", msg[:400])
+	}
+	if !strings.Contains(msg, "Content-Type: text/plain; charset=UTF-8") || !strings.Contains(msg, "Content-Type: text/html; charset=UTF-8") {
+		t.Fatal("both parts must be present")
+	}
+	for _, line := range strings.Split(msg, "\r\n") {
+		if len(line) > 998 {
+			t.Fatalf("SMTP line limit exceeded: %d characters", len(line))
+		}
+	}
+	if strings.Index(msg, "text/plain") > strings.Index(msg, "text/html") {
+		t.Fatal("plain text must come first so clients prefer the HTML part")
+	}
+}
+
+func TestRenderHTMLIsSafeAndComplete(t *testing.T) {
+	out := RenderHTML(Layout{
+		Brand: "Acme <Desk>", Accent: "red;background:url(x)", LogoURL: "javascript:alert(1)",
+		Title: "<script>alert(1)</script>", Greeting: "Hi Ann,",
+		Paragraphs: []string{"See https://example.com/t/1 and **bold** but not javascript:alert(2)"},
+		Button:     &Button{Label: "Open", URL: "https://example.com/t/1"},
+		Details:    []Detail{{Label: "Ticket", Value: "INC-1"}},
+	})
+	for _, bad := range []string{"<script>", "javascript:alert(1)", "red;background", `href="javascript`} {
+		if strings.Contains(out, bad) {
+			t.Fatalf("unsafe output contains %q", bad)
+		}
+	}
+	for _, want := range []string{"&lt;script&gt;", "Acme &lt;Desk&gt;", `href="https://example.com/t/1"`, "<strong>bold</strong>", "INC-1", "#2563eb", "max-width:600px", "@media only screen and (max-width:620px)"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("output missing %q", want)
+		}
+	}
+	text := LayoutText(Layout{Title: "T", Paragraphs: []string{"**B** body"}, Button: &Button{Label: "Open", URL: "https://x.io"}})
+	if !strings.Contains(text, "B body") || !strings.Contains(text, "Open:\nhttps://x.io") || strings.Contains(text, "**") {
+		t.Fatalf("plain text twin: %q", text)
+	}
+}

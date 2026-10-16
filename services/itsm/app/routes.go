@@ -332,6 +332,8 @@ func (a *App) routes() {
 
 	// Profile pictures are public by unguessable id (image tags cannot send tokens).
 	a.mux.HandleFunc("GET /api/v2/avatars/{id}", a.serveAvatar)
+	// Organization logos are public so they can appear in emails.
+	a.mux.HandleFunc("GET /api/v2/branding/{org}/logo", a.serveBrandingLogo)
 
 	// --- Platform administration (super admin) -------------------------------
 	a.platformRoutes()
