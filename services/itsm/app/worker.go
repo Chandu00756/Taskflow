@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"sort"
 	"time"
 
 	"github.com/chanduchitikam/task-management-system/pkg/mailer"
@@ -211,6 +212,10 @@ func (a *App) deliverEmail(db *gorm.DB) {
 		return
 	}
 	for round := 0; round < 10; round++ {
+		if wait := a.mailGate.take(now(), 0); wait > 0 {
+			a.mailLater(wait) // paused: leave the queue untouched
+			return
+		}
 		var batch []EmailOutbox
 		err := db.Raw(`UPDATE itsm_email_outbox SET status = 'sending', updated_at = now()
 			WHERE id IN (SELECT id FROM itsm_email_outbox
@@ -220,7 +225,14 @@ func (a *App) deliverEmail(db *gorm.DB) {
 		if err != nil || len(batch) == 0 {
 			return
 		}
-		for _, e := range batch {
+		// RETURNING does not keep the subquery's order: send oldest first.
+		sort.Slice(batch, func(i, j int) bool { return batch[i].CreatedAt.Before(batch[j].CreatedAt) })
+		for i, e := range batch {
+			if wait := a.mailGate.take(now(), a.Cfg.SMTPMaxPerMinute); wait > 0 {
+				releaseClaims(db, batch[i:])
+				a.mailLater(wait)
+				return
+			}
 			res, err := mc.SendWithResult(mailer.Message{To: e.ToAddr, Subject: e.Subject, Text: e.Body, HTML: e.HTMLBody})
 			if err == nil && res.Fallback {
 				a.noteSenderFallback(mc, res.From)
@@ -232,14 +244,48 @@ func (a *App) deliverEmail(db *gorm.DB) {
 				}
 				log.Printf("itsm email to=%s failed (attempt %d): %v", e.ToAddr, e.Attempts+1, err)
 				db.Model(&EmailOutbox{}).Where("id = ?", e.ID).Updates(map[string]interface{}{"attempts": e.Attempts + 1, "last_error": truncate(err.Error(), 500), "status": status, "updated_at": now()})
+				if mailer.Throttled(err) {
+					// More attempts now would only prolong the provider's hold.
+					until := a.mailGate.throttled(now(), truncate(err.Error(), 300))
+					log.Printf("itsm email: the mail server is limiting sending; pausing until %s", until.Format(time.RFC3339))
+					releaseClaims(db, batch[i+1:])
+					a.mailLater(until.Sub(now()))
+					return
+				}
 				continue
 			}
+			a.mailGate.delivered()
 			db.Model(&EmailOutbox{}).Where("id = ?", e.ID).Updates(map[string]interface{}{"status": "sent", "sent_at": now(), "attempts": e.Attempts + 1, "last_error": "", "updated_at": now()})
 		}
 		if len(batch) < 20 {
 			return
 		}
 	}
+}
+
+// releaseClaims puts claimed but unsent emails back in the queue without
+// counting an attempt.
+func releaseClaims(db *gorm.DB, rest []EmailOutbox) {
+	if len(rest) == 0 {
+		return
+	}
+	ids := make([]string, len(rest))
+	for i, e := range rest {
+		ids[i] = e.ID
+	}
+	db.Model(&EmailOutbox{}).Where("id IN ? AND status = 'sending'", ids).Update("status", "queued")
+}
+
+// mailLater runs delivery again once a pause or the per-minute window ends.
+// At most one run is scheduled; the worker tick also resumes delivery.
+func (a *App) mailLater(wait time.Duration) {
+	if !a.mailWake.CompareAndSwap(false, true) {
+		return
+	}
+	time.AfterFunc(wait+time.Second, func() {
+		a.mailWake.Store(false)
+		a.kickMail()
+	})
 }
 
 // kickMail starts delivering queued mail now instead of at the next worker

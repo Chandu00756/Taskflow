@@ -26,15 +26,17 @@ import (
 
 // Config carries runtime configuration for the service.
 type Config struct {
-	Environment     string
-	PublicURL       string // base URL of the web app, used in emails
-	SMTPHost        string
-	SMTPPort        string
-	SMTPUser        string
-	SMTPPass        string
-	SMTPFrom        string
-	MaxUploadBytes  int64
-	RefreshTokenTTL time.Duration
+	Environment string
+	PublicURL   string // base URL of the web app, used in emails
+	SMTPHost    string
+	SMTPPort    string
+	SMTPUser    string
+	SMTPPass    string
+	SMTPFrom    string
+	// SMTPMaxPerMinute caps outgoing emails per minute (0 = no cap).
+	SMTPMaxPerMinute int
+	MaxUploadBytes   int64
+	RefreshTokenTTL  time.Duration
 }
 
 // App wires the database, auth and HTTP routes together.
@@ -51,6 +53,10 @@ type App struct {
 	mailAgain atomic.Bool // more mail was queued while a run was busy
 	// mailNote explains a sender fallback (SMTP_FROM refused by the server).
 	mailNote atomic.Value
+	// mailGate paces sending and pauses it while the provider throttles.
+	mailGate mailGate
+	// mailWake is set while a delayed delivery run is scheduled.
+	mailWake atomic.Bool
 }
 
 // New builds the application and registers every route.

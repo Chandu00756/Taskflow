@@ -911,6 +911,7 @@ def main():
         check(mine and mine.get("domain") == domain, "the verified admin's company domain is attached to the organization")
         _, est = call("GET", "/api/v2/platform/email", super_token, expect=200)
         check(est["configured"] == email_on and "pass" not in est and isinstance(est["recent"], list), "platform email status never exposes the password")
+        check("paused_until" in est and isinstance(est.get("max_per_minute"), int), "platform email status reports the sending pause and per-minute limit")
         call("POST", "/api/v2/platform/email/test", super_token, {"to": "not-an-email"}, expect=422)
         _, rq = call("POST", "/api/v2/platform/email/retry", super_token, expect=200)
         check(isinstance(rq.get("requeued"), int), "platform can queue failed emails again")

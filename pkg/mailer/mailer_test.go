@@ -2,8 +2,11 @@ package mailer
 
 import (
 	"bufio"
+	"errors"
+	"fmt"
 	"net"
 	"net/mail"
+	"net/textproto"
 	"strings"
 	"testing"
 	"time"
@@ -297,5 +300,39 @@ func TestRenderHTMLIsSafeAndComplete(t *testing.T) {
 	text := LayoutText(Layout{Title: "T", Paragraphs: []string{"**B** body"}, Button: &Button{Label: "Open", URL: "https://x.io"}})
 	if !strings.Contains(text, "B body") || !strings.Contains(text, "Open:\nhttps://x.io") || strings.Contains(text, "**") {
 		t.Fatalf("plain text twin: %q", text)
+	}
+}
+
+func TestThrottled(t *testing.T) {
+	for _, s := range []string{
+		"message rejected: 550 5.4.6 Unusual sending activity detected. Please try after sometime.",
+		"message rejected: 554 5.7.0 Mail rate exceeded limit",
+		"sign-in to the mail server failed: 454 4.7.0 Too many login attempts, please try again later",
+		"recipient a@b.co rejected: 421 4.7.0 Try again later, closing connection.",
+		"message rejected: 451 4.3.0 Temporary server error",
+		"message rejected: 550 Daily sending quota exceeded",
+		"550 5.7.1 Sender is not allowed to relay emails (also failed from x@y.z: 550 5.4.6 Unusual sending activity detected)",
+	} {
+		if !Throttled(errors.New(s)) {
+			t.Errorf("should count as throttling: %q", s)
+		}
+	}
+	if !Throttled(fmt.Errorf("message rejected: %w", &textproto.Error{Code: 421, Msg: "Service not available"})) {
+		t.Error("421 reply code must count as throttling")
+	}
+	for _, s := range []string{
+		"sign-in to the mail server failed: 535 5.7.8 Authentication failed",
+		"message rejected: 550 5.7.1 Sender is not allowed to relay emails",
+		"recipient nobody@example.org rejected: 550 5.1.1 User unknown",
+		"recipient a@b.co rejected: 552 5.2.2 Mailbox quota exceeded",
+		"connect to smtp.example.com:587: dial tcp: i/o timeout",
+		"message rejected: 554 5.6.0 Message size limit exceeded; separate the attachments",
+	} {
+		if Throttled(errors.New(s)) {
+			t.Errorf("should not count as throttling: %q", s)
+		}
+	}
+	if Throttled(nil) {
+		t.Error("nil is not throttling")
 	}
 }

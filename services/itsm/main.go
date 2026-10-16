@@ -80,17 +80,22 @@ func main() {
 	}
 
 	maxUpload, _ := strconv.ParseInt(env("MAX_UPLOAD_MB", "15"), 10, 64)
+	mailPerMinute, perr := strconv.Atoi(env("SMTP_MAX_PER_MINUTE", "30"))
+	if perr != nil || mailPerMinute < 0 {
+		mailPerMinute = 30
+	}
 	jwt := auth.NewJWTManager(cfg.JWT.SecretKey, cfg.JWT.AccessTokenDuration, cfg.JWT.RefreshTokenDuration)
 	application := app.New(db, jwt, app.Config{
-		Environment:     cfg.Server.Environment,
-		PublicURL:       env("PUBLIC_URL", "http://localhost:3000"),
-		SMTPHost:        os.Getenv("SMTP_HOST"),
-		SMTPPort:        env("SMTP_PORT", "587"),
-		SMTPUser:        os.Getenv("SMTP_USER"),
-		SMTPPass:        os.Getenv("SMTP_PASS"),
-		SMTPFrom:        os.Getenv("SMTP_FROM"),
-		MaxUploadBytes:  maxUpload << 20,
-		RefreshTokenTTL: cfg.JWT.RefreshTokenDuration,
+		Environment:      cfg.Server.Environment,
+		PublicURL:        env("PUBLIC_URL", "http://localhost:3000"),
+		SMTPHost:         os.Getenv("SMTP_HOST"),
+		SMTPPort:         env("SMTP_PORT", "587"),
+		SMTPUser:         os.Getenv("SMTP_USER"),
+		SMTPPass:         os.Getenv("SMTP_PASS"),
+		SMTPFrom:         os.Getenv("SMTP_FROM"),
+		SMTPMaxPerMinute: mailPerMinute,
+		MaxUploadBytes:   maxUpload << 20,
+		RefreshTokenTTL:  cfg.JWT.RefreshTokenDuration,
 	})
 
 	ctx, cancel := context.WithCancel(context.Background())

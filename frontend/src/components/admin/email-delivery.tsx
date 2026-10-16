@@ -12,6 +12,9 @@ import { v2, parseApiError } from '@/lib/itsm/api';
 
 interface EmailStatus {
   sender_note?: string;
+  paused_until?: string | null;
+  pause_reason?: string;
+  max_per_minute?: number;
   configured: boolean;
   host: string;
   port: string;
@@ -82,12 +85,25 @@ export function EmailDeliveryPanel({ defaultTo }: { defaultTo?: string }) {
                 </div>
               </div>
               {s.sender_note && <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">{s.sender_note}</p>}
+              {s.paused_until && (
+                <div className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-900">
+                  <p className="font-medium">
+                    Sending is paused until {new Date(s.paused_until).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </p>
+                  <p className="mt-1">
+                    The mail provider is limiting this account, so queued emails wait instead of being retried, which would prolong the hold. Emails are kept and go out when the pause ends.
+                    &quot;Retry failed emails&quot; or a successful test email resumes sending now.
+                  </p>
+                  {s.pause_reason && <p className="mt-1 break-all text-xs text-rose-700">{s.pause_reason}</p>}
+                </div>
+              )}
               <dl className="grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
                 {[
                   ['Mail server', s.host ? `${s.host}:${s.port}` : '—'],
                   ['Sign-in user', s.user || '—'],
                   ['Sender (From)', s.from || '—'],
                   ['Links point to', s.public_url],
+                  ['Sending limit', s.max_per_minute ? `${s.max_per_minute} emails per minute` : 'No limit'],
                 ].map(([k, v]) => (
                   <div key={k}>
                     <dt className="text-slate-500">{k}</dt>

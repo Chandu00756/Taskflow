@@ -267,8 +267,16 @@ func (a *App) platformEmailStatus(w http.ResponseWriter, r *http.Request, _ stri
 		recent = []recentRow{}
 	}
 	note, _ := a.mailNote.Load().(string)
+	var pausedUntil *time.Time
+	until, reason, paused := a.mailGate.paused(now())
+	if paused {
+		pausedUntil = &until
+	}
 	writeJSON(w, http.StatusOK, map[string]interface{}{
 		"sender_note":        note,
+		"paused_until":       pausedUntil,
+		"pause_reason":       reason,
+		"max_per_minute":     a.Cfg.SMTPMaxPerMinute,
 		"configured":         mc.Enabled(),
 		"host":               mc.Host,
 		"port":               mc.Port,
@@ -310,8 +318,16 @@ func (a *App) platformEmailTest(w http.ResponseWriter, r *http.Request, actor st
 	l.Footer = "Sent from the TaskFlow platform console."
 	res, err := mc.SendWithResult(mailer.Message{To: to, Subject: "TaskFlow test email", Text: body, HTML: mailer.RenderHTML(l)})
 	if err != nil {
-		return &APIError{Status: http.StatusBadGateway, Message: "The mail server refused the message: " + err.Error()}
+		msg := "The mail server refused the message: " + err.Error()
+		if mailer.Throttled(err) {
+			until := a.mailGate.throttled(now(), truncate(err.Error(), 300))
+			msg += fmt.Sprintf(" The mail provider is limiting this account, so queued emails are paused until %s UTC. Use a sending service built for apps (ZeptoMail, Brevo, Amazon SES) or contact the provider.", until.UTC().Format("15:04"))
+		}
+		return &APIError{Status: http.StatusBadGateway, Message: msg}
 	}
+	// The server accepts mail again: resume the queue.
+	a.mailGate.clear()
+	a.kickMail()
 	msg := "Test email sent to " + to + ". Check the inbox (and spam folder)."
 	if res.Fallback {
 		a.noteSenderFallback(mc, res.From)
@@ -322,8 +338,9 @@ func (a *App) platformEmailTest(w http.ResponseWriter, r *http.Request, actor st
 }
 
 // platformEmailRetry queues failed emails from the last 7 days again, e.g.
-// after fixing the mail settings.
+// after fixing the mail settings, and lifts a throttling pause.
 func (a *App) platformEmailRetry(w http.ResponseWriter, r *http.Request, _ string) error {
+	a.mailGate.clear()
 	res := a.DB.WithContext(r.Context()).Model(&EmailOutbox{}).
 		Where("status = 'failed' AND created_at > ?", now().AddDate(0, 0, -7)).
 		Updates(map[string]interface{}{"status": "queued", "attempts": 0, "last_error": "", "updated_at": now()})

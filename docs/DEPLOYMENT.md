@@ -215,6 +215,20 @@ Zoho plan does not allow sending from apps: use **Zoho ZeptoMail**
 (`smtp-relay.brevo.com`, port 587) instead. Both show the SPF/DKIM records to
 add in Zoho DNS so your mail is not marked as spam.
 
+*A sending service is the better choice in any case.* Zoho Mail mailboxes are
+meant for people; Zoho may block one that an app sends from ("550 5.4.6
+Unusual sending activity detected"), even at low volume. Use ZeptoMail, Brevo
+or Amazon SES for TaskFlow and keep the mailbox for people.
+
+**Sending limits.** TaskFlow sends at most `SMTP_MAX_PER_MINUTE` emails a
+minute (default 30, `0` = no limit); the rest wait in the queue. When the mail
+provider answers that it is limiting the account (rate limits, "unusual
+sending activity", 421/451/454 replies), TaskFlow pauses all sending for 15
+minutes, doubling up to 2 hours while the provider keeps refusing, instead of
+retrying every queued email and prolonging the hold. The **Email** tab shows
+the pause and the provider's answer; **Retry failed emails** or a successful
+**Send test email** resumes sending at once. A restart also clears the pause.
+
 **Uptime alerts.** Add an HTTP monitor for
 `https://taskflow.portalvii.com/health` in UptimeRobot or Better Stack.
 

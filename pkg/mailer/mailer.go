@@ -17,7 +17,9 @@ import (
 	"net"
 	"net/mail"
 	"net/smtp"
+	"net/textproto"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -140,6 +142,34 @@ func senderRefused(err error) bool {
 	}
 	e := strings.ToLower(err.Error())
 	for _, s := range []string{"relay", "sendasdenied", "send as", "sender address rejected", "not allowed to send", "not owned by", "553"} {
+		if strings.Contains(e, s) {
+			return true
+		}
+	}
+	return false
+}
+
+var (
+	throttleCode     = regexp.MustCompile(`(?:^|[\s:(])(?:421|451|454)[\s-]`)
+	throttleEnhanced = regexp.MustCompile(`\b(?:4\.7\.\d{1,3}|5\.4\.6)\b`)
+)
+
+// Throttled reports whether err means the mail server is limiting or has
+// held the account's sending (rate limits, "unusual sending activity"), so
+// the caller should pause instead of trying more messages.
+func Throttled(err error) bool {
+	if err == nil {
+		return false
+	}
+	var te *textproto.Error
+	if errors.As(err, &te) && (te.Code == 421 || te.Code == 451 || te.Code == 454) {
+		return true
+	}
+	e := strings.ToLower(err.Error())
+	if throttleCode.MatchString(e) || throttleEnhanced.MatchString(e) {
+		return true
+	}
+	for _, s := range []string{"unusual sending activity", "rate limit", "rate exceeded", "sending rate", "sending limit", "daily limit", "hourly limit", "sending quota", "daily quota", "too many messages", "too many emails", "too many connections", "try again later", "try after sometime", "temporarily blocked", "temporarily deferred"} {
 		if strings.Contains(e, s) {
 			return true
 		}
