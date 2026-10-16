@@ -228,6 +228,19 @@ minutes, doubling up to 2 hours while the provider keeps refusing, instead of
 retrying every queued email and prolonging the hold. The **Email** tab shows
 the pause and the provider's answer; **Retry failed emails** or a successful
 **Send test email** resumes sending at once. A restart also clears the pause.
+**Retry failed emails** also sends emails that are waiting between attempts
+right away.
+
+`SMTP_MAX_PER_DAY` (default `0` = no limit) caps emails per 24 hours to stay
+inside a plan's allowance; set it a little under it, e.g. `280` for Brevo's
+free 300 a day. The last tenth is kept for account emails (verification,
+password reset, invitations), and those are always sent first, so people can
+still sign in on a busy day while notifications wait in the queue. The Email
+tab shows how many emails went out in the last 24 hours.
+
+*Brevo:* if every email fails with **"525 5.7.1 Unauthorized IP address"**,
+add the server's public IP under **Brevo → Settings → Security → Authorized
+IPs**.
 
 **Uptime alerts.** Add an HTTP monitor for
 `https://taskflow.portalvii.com/health` in UptimeRobot or Better Stack.

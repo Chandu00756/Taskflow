@@ -35,8 +35,10 @@ type Config struct {
 	SMTPFrom    string
 	// SMTPMaxPerMinute caps outgoing emails per minute (0 = no cap).
 	SMTPMaxPerMinute int
-	MaxUploadBytes   int64
-	RefreshTokenTTL  time.Duration
+	// SMTPMaxPerDay caps emails per 24 hours, e.g. a provider's free plan (0 = no cap).
+	SMTPMaxPerDay   int
+	MaxUploadBytes  int64
+	RefreshTokenTTL time.Duration
 }
 
 // App wires the database, auth and HTTP routes together.
@@ -57,6 +59,8 @@ type App struct {
 	mailGate mailGate
 	// mailWake is set while a delayed delivery run is scheduled.
 	mailWake atomic.Bool
+	// mailRun serializes delivery runs.
+	mailRun sync.Mutex
 }
 
 // New builds the application and registers every route.

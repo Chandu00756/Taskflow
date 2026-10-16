@@ -15,6 +15,7 @@ type mailGate struct {
 	pausedUntil time.Time
 	backoff     time.Duration
 	reason      string
+	kind        string // "throttled" or "daily_limit"
 }
 
 const (
@@ -58,8 +59,19 @@ func (g *mailGate) throttled(t time.Time, reason string) time.Time {
 		}
 	}
 	g.pausedUntil = t.Add(g.backoff)
-	g.reason = reason
+	g.reason, g.kind = reason, "throttled"
 	return g.pausedUntil
+}
+
+// hold stops sending until the given time because a configured limit is
+// used up; unlike throttled it does not grow the back-off.
+func (g *mailGate) hold(until time.Time, reason string) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	if until.After(g.pausedUntil) {
+		g.pausedUntil = until
+	}
+	g.reason, g.kind = reason, "daily_limit"
 }
 
 // delivered records a successful send; the next throttle starts over at 15 minutes.
@@ -72,16 +84,16 @@ func (g *mailGate) delivered() {
 // clear lifts a pause, e.g. when a platform admin retries after fixing the settings.
 func (g *mailGate) clear() {
 	g.mu.Lock()
-	g.pausedUntil, g.backoff, g.reason = time.Time{}, 0, ""
+	g.pausedUntil, g.backoff, g.reason, g.kind = time.Time{}, 0, "", ""
 	g.mu.Unlock()
 }
 
-// paused returns the end of the current pause and its reason, if any.
-func (g *mailGate) paused(t time.Time) (until time.Time, reason string, ok bool) {
+// paused returns the end of the current pause, its reason and kind, if any.
+func (g *mailGate) paused(t time.Time) (until time.Time, reason, kind string, ok bool) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	if t.Before(g.pausedUntil) {
-		return g.pausedUntil, g.reason, true
+		return g.pausedUntil, g.reason, g.kind, true
 	}
-	return time.Time{}, "", false
+	return time.Time{}, "", "", false
 }

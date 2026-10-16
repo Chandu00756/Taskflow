@@ -268,7 +268,7 @@ func (a *App) platformEmailStatus(w http.ResponseWriter, r *http.Request, _ stri
 	}
 	note, _ := a.mailNote.Load().(string)
 	var pausedUntil *time.Time
-	until, reason, paused := a.mailGate.paused(now())
+	until, reason, kind, paused := a.mailGate.paused(now())
 	if paused {
 		pausedUntil = &until
 	}
@@ -276,7 +276,10 @@ func (a *App) platformEmailStatus(w http.ResponseWriter, r *http.Request, _ stri
 		"sender_note":        note,
 		"paused_until":       pausedUntil,
 		"pause_reason":       reason,
+		"pause_kind":         kind,
 		"max_per_minute":     a.Cfg.SMTPMaxPerMinute,
+		"max_per_day":        a.Cfg.SMTPMaxPerDay,
+		"sent_last_24h":      sentLast24h(db),
 		"configured":         mc.Enabled(),
 		"host":               mc.Host,
 		"port":               mc.Port,
@@ -337,18 +340,19 @@ func (a *App) platformEmailTest(w http.ResponseWriter, r *http.Request, actor st
 	return nil
 }
 
-// platformEmailRetry queues failed emails from the last 7 days again, e.g.
-// after fixing the mail settings, and lifts a throttling pause.
+// platformEmailRetry queues failed emails from the last 7 days again and
+// sends emails waiting between attempts now, e.g. after fixing the mail
+// settings; it also lifts a throttling pause.
 func (a *App) platformEmailRetry(w http.ResponseWriter, r *http.Request, _ string) error {
 	a.mailGate.clear()
 	res := a.DB.WithContext(r.Context()).Model(&EmailOutbox{}).
-		Where("status = 'failed' AND created_at > ?", now().AddDate(0, 0, -7)).
+		Where("((status = 'failed' AND created_at > ?) OR (status = 'queued' AND attempts > 0))", now().AddDate(0, 0, -7)).
 		Updates(map[string]interface{}{"status": "queued", "attempts": 0, "last_error": "", "updated_at": now()})
 	if res.Error != nil {
 		return res.Error
 	}
 	a.kickMail()
-	writeJSON(w, http.StatusOK, map[string]interface{}{"requeued": res.RowsAffected, "message": fmt.Sprintf("%d failed emails queued again", res.RowsAffected)})
+	writeJSON(w, http.StatusOK, map[string]interface{}{"requeued": res.RowsAffected, "message": fmt.Sprintf("%d emails queued to send now", res.RowsAffected)})
 	return nil
 }
 

@@ -84,6 +84,10 @@ func main() {
 	if perr != nil || mailPerMinute < 0 {
 		mailPerMinute = 30
 	}
+	mailPerDay, derr := strconv.Atoi(env("SMTP_MAX_PER_DAY", "0"))
+	if derr != nil || mailPerDay < 0 {
+		mailPerDay = 0
+	}
 	jwt := auth.NewJWTManager(cfg.JWT.SecretKey, cfg.JWT.AccessTokenDuration, cfg.JWT.RefreshTokenDuration)
 	application := app.New(db, jwt, app.Config{
 		Environment:      cfg.Server.Environment,
@@ -94,6 +98,7 @@ func main() {
 		SMTPPass:         os.Getenv("SMTP_PASS"),
 		SMTPFrom:         os.Getenv("SMTP_FROM"),
 		SMTPMaxPerMinute: mailPerMinute,
+		SMTPMaxPerDay:    mailPerDay,
 		MaxUploadBytes:   maxUpload << 20,
 		RefreshTokenTTL:  cfg.JWT.RefreshTokenDuration,
 	})

@@ -36,8 +36,8 @@ func TestMailGatePausesWithGrowingBackoff(t *testing.T) {
 	if w := g.take(t0.Add(time.Minute), 0); w != 14*time.Minute {
 		t.Fatalf("paused sends wait for the pause to end, got %v", w)
 	}
-	if u, reason, ok := g.paused(t0.Add(time.Minute)); !ok || u != until || reason == "" {
-		t.Fatalf("status should report the pause: %v %q %v", u, reason, ok)
+	if u, reason, kind, ok := g.paused(t0.Add(time.Minute)); !ok || u != until || reason == "" || kind != "throttled" {
+		t.Fatalf("status should report the pause: %v %q %q %v", u, reason, kind, ok)
 	}
 	want := []time.Duration{30 * time.Minute, time.Hour, 2 * time.Hour, 2 * time.Hour}
 	at := until
@@ -47,7 +47,7 @@ func TestMailGatePausesWithGrowingBackoff(t *testing.T) {
 		}
 		at = at.Add(d)
 	}
-	if _, _, ok := g.paused(at.Add(time.Second)); ok {
+	if _, _, _, ok := g.paused(at.Add(time.Second)); ok {
 		t.Fatal("the pause ends on time")
 	}
 	g.delivered()
@@ -55,7 +55,44 @@ func TestMailGatePausesWithGrowingBackoff(t *testing.T) {
 		t.Fatalf("a successful send resets the back-off, got %v", got)
 	}
 	g.clear()
-	if _, _, ok := g.paused(at); ok || g.take(at, 0) != 0 {
+	if _, _, _, ok := g.paused(at); ok || g.take(at, 0) != 0 {
 		t.Fatal("clear lifts the pause")
+	}
+}
+
+func TestMailGateHoldForDailyLimit(t *testing.T) {
+	var g mailGate
+	t0 := time.Date(2026, 1, 1, 10, 0, 0, 0, time.UTC)
+	g.hold(t0.Add(3*time.Hour), "daily limit")
+	if w := g.take(t0, 0); w != 3*time.Hour {
+		t.Fatalf("a hold stops sending until it ends, got %v", w)
+	}
+	if _, _, kind, ok := g.paused(t0); !ok || kind != "daily_limit" {
+		t.Fatalf("status should report the daily limit, got %q %v", kind, ok)
+	}
+	if got := g.throttled(t0, "throttled").Sub(t0); got != 15*time.Minute {
+		t.Fatalf("a hold does not grow the throttling back-off, got %v", got)
+	}
+}
+
+func TestDailyAllowance(t *testing.T) {
+	for _, c := range []struct {
+		sent, max, left int
+		accountOnly     bool
+	}{
+		{0, 280, 280, false},
+		{200, 280, 80, false},
+		{251, 280, 29, false},
+		{252, 280, 28, true}, // the last tenth is kept for account emails
+		{279, 280, 1, true},
+		{280, 280, 0, true},
+		{300, 280, 0, true},
+		{0, 5, 5, false},
+		{5, 5, 0, true},
+	} {
+		left, only := dailyAllowance(c.sent, c.max)
+		if left != c.left || only != c.accountOnly {
+			t.Errorf("dailyAllowance(%d, %d) = %d, %v; want %d, %v", c.sent, c.max, left, only, c.left, c.accountOnly)
+		}
 	}
 }

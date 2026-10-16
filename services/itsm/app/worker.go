@@ -211,22 +211,53 @@ func (a *App) deliverEmail(db *gorm.DB) {
 		db.Model(&EmailOutbox{}).Where("id IN ?", ids).Updates(map[string]interface{}{"status": "skipped", "last_error": "SMTP not configured"})
 		return
 	}
+	// One delivery run at a time (worker tick and kicks), so the daily
+	// allowance computed below is not spent twice.
+	a.mailRun.Lock()
+	defer a.mailRun.Unlock()
 	for round := 0; round < 10; round++ {
 		if wait := a.mailGate.take(now(), 0); wait > 0 {
 			a.mailLater(wait) // paused: leave the queue untouched
 			return
 		}
+		limit, accountOnly := 20, false
+		if max := a.Cfg.SMTPMaxPerDay; max > 0 {
+			sent := sentLast24h(db)
+			left, only := dailyAllowance(int(sent), max)
+			if left == 0 {
+				until := now().Add(time.Minute)
+				var oldest *time.Time
+				db.Model(&EmailOutbox{}).Select("MIN(sent_at)").Where("status = 'sent' AND sent_at > ?", now().Add(-24*time.Hour)).Scan(&oldest)
+				if oldest != nil && oldest.Add(24*time.Hour).After(until) {
+					until = oldest.Add(24 * time.Hour)
+				}
+				a.mailGate.hold(until, fmt.Sprintf("The daily limit of %d emails (SMTP_MAX_PER_DAY) is reached; %d were sent in the last 24 hours.", max, sent))
+				a.mailLater(until.Sub(now()))
+				return
+			}
+			accountOnly = only
+			if left < limit {
+				limit = left
+			}
+		}
 		var batch []EmailOutbox
 		err := db.Raw(`UPDATE itsm_email_outbox SET status = 'sending', updated_at = now()
 			WHERE id IN (SELECT id FROM itsm_email_outbox
 				WHERE status = 'queued' AND attempts < 5 AND (attempts = 0 OR updated_at < now() - attempts * interval '2 minutes')
-				ORDER BY created_at LIMIT 20 FOR UPDATE SKIP LOCKED)
-			RETURNING *`).Scan(&batch).Error
+					AND (NOT ? OR entity_type = 'user')
+				ORDER BY (entity_type = 'user') DESC, created_at LIMIT ? FOR UPDATE SKIP LOCKED)
+			RETURNING *`, accountOnly, limit).Scan(&batch).Error
 		if err != nil || len(batch) == 0 {
 			return
 		}
-		// RETURNING does not keep the subquery's order: send oldest first.
-		sort.Slice(batch, func(i, j int) bool { return batch[i].CreatedAt.Before(batch[j].CreatedAt) })
+		// RETURNING does not keep the subquery's order: account emails
+		// (verification, password reset, invitations) first, then oldest first.
+		sort.Slice(batch, func(i, j int) bool {
+			if ai, aj := batch[i].EntityType == "user", batch[j].EntityType == "user"; ai != aj {
+				return ai
+			}
+			return batch[i].CreatedAt.Before(batch[j].CreatedAt)
+		})
 		for i, e := range batch {
 			if wait := a.mailGate.take(now(), a.Cfg.SMTPMaxPerMinute); wait > 0 {
 				releaseClaims(db, batch[i:])
@@ -257,10 +288,29 @@ func (a *App) deliverEmail(db *gorm.DB) {
 			a.mailGate.delivered()
 			db.Model(&EmailOutbox{}).Where("id = ?", e.ID).Updates(map[string]interface{}{"status": "sent", "sent_at": now(), "attempts": e.Attempts + 1, "last_error": "", "updated_at": now()})
 		}
-		if len(batch) < 20 {
+		if len(batch) < limit {
 			return
 		}
 	}
+}
+
+// sentLast24h counts emails delivered in the last 24 hours.
+func sentLast24h(db *gorm.DB) int64 {
+	var n int64
+	db.Model(&EmailOutbox{}).Where("status = 'sent' AND sent_at > ?", now().Add(-24*time.Hour)).Count(&n)
+	return n
+}
+
+// dailyAllowance returns how many more emails may go out under a daily
+// limit of max, given sent in the last 24 hours. The last tenth is kept for
+// account emails (verification, password reset, invitations), so people can
+// still sign in on a busy day: accountOnly is set once only that reserve is left.
+func dailyAllowance(sent, max int) (left int, accountOnly bool) {
+	left = max - sent
+	if left <= 0 {
+		return 0, true
+	}
+	return left, left <= max/10
 }
 
 // releaseClaims puts claimed but unsent emails back in the queue without
