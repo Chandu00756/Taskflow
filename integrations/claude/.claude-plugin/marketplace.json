@@ -1,0 +1,17 @@
+{
+  "name": "taskflow",
+  "owner": {
+    "name": "Kairvo"
+  },
+  "metadata": {
+    "description": "Claude plugins for the TaskFlow service desk."
+  },
+  "plugins": [
+    {
+      "name": "taskflow",
+      "source": "./taskflow",
+      "description": "Run the whole TaskFlow service desk from Claude: tickets, problems, changes, releases, projects, assets, catalog, knowledge base and configuration.",
+      "version": "0.2.3"
+    }
+  ]
+}

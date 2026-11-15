@@ -561,6 +561,35 @@ func (a *App) getTicket(c *Ctx) error {
 	return c.JSON(http.StatusOK, out)
 }
 
+// changeTracker collects what an edit changes: the entries for the activity log and the
+// before/after values the workflow rules test. An edit that changes nothing is not saved,
+// so every field an edit can write must be tracked here.
+type changeTracker struct {
+	changes []FieldChange
+	rules   map[string]rules.Change
+}
+
+func newChangeTracker() *changeTracker {
+	return &changeTracker{rules: map[string]rules.Change{}}
+}
+
+// field records a change when from and to differ.
+func (ct *changeTracker) field(name string, from, to interface{}) {
+	if fmt.Sprint(from) != fmt.Sprint(to) {
+		ct.changes = append(ct.changes, FieldChange{Field: name, From: from, To: to})
+		ct.rules[name] = rules.Change{From: from, To: to}
+	}
+}
+
+// text records a change to a long text (a description, resolution notes) when it differs.
+// The activity log shows "…" rather than copying the text; the rules see the real values.
+func (ct *changeTracker) text(name, from, to string) {
+	if from != to {
+		ct.changes = append(ct.changes, FieldChange{Field: name, From: "…", To: "…"})
+		ct.rules[name] = rules.Change{From: from, To: to}
+	}
+}
+
 func (a *App) updateTicket(c *Ctx) error {
 	t, err := c.loadTicket(c.Param("id"))
 	if err != nil {
@@ -582,14 +611,8 @@ func (a *App) updateTicket(c *Ctx) error {
 	}
 	before := *t
 	errs := map[string]string{}
-	var changes []FieldChange
-	ruleChanges := map[string]rules.Change{}
-	track := func(field string, from, to interface{}) {
-		if fmt.Sprint(from) != fmt.Sprint(to) {
-			changes = append(changes, FieldChange{Field: field, From: from, To: to})
-			ruleChanges[field] = rules.Change{From: from, To: to}
-		}
-	}
+	ct := newChangeTracker()
+	track, trackText := ct.field, ct.text
 	if in.Subject != nil {
 		if v := strings.TrimSpace(*in.Subject); v == "" {
 			errs["subject"] = "is required"
@@ -599,7 +622,7 @@ func (a *App) updateTicket(c *Ctx) error {
 		}
 	}
 	if in.Description != nil {
-		track("description", "…", "…")
+		trackText("description", t.Description, *in.Description)
 		t.Description = *in.Description
 	}
 	if in.Type != nil && *in.Type != t.Type {
@@ -694,6 +717,7 @@ func (a *App) updateTicket(c *Ctx) error {
 				cc = append(cc, e)
 			}
 		}
+		track("cc_emails", stringsFrom(t.CCEmails), cc)
 		t.CCEmails = jsonOf(cc)
 	}
 	if in.CustomFields != nil {
@@ -709,6 +733,7 @@ func (a *App) updateTicket(c *Ctx) error {
 		t.CustomFields = jsonOf(existing)
 	}
 	if in.Resolution != nil {
+		trackText("resolution_notes", t.ResolutionNotes, *in.Resolution)
 		t.ResolutionNotes = *in.Resolution
 	}
 	statusChanged := false
@@ -757,19 +782,19 @@ func (a *App) updateTicket(c *Ctx) error {
 			t.DueBy = due
 		}
 	}
-	if len(changes) == 0 {
+	if len(ct.changes) == 0 {
 		return c.JSON(http.StatusOK, c.ticketDTOs([]Ticket{*t})[0])
 	}
 	var res automationResult
 	err = c.DB().Transaction(func(tx *gorm.DB) error {
-		res = a.runWorkflows(c.R.Context(), tx, s, "ticket_updated", t, ruleChanges)
+		res = a.runWorkflows(c.R.Context(), tx, s, "ticket_updated", t, ct.rules)
 		if deref(before.GroupID) != deref(t.GroupID) {
 			autoAssign(tx, t)
 		}
 		if err := tx.Save(t).Error; err != nil {
 			return err
 		}
-		c.activity(tx, "ticket", t.ID, "updated", "updated the ticket", append(changes, res.changes...))
+		c.activity(tx, "ticket", t.ID, "updated", "updated the ticket", append(ct.changes, res.changes...))
 		a.finishAutomation(c.R.Context(), tx, t, res, s)
 		return nil
 	})

@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "taskflow": {
+      "command": "python3",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/server/taskflow_mcp.py"],
+      "env": {
+        "TASKFLOW_URL": "${TASKFLOW_URL:-https://taskflow.portalvii.com}",
+        "TASKFLOW_API_KEY": "${TASKFLOW_API_KEY:-}"
+      }
+    }
+  }
+}

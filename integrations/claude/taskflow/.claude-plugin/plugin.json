@@ -1,0 +1,10 @@
+{
+  "name": "taskflow",
+  "version": "0.2.3",
+  "description": "Connects Claude to the TaskFlow service desk as your agent account: tickets, problems, changes, releases, projects, assets, catalog, knowledge base, people and configuration.",
+  "author": {
+    "name": "Kairvo"
+  },
+  "homepage": "https://taskflow.portalvii.com",
+  "keywords": ["itsm", "service-desk", "tickets", "taskflow"]
+}
