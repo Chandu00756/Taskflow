@@ -1633,10 +1633,23 @@ def tool_get_record(client: TaskflowClient, args: dict) -> Any:
     return _trim(client.get(_fill(res.get_path or "", rid=rid)))
 
 
+PERSON_FIELDS = ("requester_id", "co_requester_id")
+
+
+def _resolve_people(client: TaskflowClient, data: dict) -> dict:
+    """Lets requester_id and co_requester_id be a name, email or 'me' as well as an id; '' still clears."""
+    out = dict(data)
+    for field in PERSON_FIELDS:
+        value = out.get(field)
+        if isinstance(value, str) and value.strip() and not UUID_RE.match(value.strip()):
+            out[field] = client.resolve_person(value)
+    return out
+
+
 def tool_create_record(client: TaskflowClient, args: dict) -> Any:
     res = _resource(args.get("resource"))
     _require(res, "C")
-    data = _data_arg(args, required=True)
+    data = _resolve_people(client, _data_arg(args, required=True))
     parent = resolve_parent(client, res, args.get("parent"), args.get("parent_type"))
     if not args.get("force"):
         refuse_duplicates(client, res, data, parent)
@@ -1647,7 +1660,7 @@ def tool_create_record(client: TaskflowClient, args: dict) -> Any:
 def tool_update_record(client: TaskflowClient, args: dict) -> Any:
     res = _resource(args.get("resource"))
     _require(res, "U")
-    data = _data_arg(args, required=True)
+    data = _resolve_people(client, _data_arg(args, required=True))
     rid = None if res.singleton else resolve_record(client, res, args.get("id"))
     if not args.get("force") and "C" in res.ops:
         refuse_duplicates(client, res, data, exclude_id=rid)
@@ -1908,7 +1921,11 @@ RESOURCE_NAME = {"type": "string", "enum": [r.name for r in RESOURCE_LIST]}
 RECORD_ID = {"type": "string", "description": "Record id, display ID (PRB-2, VENDO-9) or exact name."}
 PARENT = {"type": "string", "description": "Owning project (name/key/id), record (INC-11, PRB-2, ...) or report kind."}
 PARENT_TYPE = {"type": "string", "enum": list(RECORD_MODULES.values()), "description": "Only with a UUID parent."}
-DATA = {"type": "object", "description": "Fields to send, as the TaskFlow API names them."}
+DATA = {
+    "type": "object",
+    "description": "Fields to send, as the TaskFlow API names them. requester_id and co_requester_id (a change's "
+    "second requester) may be a name, email or 'me'.",
+}
 PARAMS = {
     "type": "object",
     "description": 'Query parameters, e.g. {"page": 2, "per_page": 50, "q": "vpn"}.',

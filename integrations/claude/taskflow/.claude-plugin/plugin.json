@@ -1,6 +1,6 @@
 {
   "name": "taskflow",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "Connects Claude to the TaskFlow service desk as your agent account: tickets, problems, changes, releases, projects, assets, catalog, knowledge base, people and configuration.",
   "author": {
     "name": "Kairvo"

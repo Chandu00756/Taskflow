@@ -140,6 +140,7 @@ type itilInput struct {
 	ChangeType     *string   `json:"change_type"`
 	ReleaseType    *string   `json:"release_type"`
 	RequesterID    *string   `json:"requester_id"`
+	CoRequesterID  *string   `json:"co_requester_id"`
 	AgentID        *string   `json:"agent_id"`
 	GroupID        *string   `json:"group_id"`
 	DepartmentID   *string   `json:"department_id"`
@@ -406,22 +407,32 @@ func (a *App) softDelete(model interface{}, entity string, deleted bool) handler
 
 var changeStatuses = []string{"open", "planning", "awaiting_approval", "pending_release", "pending_review", "closed"}
 
+// changeTrackedFields are the change fields whose edits are written to the activity log.
+var changeTrackedFields = []string{"status", "change_type", "priority", "impact", "risk", "requester_id", "co_requester_id", "agent_id", "group_id",
+	"planned_start", "planned_end", "release_id", "category", "sub_category", "item_category", "business_impact"}
+
 // ChangeDTO enriches a change.
 type ChangeDTO struct {
 	*Change
-	DisplayID  string     `json:"display_id"`
-	Agent      *UserBrief `json:"agent"`
-	Requester  *UserBrief `json:"requester"`
-	Group      *Ref       `json:"group"`
-	Department *Ref       `json:"department"`
-	Tags       []string   `json:"tags"`
-	Release    *Ref       `json:"release"`
+	DisplayID   string     `json:"display_id"`
+	Agent       *UserBrief `json:"agent"`
+	Requester   *UserBrief `json:"requester"`
+	CoRequester *UserBrief `json:"co_requester"`
+	Group       *Ref       `json:"group"`
+	Department  *Ref       `json:"department"`
+	Tags        []string   `json:"tags"`
+	Release     *Ref       `json:"release"`
+}
+
+// sameRequester reports whether the second requester repeats the requester.
+func sameRequester(requester, coRequester *string) bool {
+	return requester != nil && coRequester != nil && *requester != "" && strings.EqualFold(*requester, *coRequester)
 }
 
 func (c *Ctx) changeDTOs(items []Change) []ChangeDTO {
 	var uids, gids, dids, rids []string
 	for _, ch := range items {
-		uids = append(uids, deref(ch.AgentID), deref(ch.RequesterID))
+		uids = append(uids, deref(ch.AgentID), deref(ch.RequesterID), deref(ch.CoRequesterID))
 		gids = append(gids, deref(ch.GroupID))
 		dids = append(dids, deref(ch.DepartmentID))
 		rids = append(rids, deref(ch.ReleaseID))
@@ -440,7 +451,7 @@ func (c *Ctx) changeDTOs(items []Change) []ChangeDTO {
 	for i := range items {
 		ch := &items[i]
 		out[i] = ChangeDTO{Change: ch, DisplayID: displayID(s.PrefixChange, ch.Number), Agent: l.user(ch.AgentID), Requester: l.user(ch.RequesterID),
-			Group: l.group(ch.GroupID), Department: l.dept(ch.DepartmentID), Tags: stringsFrom(ch.Tags)}
+			CoRequester: l.user(ch.CoRequesterID), Group: l.group(ch.GroupID), Department: l.dept(ch.DepartmentID), Tags: stringsFrom(ch.Tags)}
 		if ch.ReleaseID != nil {
 			out[i].Release = rels[*ch.ReleaseID]
 		}
@@ -508,6 +519,13 @@ func (c *Ctx) applyChangeInput(ch *Change, in *itilInput) map[string]string {
 		ch.Risk = clampInt(*in.Risk, 1, 4, ch.Risk)
 	}
 	c.applyOwnership(errs, in, ownership{agent: &ch.AgentID, group: &ch.GroupID, dept: &ch.DepartmentID, requester: &ch.RequesterID})
+	if in.CoRequesterID != nil {
+		ch.CoRequesterID = strPtr(*in.CoRequesterID)
+		c.optionalRef(errs, "co_requester_id", ch.CoRequesterID, c.userInOrg)
+	}
+	if sameRequester(ch.RequesterID, ch.CoRequesterID) {
+		errs["co_requester_id"] = "must be a different person from the requester"
+	}
 	c.applyClassification(errs, "change", in, &ch.Category, &ch.SubCategory, &ch.ItemCategory, &ch.BusinessImpact)
 	setTime(errs, "planned_start", &ch.PlannedStart, in.PlannedStart)
 	setTime(errs, "planned_end", &ch.PlannedEnd, in.PlannedEnd)
@@ -590,7 +608,7 @@ func (a *App) updateChange(c *Ctx) error {
 		c.changeTypeNeedsApproval(ch.ChangeType) && ch.ApprovalStatus != "approved" {
 		return errBadRequest("this change type needs CAB approval before release")
 	}
-	changes := diffFields(before, ch, "status", "change_type", "priority", "impact", "risk", "agent_id", "group_id", "planned_start", "planned_end", "release_id", "category", "sub_category", "item_category", "business_impact")
+	changes := diffFields(before, ch, changeTrackedFields...)
 	err := c.DB().Transaction(func(tx *gorm.DB) error {
 		if err := tx.Save(&ch).Error; err != nil {
 			return err

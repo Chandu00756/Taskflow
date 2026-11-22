@@ -199,6 +199,8 @@ export interface Change {
   risk: number;
   approval_status: 'not_requested' | 'requested' | 'approved' | 'rejected';
   requester_id: string | null;
+  /** A second person who asks for the change alongside the requester. */
+  co_requester_id: string | null;
   agent_id: string | null;
   group_id: string | null;
   department_id: string | null;
@@ -216,6 +218,7 @@ export interface Change {
   tags: string[];
   agent: UserBrief | null;
   requester: UserBrief | null;
+  co_requester: UserBrief | null;
   group: Ref | null;
   department: Ref | null;
   release: Ref | null;

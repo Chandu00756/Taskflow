@@ -613,6 +613,25 @@ def test_create_record_refuses_duplicates(mcp):
     assert not failed and last("POST", "/groups")["body"] == {"name": "Network Team"}
 
 
+def test_change_requesters_resolve_names(mcp):
+    # Both requesters of a change may be given as 'me', a name or an email; ids pass through.
+    data = {"subject": "Ship the release", "requester_id": "me", "co_requester_id": "ravina@example.test"}
+    failed, _ = mcp.call("create_record", resource="changes", data=data)
+    assert not failed
+    assert last("POST", "/changes")["body"] == {
+        "subject": "Ship the release",
+        "requester_id": ME["id"],
+        "co_requester_id": RAVINA["id"],
+    }
+    change = "77777777-7777-4777-8777-777777777777"
+    failed, _ = mcp.call("update_record", resource="changes", id=change, data={"requester_id": RAVI["id"], "co_requester_id": ""})
+    assert not failed and last("PUT", f"/changes/{change}")["body"] == {"requester_id": RAVI["id"], "co_requester_id": ""}
+    puts = len([r for r in FakeTaskflow.requests if r["method"] == "PUT"])
+    failed, text = mcp.call("update_record", resource="changes", id=change, data={"co_requester_id": "ravi"})
+    assert failed and "ravi" in text.lower()
+    assert len([r for r in FakeTaskflow.requests if r["method"] == "PUT"]) == puts
+
+
 def test_child_records_resolve_parents(mcp):
     failed, _ = mcp.call("create_record", resource="work_items", parent="VENDO", data={"title": "Toggle UI"})
     assert not failed and last("POST", f"/projects/{PROJECT['id']}/work-items")["body"] == {"title": "Toggle UI"}

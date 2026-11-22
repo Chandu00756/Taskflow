@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { FieldSpec } from './crud';
 import { CategoryPicker } from './forms';
-import { useAgentOptions, useDepartmentOptions, useGroupOptions } from './pickers';
+import { PersonPicker, useAgentOptions, useDepartmentOptions, useGroupOptions } from './pickers';
 import { useChangeTypes, useChoiceOptions, useFormFields } from '@/lib/itsm/hooks';
 import { CHANGE_STATUSES, CHANGE_TYPES, LEVELS, PRIORITIES, PROBLEM_STATUSES, RELEASE_STATUSES, RISKS, toLocalInput, fromLocalInput } from '@/lib/itsm/format';
 
@@ -23,6 +23,19 @@ export function useOwnershipFields(): FieldSpec[] {
     ],
     [agents, groups, depts]
   );
+}
+
+/** A searchable person field; labelKey holds the current person's name so the picker shows it before searching. */
+function personField(name: string, label: string, labelKey: string): FieldSpec {
+  return {
+    name,
+    label,
+    type: 'custom',
+    span: 1,
+    render: (value, onChange, values) => (
+      <PersonPicker value={(value as string) || null} initialLabel={(values[labelKey] as string) || undefined} onChange={(id) => onChange(id ?? '')} />
+    ),
+  };
 }
 
 const num = (v: unknown) => (v === '' || v === null || v === undefined ? undefined : Number(v));
@@ -122,6 +135,8 @@ export function useChangeFields() {
     { name: 'priority', label: 'Priority', type: 'select', options: priorityOptions, required: true },
     { name: 'impact', label: 'Impact', type: 'select', options: levelOptions, required: true },
     { name: 'risk', label: 'Risk', type: 'select', options: riskOptions, required: true },
+    personField('requester_id', 'Requester', 'requester_label'),
+    personField('co_requester_id', 'Second requester', 'co_requester_label'),
     ...own,
     ...classification,
     { name: 'planned_start', label: 'Planned start', type: 'datetime' },
@@ -147,13 +162,21 @@ export function changeToForm(c: Record<string, unknown>): Record<string, unknown
   return {
     subject: c.subject, description: c.description, status: c.status, change_type: c.change_type, priority: String(c.priority),
     impact: String(c.impact), risk: String(c.risk), group_id: c.group_id ?? '', agent_id: c.agent_id ?? '', department_id: c.department_id ?? '',
+    requester_id: c.requester_id ?? '', requester_label: (c.requester as { name?: string } | null)?.name ?? '',
+    co_requester_id: c.co_requester_id ?? '', co_requester_label: (c.co_requester as { name?: string } | null)?.name ?? '',
     category_path: pathOf(c), business_impact: c.business_impact ?? '', planned_start: toLocalInput(c.planned_start as string), planned_end: toLocalInput(c.planned_end as string),
     tags: c.tags ?? [], reason: c.reason ?? '', impact_plan: c.impact_plan ?? '', rollout_plan: c.rollout_plan ?? '', backout_plan: c.backout_plan ?? '',
   };
 }
 
 export function changePayload(v: Record<string, unknown>) {
-  return { ...withPath(v), priority: num(v.priority), impact: num(v.impact), risk: num(v.risk), planned_start: iso(v.planned_start), planned_end: iso(v.planned_end) };
+  const out: Record<string, unknown> = { ...withPath(v), priority: num(v.priority), impact: num(v.impact), risk: num(v.risk), planned_start: iso(v.planned_start), planned_end: iso(v.planned_end) };
+  delete out.requester_label;
+  delete out.co_requester_label;
+  // An empty requester is left out, so a new change keeps its creator and an edit keeps the current requester.
+  // An empty second requester is sent as '' and clears it.
+  if (!out.requester_id) delete out.requester_id;
+  return out;
 }
 
 // ---------------------------------------------------------------------------

@@ -319,16 +319,18 @@ type Problem struct {
 // Change is a planned modification to IT services.
 type Change struct {
 	Base
-	Number         int64          `gorm:"index" json:"number"`
-	Subject        string         `gorm:"not null" json:"subject"`
-	Description    string         `gorm:"type:text" json:"description"`
-	Status         string         `gorm:"index" json:"status"`
-	ChangeType     string         `json:"change_type"`
-	Priority       int            `json:"priority"`
-	Impact         int            `json:"impact"`
-	Risk           int            `json:"risk"`
-	ApprovalStatus string         `json:"approval_status"`
-	RequesterID    *string        `gorm:"type:uuid" json:"requester_id"`
+	Number         int64   `gorm:"index" json:"number"`
+	Subject        string  `gorm:"not null" json:"subject"`
+	Description    string  `gorm:"type:text" json:"description"`
+	Status         string  `gorm:"index" json:"status"`
+	ChangeType     string  `json:"change_type"`
+	Priority       int     `json:"priority"`
+	Impact         int     `json:"impact"`
+	Risk           int     `json:"risk"`
+	ApprovalStatus string  `json:"approval_status"`
+	RequesterID    *string `gorm:"type:uuid" json:"requester_id"`
+	// CoRequesterID is a second person who asks for the change alongside the requester.
+	CoRequesterID  *string        `gorm:"type:uuid" json:"co_requester_id"`
 	AgentID        *string        `gorm:"type:uuid;index" json:"agent_id"`
 	GroupID        *string        `gorm:"type:uuid" json:"group_id"`
 	DepartmentID   *string        `gorm:"type:uuid" json:"department_id"`
