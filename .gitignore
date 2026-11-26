@@ -70,3 +70,7 @@ third_party/googleapis/
 # Production secrets and database dumps
 deployments/production/.env
 deployments/production/backups/
+
+# Python caches
+__pycache__/
+*.pyc
