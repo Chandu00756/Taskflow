@@ -1,513 +1,144 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { motion } from 'framer-motion';
-import { 
-  Building2, Users, Activity, TrendingUp, Shield, Search,
-  UserCheck, Ban, Trash2, Eye, Server, BarChart3, CheckCircle2, Unlock, UserX, X, LogOut, Mail, MailCheck
-} from 'lucide-react';
-import { useAuthStore } from '@/store/auth';
-import { apiClient } from '@/lib/api';
-import { v2, parseApiError } from '@/lib/itsm/api';
-import { signOutState, useHydrated, useIdleLogout, useSignOut } from '@/components/desk/session';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import * as React from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Activity, Building2, Gauge, KeyRound, LogOut, Mail, Menu, ShieldCheck, Users, X } from 'lucide-react';
 import { toast } from 'sonner';
-import { cn } from '@/lib/utils';
-import { UserGrowthChart, TaskDistributionChart, OrganizationActivityChart } from '@/components/admin/AnalyticsCharts';
-import { SystemHealthMonitor } from '@/components/admin/SystemHealth';
+import { useAuthStore } from '@/store/auth';
+import { signOutState, useHydrated, useIdleLogout, useSignOut } from '@/components/desk/session';
+import { Card, ConfirmProvider } from '@/components/desk/kit';
+import { FullPageSpinner } from '@/components/desk/shell';
+import { AccountsSection, HealthSection, OrganizationsSection, OverviewSection, SecuritySection } from '@/components/platform/console';
 import { EmailDeliveryPanel } from '@/components/admin/email-delivery';
+import { PasskeysCard, useAccountSecurity } from '@/components/profile/passkeys';
+import { cn } from '@/lib/utils';
 
-interface Organization {
-  id: string;
-  name: string;
-  domain?: string | null;
-  description?: string | null;
-  member_count: number;
-  agent_count: number;
-  ticket_count: number;
-  open_tickets: number;
-  last_login?: string | null;
-  created_at: string;
-  status: 'active' | 'suspended';
-}
+const SECTIONS = [
+  { id: 'overview', label: 'Overview', icon: Gauge, title: 'Platform overview', subtitle: 'Everything running on TaskFlow, measured live.' },
+  { id: 'accounts', label: 'Account review', icon: Users, title: 'Account review', subtitle: 'Find and remove fake sign-ups; manage any account.' },
+  { id: 'organizations', label: 'Organizations', icon: Building2, title: 'Organizations', subtitle: 'Every workspace on the platform.' },
+  { id: 'security', label: 'Security', icon: ShieldCheck, title: 'Security', subtitle: 'Protection settings and what happened, platform-wide.' },
+  { id: 'email', label: 'Email delivery', icon: Mail, title: 'Email delivery', subtitle: 'Outgoing mail settings, test sends and failures.' },
+  { id: 'health', label: 'Health', icon: Activity, title: 'Health', subtitle: 'Live measurements of the service and its database.' },
+  { id: 'me', label: 'My passkeys', icon: KeyRound, title: 'My sign-in security', subtitle: 'Passkeys and recovery codes for your super admin account.' },
+] as const;
+type SectionId = (typeof SECTIONS)[number]['id'];
 
-interface GlobalUser {
-  id: string;
-  username: string;
-  email: string;
-  full_name: string;
-  role: string;
-  org_id?: string | null;
-  org_name?: string | null;
-  last_login?: string | null;
-  created_at: string;
-  status: 'active' | 'locked' | 'deactivated' | 'unverified';
-}
-
-type UserAction = 'deactivate' | 'reactivate' | 'unlock' | 'verify-email';
-
-export default function GlobalAdminPage() {
+function Console() {
   const router = useRouter();
+  const sp = useSearchParams();
   const hydrated = useHydrated();
   const signOut = useSignOut();
-  useIdleLogout(30);
-  const { user, isAuthenticated, isSuperAdmin: isSuper, actualRole } = useAuthStore();
-  const queryClient = useQueryClient();
-  const [searchOrg, setSearchOrg] = useState('');
-  const [searchUser, setSearchUser] = useState('');
-  const [userOrgFilter, setUserOrgFilter] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'overview' | 'organizations' | 'users' | 'analytics' | 'email' | 'system'>('overview');
+  // Super admin sessions end sooner when left alone.
+  useIdleLogout(15);
+  const { user, isAuthenticated, isSuperAdmin, actualRole } = useAuthStore();
+  const allowed = hydrated && isAuthenticated && (isSuperAdmin || actualRole === 'super_admin');
+  const initial = (sp.get('s') as SectionId) || 'overview';
+  const [section, setSectionState] = React.useState<SectionId>(SECTIONS.some((s) => s.id === initial) ? initial : 'overview');
+  const [filter, setFilter] = React.useState(sp.get('filter') ?? 'suspicious');
+  const [orgFilter, setOrgFilter] = React.useState<{ id: string; name: string } | null>(null);
+  const [navOpen, setNavOpen] = React.useState(false);
+  const security = useAccountSecurity();
 
-  useEffect(() => {
-    // The persisted session is only available after the first client render.
+  React.useEffect(() => {
     if (!hydrated) return;
     if (!isAuthenticated) {
       if (!signOutState.active) router.replace('/login?next=%2Fadmin%2Fglobal');
       return;
     }
-    
-    // Check super admin status using actualRole from JWT
-    // The API returns proto enum (USER_ROLE_MEMBER) but JWT contains real role (super_admin)
-    if (!isSuper && actualRole !== 'super_admin') {
-      toast.error('Unauthorized: Super Admin access only');
+    if (!isSuperAdmin && actualRole !== 'super_admin') {
+      toast.error('This console is for platform administrators.');
       router.replace('/dashboard');
     }
-  }, [hydrated, isAuthenticated, isSuper, actualRole, router]);
+  }, [hydrated, isAuthenticated, isSuperAdmin, actualRole, router]);
 
-  // Fetch organizations
-  const orgsQuery = useQuery({
-    queryKey: ['admin-organizations'],
-    queryFn: () => v2.items<Organization>('/platform/organizations'),
-    enabled: hydrated && isAuthenticated && isSuper,
-  });
+  const go = React.useCallback((id: string, f?: string) => {
+    setSectionState(id as SectionId);
+    if (f !== undefined) setFilter(f);
+    setNavOpen(false);
+    const params = new URLSearchParams({ s: id });
+    if (id === 'accounts' && f) params.set('filter', f);
+    window.history.replaceState(null, '', `/admin/global?${params}`);
+  }, []);
 
-  // Fetch all users
-  const usersQuery = useQuery({
-    queryKey: ['admin-users'],
-    queryFn: () => v2.items<GlobalUser>('/platform/users'),
-    enabled: hydrated && isAuthenticated && isSuper,
-  });
+  if (!allowed) return <FullPageSpinner />;
+  const meta = SECTIONS.find((s) => s.id === section)!;
+  const noPasskey = security.data && security.data.passkeys.length === 0;
 
-  // Analytics
-  const analyticsQuery = useQuery({
-    queryKey: ['admin-analytics'],
-    queryFn: () => apiClient.get<{
-      total_organizations: number;
-      total_users: number;
-      active_users_today: number;
-      total_tasks: number;
-    }>('/api/v1/admin/analytics'),
-    enabled: hydrated && isAuthenticated && isSuper,
-  });
-
-  const organizations = orgsQuery.data || [];
-  const users = usersQuery.data || [];
-  const analytics = analyticsQuery.data || {
-    total_organizations: organizations.length,
-    total_users: users.length,
-    active_users_today: 0,
-    total_tasks: 0,
-  } as {
-    total_organizations: number;
-    total_users: number;
-    active_users_today: number;
-    total_tasks: number;
-  };
-
-  const filteredOrgs = organizations.filter(org =>
-    org.name.toLowerCase().includes(searchOrg.toLowerCase())
+  const nav = (
+    <nav className="space-y-0.5">
+      {SECTIONS.map((s) => (
+        <button key={s.id} type="button" onClick={() => go(s.id)}
+          className={cn('flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition',
+            section === s.id ? 'bg-white/10 text-white' : 'text-slate-300 hover:bg-white/5 hover:text-white')}>
+          <s.icon className="h-4 w-4" /> {s.label}
+        </button>
+      ))}
+    </nav>
   );
-
-  const filteredUsers = users.filter(u =>
-    (!userOrgFilter || u.org_id === userOrgFilter) && (
-      u.username.toLowerCase().includes(searchUser.toLowerCase()) ||
-      u.email.toLowerCase().includes(searchUser.toLowerCase()) ||
-      u.full_name.toLowerCase().includes(searchUser.toLowerCase())
-    )
-  );
-  const filterOrgName = organizations.find((o) => o.id === userOrgFilter)?.name;
-
-  const suspendOrgMutation = useMutation({
-    mutationFn: ({ orgId, suspend }: { orgId: string; suspend: boolean }) =>
-      v2.post(`/platform/organizations/${orgId}/${suspend ? 'suspend' : 'activate'}`),
-    onSuccess: (_data, { suspend }) => {
-      toast.success(suspend ? 'Organization suspended' : 'Organization reactivated');
-      queryClient.invalidateQueries({ queryKey: ['admin-organizations'] });
-    },
-    onError: (err) => toast.error(parseApiError(err).message),
-  });
-
-  const userActionMutation = useMutation({
-    mutationFn: ({ userId, action }: { userId: string; action: UserAction }) =>
-      v2.post(`/platform/users/${userId}/${action}`),
-    onSuccess: (_data, { action }) => {
-      toast.success({ deactivate: 'User deactivated', reactivate: 'User reactivated', unlock: 'User unlocked', 'verify-email': 'Email marked as verified' }[action]);
-      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
-    },
-    onError: (err) => toast.error(parseApiError(err).message),
-  });
-
-  const deleteOrgMutation = useMutation({
-    mutationFn: (orgId: string) => apiClient.delete(`/api/v1/admin/organizations/${orgId}`),
-    onSuccess: () => {
-      toast.success('Organization deleted');
-      queryClient.invalidateQueries({ queryKey: ['admin-organizations'] });
-      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
-    },
-    onError: (err) => toast.error(parseApiError(err).message),
-  });
-
-  if (!hydrated || !isAuthenticated || !isSuper) {
-    return null;
-  }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
-      {/* Header */}
-      <div className="border-b bg-white/80 backdrop-blur-sm">
-        <div className="mx-auto max-w-7xl px-6 py-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-purple-500 to-pink-500 text-white shadow-lg">
-                <Shield className="h-6 w-6" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold text-slate-900">Global Admin Portal</h1>
-                <p className="text-sm text-slate-500">TaskFlow System Administration</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              {user?.email && <span className="hidden text-sm text-slate-500 sm:inline">{user.email}</span>}
-              <Button variant="outline" size="sm" onClick={() => signOut()}>
-                <LogOut className="mr-2 h-4 w-4" />
-                Sign out
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Tabs */}
-      <div className="border-b bg-white">
-        <div className="mx-auto max-w-7xl px-6">
-          <div className="flex gap-6">
-            {[
-              { id: 'overview', label: 'Overview', icon: Activity },
-              { id: 'analytics', label: 'Analytics', icon: BarChart3 },
-              { id: 'organizations', label: 'Organizations', icon: Building2 },
-              { id: 'users', label: 'All Users', icon: Users },
-              { id: 'email', label: 'Email', icon: Mail },
-              { id: 'system', label: 'System Health', icon: Server },
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id as any)}
-                className={cn(
-                  'flex items-center gap-2 border-b-2 px-1 py-4 text-sm font-medium transition',
-                  activeTab === tab.id
-                    ? 'border-purple-500 text-purple-600'
-                    : 'border-transparent text-slate-500 hover:text-slate-700'
-                )}
-              >
-                <tab.icon className="h-4 w-4" />
-                {tab.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Content */}
-      <div className="mx-auto max-w-7xl px-6 py-8">
-        {activeTab === 'overview' && (
-          <div className="space-y-6">
-            {/* Stats Cards */}
-            <div className="grid gap-6 md:grid-cols-4">
-              {[
-                { label: 'Total Organizations', value: analytics.total_organizations, icon: Building2, color: 'from-blue-500 to-cyan-500' },
-                { label: 'Total Users', value: analytics.total_users, icon: Users, color: 'from-purple-500 to-pink-500' },
-                { label: 'Active Today', value: analytics.active_users_today, icon: UserCheck, color: 'from-emerald-500 to-teal-500' },
-                { label: 'Total Tasks', value: analytics.total_tasks, icon: TrendingUp, color: 'from-orange-500 to-red-500' },
-              ].map((stat) => (
-                <Card key={stat.label}>
-                  <CardContent className="pt-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-slate-500">{stat.label}</p>
-                        <p className="mt-1 text-3xl font-bold text-slate-900">{stat.value}</p>
-                      </div>
-                      <div className={cn('rounded-xl bg-gradient-to-br p-3 text-white shadow-lg', stat.color)}>
-                        <stat.icon className="h-6 w-6" />
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-
-            {/* Recent Activity */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Platform Activity</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex flex-col items-center justify-center py-12 text-center">
-                  <div className="rounded-full bg-slate-100 p-4">
-                    <Activity className="h-8 w-8 text-slate-400" />
-                  </div>
-                  <p className="mt-4 text-sm font-medium text-slate-600">Activity monitoring</p>
-                  <p className="mt-1 text-xs text-slate-400">Real-time activity tracking will appear here</p>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        )}
-
-        {activeTab === 'analytics' && (
-          <div className="space-y-6">
-            {/* Advanced Analytics Section */}
-            <div className="grid gap-6 lg:grid-cols-2">
-              <UserGrowthChart />
-              <TaskDistributionChart />
-            </div>
-            <OrganizationActivityChart />
-          </div>
-        )}
-
-        {activeTab === 'email' && <EmailDeliveryPanel defaultTo={user?.email} />}
-
-        {activeTab === 'system' && (
+    <div className="flex min-h-screen bg-slate-50">
+      <aside className={cn('fixed inset-y-0 left-0 z-40 flex w-60 flex-col bg-slate-900 px-3 py-4 transition-transform lg:static lg:translate-x-0', navOpen ? 'translate-x-0' : '-translate-x-full')}>
+        <div className="mb-6 flex items-center justify-between px-3">
           <div>
-            {/* System Health Monitoring Section */}
-            <SystemHealthMonitor />
+            <div className="text-sm font-semibold text-white">TaskFlow</div>
+            <div className="text-[11px] uppercase tracking-wider text-slate-400">Platform console</div>
           </div>
-        )}
-
-        {activeTab === 'organizations' && (
-          <div className="space-y-6">
-            <div className="flex items-center gap-4">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                <Input
-                  placeholder="Search organizations..."
-                  value={searchOrg}
-                  onChange={(e) => setSearchOrg(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-            </div>
-
-            <div className="grid gap-4">
-              {filteredOrgs.map((org) => (
-                <Card key={org.id}>
-                  <CardContent className="flex items-center justify-between p-6">
-                    <div className="flex items-center gap-4">
-                      <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 text-white">
-                        <Building2 className="h-6 w-6" />
-                      </div>
-                      <div>
-                        <h3 className="font-semibold text-slate-900">{org.name}</h3>
-                        <p className="text-sm text-slate-500">{org.description || org.domain || 'No description'}</p>
-                        <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-400">
-                          <span>{org.member_count} members</span>
-                          <span>{org.agent_count} agents</span>
-                          <span>{org.ticket_count} tickets ({org.open_tickets} open)</span>
-                          <span>Created {new Date(org.created_at).toLocaleDateString()}</span>
-                          {org.last_login && <span>Last sign-in {new Date(org.last_login).toLocaleDateString()}</span>}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Badge variant={org.status === 'active' ? 'default' : 'destructive'}>
-                        {org.status}
-                      </Badge>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        title="View members"
-                        aria-label={`View members of ${org.name}`}
-                        onClick={() => {
-                          setUserOrgFilter(org.id);
-                          setActiveTab('users');
-                        }}
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      {org.status === 'suspended' ? (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          title="Reactivate organization"
-                          aria-label={`Reactivate ${org.name}`}
-                          disabled={suspendOrgMutation.isPending}
-                          onClick={() => suspendOrgMutation.mutate({ orgId: org.id, suspend: false })}
-                        >
-                          <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                        </Button>
-                      ) : (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          title="Suspend organization"
-                          aria-label={`Suspend ${org.name}`}
-                          disabled={suspendOrgMutation.isPending}
-                          onClick={() => {
-                            if (confirm(`Suspend ${org.name}? Every member is signed out and blocked until it is reactivated.`)) {
-                              suspendOrgMutation.mutate({ orgId: org.id, suspend: true });
-                            }
-                          }}
-                        >
-                          <Ban className="h-4 w-4" />
-                        </Button>
-                      )}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        title="Delete organization"
-                        aria-label={`Delete ${org.name}`}
-                        onClick={() => {
-                          if (confirm('Delete this organization? This cannot be undone.')) {
-                            deleteOrgMutation.mutate(org.id);
-                          }
-                        }}
-                      >
-                        <Trash2 className="h-4 w-4 text-red-500" />
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+          <button type="button" className="text-slate-400 lg:hidden" onClick={() => setNavOpen(false)} aria-label="Close menu"><X className="h-4 w-4" /></button>
+        </div>
+        {nav}
+        <div className="mt-auto border-t border-white/10 px-3 pt-4">
+          <div className="truncate text-xs text-slate-300">{user?.email}</div>
+          <div className="mb-3 text-[11px] text-slate-500">Super admin</div>
+          <button type="button" onClick={() => signOut()} className="flex items-center gap-2 text-xs font-medium text-slate-300 hover:text-white">
+            <LogOut className="h-3.5 w-3.5" /> Sign out
+          </button>
+        </div>
+      </aside>
+      {navOpen && <div className="fixed inset-0 z-30 bg-black/40 lg:hidden" onClick={() => setNavOpen(false)} />}
+      <main className="min-w-0 flex-1">
+        <header className="border-b border-slate-200 bg-white px-4 py-4 sm:px-6">
+          <div className="flex items-center gap-3">
+            <button type="button" className="text-slate-500 lg:hidden" onClick={() => setNavOpen(true)} aria-label="Open menu"><Menu className="h-5 w-5" /></button>
+            <div>
+              <h1 className="text-lg font-semibold text-slate-900">{meta.title}</h1>
+              <p className="text-sm text-slate-500">{meta.subtitle}</p>
             </div>
           </div>
-        )}
-
-        {activeTab === 'users' && (
-          <div className="space-y-6">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              <Input
-                placeholder="Search users by name, email, or username..."
-                value={searchUser}
-                onChange={(e) => setSearchUser(e.target.value)}
-                className="pl-10"
-              />
+        </header>
+        <div className="space-y-5 px-4 py-5 sm:px-6">
+          {noPasskey && section !== 'me' && (
+            <div className="flex flex-col gap-2 rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-900 sm:flex-row sm:items-center sm:justify-between">
+              <span><b>Your super admin account has no passkey.</b> Add one now so a stolen password can never open this console.</span>
+              <button type="button" onClick={() => go('me')} className="font-semibold underline">Add a passkey</button>
             </div>
-            {userOrgFilter && (
-              <div className="flex items-center gap-2 text-sm text-slate-600">
-                Showing members of <span className="font-medium text-slate-900">{filterOrgName || 'organization'}</span>
-                <Button variant="ghost" size="sm" onClick={() => setUserOrgFilter(null)} aria-label="Clear organization filter">
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-            )}
-
-            <div className="rounded-lg border bg-white">
-              <table className="w-full">
-                <thead className="border-b bg-slate-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium uppercase text-slate-500">User</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium uppercase text-slate-500">Email</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium uppercase text-slate-500">Organization</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium uppercase text-slate-500">Role</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium uppercase text-slate-500">Status</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium uppercase text-slate-500">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
-                  {filteredUsers.map((u) => (
-                    <tr key={u.id} className="hover:bg-slate-50">
-                      <td className="px-6 py-4">
-                        <div>
-                          <p className="font-medium text-slate-900">{u.full_name}</p>
-                          <p className="text-sm text-slate-500">@{u.username}</p>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-sm text-slate-600">{u.email}</td>
-                      <td className="px-6 py-4 text-sm text-slate-600">{u.org_name || 'No org'}</td>
-                      <td className="px-6 py-4">
-                        <Badge variant="outline">{u.role}</Badge>
-                      </td>
-                      <td className="px-6 py-4">
-                        <Badge variant={u.status === 'active' ? 'default' : u.status === 'unverified' ? 'secondary' : 'destructive'}>
-                          {u.status}
-                        </Badge>
-                      </td>
-                      <td className="px-6 py-4">
-                        {u.role === 'super_admin' ? (
-                          <span className="text-xs text-slate-400">Platform admin</span>
-                        ) : (
-                          <div className="flex items-center gap-1">
-                            {u.status === 'unverified' && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                title="Mark email as verified"
-                                aria-label={`Mark ${u.email} as verified`}
-                                disabled={userActionMutation.isPending}
-                                onClick={() => {
-                                  if (confirm(`Mark ${u.email} as verified? Only do this if you know the address belongs to them.`)) {
-                                    userActionMutation.mutate({ userId: u.id, action: 'verify-email' });
-                                  }
-                                }}
-                              >
-                                <MailCheck className="h-4 w-4 text-blue-600" />
-                              </Button>
-                            )}
-                            {u.status === 'locked' && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                title="Unlock sign-in"
-                                aria-label={`Unlock ${u.email}`}
-                                disabled={userActionMutation.isPending}
-                                onClick={() => userActionMutation.mutate({ userId: u.id, action: 'unlock' })}
-                              >
-                                <Unlock className="h-4 w-4" />
-                              </Button>
-                            )}
-                            {u.status === 'deactivated' ? (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                title="Reactivate user"
-                                aria-label={`Reactivate ${u.email}`}
-                                disabled={userActionMutation.isPending}
-                                onClick={() => userActionMutation.mutate({ userId: u.id, action: 'reactivate' })}
-                              >
-                                <UserCheck className="h-4 w-4 text-emerald-600" />
-                              </Button>
-                            ) : (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                title="Deactivate user"
-                                aria-label={`Deactivate ${u.email}`}
-                                disabled={userActionMutation.isPending}
-                                onClick={() => {
-                                  if (confirm(`Deactivate ${u.email}? They are signed out and cannot sign in.`)) {
-                                    userActionMutation.mutate({ userId: u.id, action: 'deactivate' });
-                                  }
-                                }}
-                              >
-                                <UserX className="h-4 w-4 text-red-500" />
-                              </Button>
-                            )}
-                          </div>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+          )}
+          {section === 'overview' && <OverviewSection go={go} />}
+          {section === 'accounts' && <AccountsSection filter={filter} setFilter={(f) => go('accounts', f)} orgFilter={orgFilter} clearOrg={() => setOrgFilter(null)} />}
+          {section === 'organizations' && <OrganizationsSection showMembers={(o) => { setOrgFilter(o); go('accounts', ''); }} />}
+          {section === 'security' && <SecuritySection />}
+          {section === 'email' && <EmailDeliveryPanel defaultTo={user?.email} />}
+          {section === 'health' && <HealthSection />}
+          {section === 'me' && (
+            <div className="max-w-2xl">
+              <Card title={<span className="flex items-center gap-2"><KeyRound className="h-4 w-4 text-slate-400" />Passkeys</span>}>
+                <PasskeysCard />
+              </Card>
             </div>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      </main>
     </div>
+  );
+}
+
+export default function GlobalAdminPage() {
+  return (
+    <ConfirmProvider>
+      <React.Suspense fallback={<FullPageSpinner />}>
+        <Console />
+      </React.Suspense>
+    </ConfirmProvider>
   );
 }

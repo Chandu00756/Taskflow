@@ -17,7 +17,7 @@ import (
 
 // spoofableHeaders carry identity between the gateway and backend services.
 // They must never be accepted from clients.
-var spoofableHeaders = []string{"X-User-Id", "X-Org-Id", "X-Role", "X-Email"}
+var spoofableHeaders = []string{"X-User-Id", "X-Org-Id", "X-Role", "X-Email", "X-Client-Ip"}
 
 // stripIdentityHeaders removes identity headers and any Grpc-Metadata-*
 // header supplied by the client so only verified identity reaches services.
@@ -139,7 +139,7 @@ func edgeMiddleware(next http.Handler, opts gatewayOptions) http.Handler {
 			h.Set("Access-Control-Allow-Origin", origin)
 			h.Set("Access-Control-Allow-Credentials", "true")
 			h.Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
-			h.Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, X-Session-Hash")
+			h.Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, X-Session-Hash, X-Captcha-Token, X-Signup-Trap")
 			h.Set("Access-Control-Expose-Headers", "Content-Disposition, X-Total-Count")
 			h.Set("Access-Control-Max-Age", "86400")
 			h.Add("Vary", "Origin")
@@ -162,6 +162,8 @@ func edgeMiddleware(next http.Handler, opts gatewayOptions) http.Handler {
 		}
 
 		stripIdentityHeaders(r.Header)
+		// The client address as the gateway sees it, for services that record it.
+		r.Header.Set("X-Client-Ip", clientIP(r, opts.trustProxy))
 		if token := bearerToken(r); token != "" && opts.jwt != nil {
 			if claims, err := opts.jwt.ValidateToken(token); err == nil {
 				ctx := r.Context()

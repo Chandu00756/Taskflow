@@ -8,6 +8,9 @@ Creates (or reuses) the "Globex Demo" organization and fills it with agents,
 requesters, departments, tickets in every state, a problem, a change, assets
 and a knowledge base article. Intended for local development and demos only;
 the credentials below are demo values and must never be used in production.
+
+Admins sign in with a passkey; run the stack with PASSKEY_ENFORCEMENT=off
+so this script can sign them in with a password.
 """
 import argparse
 import json

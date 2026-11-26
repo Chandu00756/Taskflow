@@ -435,6 +435,9 @@ func (a *App) Invalidate(userIDs ...string) {
 
 var errUnauthorized = &APIError{Status: http.StatusUnauthorized, Message: "authentication required"}
 
+// errEmailUnverified rejects accounts that have not confirmed their address.
+var errEmailUnverified = &APIError{Status: http.StatusForbidden, Message: "Please verify your email address before signing in."}
+
 func hashToken(s string) string {
 	sum := sha256.Sum256([]byte(s))
 	return hex.EncodeToString(sum[:])
@@ -504,6 +507,7 @@ type userRow struct {
 	MustChangePassword bool
 	PasswordChangedAt  *time.Time
 	TokensRevokedAt    *time.Time
+	Pending            bool
 }
 
 // tokenRevoked reports whether a token issued at iat predates a revocation.
@@ -519,13 +523,18 @@ func tokenRevoked(iat time.Time, cutoffs ...*time.Time) bool {
 func (a *App) loadPrincipal(ctx context.Context, userID string) (*Principal, error) {
 	var u userRow
 	err := a.DB.WithContext(ctx).Table("users").
-		Select("id, email, username, full_name, role, org_id, is_active, COALESCE(must_change_password, false) AS must_change_password, password_changed_at, tokens_revoked_at").
+		Select("id, email, username, full_name, role, org_id, is_active, COALESCE(must_change_password, false) AS must_change_password, password_changed_at, tokens_revoked_at, COALESCE(email_verification_pending, false) AS pending").
 		Where("id = ?", userID).Take(&u).Error
 	if err != nil {
 		return nil, &APIError{Status: http.StatusUnauthorized, Message: "account not found"}
 	}
 	if !u.IsActive {
 		return nil, &APIError{Status: http.StatusUnauthorized, Message: "account deactivated"}
+	}
+	// A token held by an account that never confirmed its address (for
+	// example one minted at sign-up) grants nothing.
+	if u.Pending {
+		return nil, errEmailUnverified
 	}
 	if u.OrgID == nil || *u.OrgID == "" {
 		return nil, &APIError{Status: http.StatusForbidden, Message: "the service desk requires an organization account"}

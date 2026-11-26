@@ -178,7 +178,20 @@ func main() {
 	})
 	root.Handle("/", mux)
 
-	handler := edgeMiddleware(root, gatewayOptions{
+	// Self-service sign-ups pass the bot guard before reaching the user service.
+	var captcha captchaVerifier
+	if secret := os.Getenv("TURNSTILE_SECRET_KEY"); secret != "" {
+		captcha = turnstileVerifier(secret)
+	} else if cfg.Server.Environment == "production" {
+		logger.Warn("TURNSTILE_SECRET_KEY is not set: sign-ups are not protected by a CAPTCHA")
+	}
+	guard := newSignupGuard(captcha,
+		getEnvAsInt("SIGNUP_MAX_PER_IP_HOUR", 3),
+		getEnvAsInt("SIGNUP_MAX_PER_IP_DAY", 10),
+		getEnvAsInt("SIGNUP_MAX_PER_HOUR", 30),
+		os.Getenv("TRUST_PROXY_HEADERS") == "true")
+
+	handler := edgeMiddleware(guard.middleware(root), gatewayOptions{
 		cors:       newCORSPolicy(getEnvOrDefault("CORS_ALLOWED_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000")),
 		limiter:    newIPLimiter(float64(getEnvAsInt("RATE_LIMIT_RPS", 50)), getEnvAsInt("RATE_LIMIT_BURST", 100)),
 		trustProxy: os.Getenv("TRUST_PROXY_HEADERS") == "true",

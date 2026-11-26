@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -86,11 +87,10 @@ func (s *UserService) Register(ctx context.Context, req *userpb.RegisterRequest)
 		return nil, status.Error(codes.Internal, "failed to hash password")
 	}
 
-	// Default role
+	// Self-service sign-ups never choose their own role: the caller-supplied
+	// role is ignored. The owner of a newly created workspace becomes its
+	// admin below; anything else stays a plain member.
 	role := "member"
-	if req.Role == userpb.UserRole_USER_ROLE_ADMIN {
-		role = "admin"
-	}
 
 	// Determine organization by email domain. Public mail providers
 	// (gmail.com, …) never identify a company, so those sign-ups get a
@@ -142,6 +142,7 @@ func (s *UserService) Register(ctx context.Context, req *userpb.RegisterRequest)
 		OrgID:    orgIDPtr,
 
 		EmailVerificationPending: pending,
+		SignupIP:                 optional(clientIPFrom(ctx)),
 	}
 
 	if err := s.db.Create(user).Error; err != nil {
@@ -221,6 +222,13 @@ func (s *UserService) Login(ctx context.Context, req *userpb.LoginRequest) (*use
 		return nil, status.Error(codes.FailedPrecondition, "Please verify your email address before signing in. Use the link we sent to your inbox, or request a new one.")
 	}
 
+	// Admins (and anyone who added a passkey) prove a passkey as well; that
+	// happens on the service desk sign-in (POST /api/v2/auth/login), so this
+	// password-only endpoint refuses them.
+	if requiresPasskeySignIn(s.db, &user) {
+		return nil, status.Error(codes.FailedPrecondition, "This account signs in with a passkey. Use the TaskFlow sign-in page.")
+	}
+
 	// Successful login - update login tracking
 	now := time.Now()
 	updates := map[string]interface{}{
@@ -260,6 +268,46 @@ func (s *UserService) Login(ctx context.Context, req *userpb.LoginRequest) (*use
 		MustChangePassword:       user.MustChangePassword,
 		MustSetSecurityQuestions: mustSetSecurityQuestions,
 	}, nil
+}
+
+// clientIPFrom returns the caller's address as stamped by the gateway.
+func clientIPFrom(ctx context.Context) string {
+	if md, ok := metadata.FromIncomingContext(ctx); ok {
+		if v := md.Get("x-client-ip"); len(v) > 0 && len(v[0]) <= 64 {
+			return strings.TrimSpace(v[0])
+		}
+	}
+	return ""
+}
+
+func optional(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
+}
+
+// passkeyEnforced mirrors the service desk's PASSKEY_ENFORCEMENT switch.
+var passkeyEnforced = func() bool {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("PASSKEY_ENFORCEMENT"))) {
+	case "off", "false", "disabled":
+		return false
+	}
+	return true
+}
+
+// requiresPasskeySignIn reports whether user must complete a passkey step,
+// which this password-only endpoint cannot do.
+func requiresPasskeySignIn(db *gorm.DB, user *models.User) bool {
+	if passkeyEnforced() && (auth.IsPlatformAdmin(user.Role) || auth.IsOrgAdminRole(user.Role)) {
+		return true
+	}
+	var n int64
+	// The passkeys table belongs to the service desk; it may not exist yet.
+	if err := db.Table("itsm_passkeys").Where("user_id = ?", user.ID).Count(&n).Error; err != nil {
+		return false
+	}
+	return n > 0
 }
 
 // // // GetUser retrieves a user by ID
@@ -735,9 +783,18 @@ func (s *UserService) RegisterOrganization(ctx context.Context, req *userpb.Regi
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
-	accessToken, err := s.jwtManager.GenerateAccessToken(admin.ID, admin.Email, admin.Role, org.ID)
-	if err != nil {
-		return nil, status.Error(codes.Internal, "failed to generate token")
+	if ip := clientIPFrom(ctx); ip != "" {
+		s.db.Model(&models.User{}).Where("id = ?", admin.ID).Update("signup_ip", ip)
+	}
+
+	// An account whose address still has to be verified gets no token: the
+	// owner signs in only after confirming the emailed link.
+	accessToken := ""
+	if !admin.EmailVerificationPending {
+		accessToken, err = s.jwtManager.GenerateAccessToken(admin.ID, admin.Email, admin.Role, org.ID)
+		if err != nil {
+			return nil, status.Error(codes.Internal, "failed to generate token")
+		}
 	}
 
 	description := ""

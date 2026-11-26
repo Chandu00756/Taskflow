@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 import { Building2, Users, ShieldCheck, Sparkles } from 'lucide-react';
 import { apiClient } from '@/lib/api';
 import { CheckInbox, sendVerificationLink, useAuthConfig } from '@/components/auth/email-flows';
+import { useSignupShield } from '@/components/auth/signup-shield';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -45,6 +46,7 @@ export default function OrganizationRegisterPage() {
   const [step, setStep] = useState<'org' | 'admin'>('org');
   const [sentTo, setSentTo] = useState<string | null>(null);
   const authConfig = useAuthConfig();
+  const shield = useSignupShield(authConfig.data?.turnstile_site_key);
   
   const {
     handleSubmit,
@@ -73,7 +75,7 @@ export default function OrganizationRegisterPage() {
         admin_email: data.admin_email,
         admin_password: data.admin_password,
         admin_full_name: data.admin_full_name,
-      });
+      }, { headers: shield.headers() });
     },
     onSuccess: async (_res, values) => {
       toast.success('Organization created successfully! 🎉');
@@ -86,11 +88,16 @@ export default function OrganizationRegisterPage() {
       setTimeout(() => router.push(`/login?email=${encodeURIComponent(values.admin_email)}`), 1200);
     },
     onError: (error: any) => {
+      shield.reset();
       toast.error(error.response?.data?.message || 'Failed to create organization');
     },
   });
 
   const onSubmit = (values: OrgRegisterFormValues) => {
+    if (!shield.ready) {
+      toast.error('Please complete the verification check first.');
+      return;
+    }
     registerOrgMutation.mutate(values);
   };
 
@@ -306,6 +313,8 @@ export default function OrganizationRegisterPage() {
                         )}
                       </div>
                     </div>
+
+                    {shield.element}
 
                     <div className="flex items-center gap-3 rounded-3xl bg-emerald-50/80 p-4 text-sm text-slate-600">
                       <ShieldCheck className="h-5 w-5 text-emerald-500" />

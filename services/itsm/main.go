@@ -79,6 +79,8 @@ func main() {
 		log.Fatalf("migrate: %v", err)
 	}
 
+	app.BreakGlassResetPasskeys(db)
+
 	maxUpload, _ := strconv.ParseInt(env("MAX_UPLOAD_MB", "15"), 10, 64)
 	mailPerMinute, perr := strconv.Atoi(env("SMTP_MAX_PER_MINUTE", "30"))
 	if perr != nil || mailPerMinute < 0 {

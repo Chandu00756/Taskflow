@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"time"
 
@@ -38,6 +39,7 @@ type AuthToken struct {
 	TokenHash string     `gorm:"uniqueIndex;not null"`
 	ExpiresAt time.Time  `gorm:"not null"`
 	UsedAt    *time.Time `gorm:"index"`
+	Attempts  int        `gorm:"not null;default:0"`
 	CreatedAt time.Time
 }
 
@@ -120,9 +122,11 @@ func (r accountRow) name() string {
 // GET /auth/config tells the sign-in pages which email features are on.
 func (a *App) authConfig(c *Ctx) error {
 	mc := a.mailConfig()
-	return c.JSON(http.StatusOK, map[string]bool{
+	return c.JSON(http.StatusOK, map[string]interface{}{
 		"email_enabled":      mc.Enabled(),
 		"email_verification": mailer.VerificationRequired(mc),
+		// Public site key for the sign-up CAPTCHA; empty when not configured.
+		"turnstile_site_key": strings.TrimSpace(os.Getenv("TURNSTILE_SITE_KEY")),
 	})
 }
 

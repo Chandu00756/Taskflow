@@ -17,6 +17,13 @@ func (a *App) routes() {
 	a.handle("POST /auth/activate/check", a.activateCheck, public())
 	a.handle("POST /auth/activate", a.activateAccount, public())
 	a.handle("POST /inbound/email", a.inboundEmail, public())
+	a.handle("POST /auth/login", a.passwordLogin, public())
+	a.handle("POST /auth/passkey/options", a.passkeyLoginOptions, public())
+	a.handle("POST /auth/passkey/verify", a.passkeyLoginVerify, public())
+	a.handle("POST /auth/recovery", a.recoveryCodeLogin, public())
+	a.handle("POST /auth/passkey/setup/code", a.passkeySetupResend, public())
+	a.handle("POST /auth/passkey/setup/options", a.passkeySetupOptions, public())
+	a.handle("POST /auth/passkey/setup/verify", a.passkeySetupVerify, public())
 
 	// --- Me -----------------------------------------------------------------
 	a.handle("GET /me", a.getMe)
@@ -238,6 +245,7 @@ func (a *App) routes() {
 	a.handle("DELETE /job-roles/{id}", a.deleteJobRole, priv(PrivUsersManage))
 	a.handle("GET /org-chart/people", a.peopleOrgChart, agentOnly())
 	a.handle("POST /people/{id}/unlock", a.unlockPerson, priv(PrivUsersManage))
+	a.handle("POST /people/{id}/reset-passkeys", a.resetPersonPasskeys, priv(PrivUsersManage))
 	a.handle("POST /people/{id}/forget", a.forgetPerson, priv(PrivUsersManage))
 
 	a.handle("GET /groups", a.listGroups, agentOnly())
@@ -334,6 +342,9 @@ func (a *App) routes() {
 	a.mux.HandleFunc("GET /api/v2/avatars/{id}", a.serveAvatar)
 	// Organization logos are public so they can appear in emails.
 	a.mux.HandleFunc("GET /api/v2/branding/{org}/logo", a.serveBrandingLogo)
+
+	// --- Account security (passkeys, recovery codes) for every signed-in person
+	a.accountRoutes()
 
 	// --- Platform administration (super admin) -------------------------------
 	a.platformRoutes()

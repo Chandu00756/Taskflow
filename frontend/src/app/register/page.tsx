@@ -19,6 +19,8 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { CheckInbox, sendVerificationLink, useAuthConfig } from '@/components/auth/email-flows';
+import { useSignupShield } from '@/components/auth/signup-shield';
+import { API_ENDPOINTS } from '@/lib/api/config';
 
 const Confetti = dynamic<ConfettiProps>(() => import('react-confetti'), { ssr: false });
 
@@ -73,6 +75,7 @@ export default function RegisterPage() {
   const [showCelebration, setShowCelebration] = useState(false);
   const [sentTo, setSentTo] = useState<string | null>(null);
   const authConfig = useAuthConfig();
+  const shield = useSignupShield(authConfig.data?.turnstile_site_key);
   const {
     handleSubmit,
     register,
@@ -95,7 +98,8 @@ export default function RegisterPage() {
   const { setAuth } = useAuthStore();
 
     const registerMutation = useMutation({
-    mutationFn: authAPI.register,
+    mutationFn: (data: Omit<RegisterFormValues, 'confirmPassword'>) =>
+      apiClient.post(API_ENDPOINTS.AUTH.REGISTER, data, { headers: shield.headers() }),
     onSuccess: async (data: any, variables: any) => {
       if (authConfig.data?.email_verification) {
         // New accounts confirm their address before the first sign-in.
@@ -135,6 +139,7 @@ export default function RegisterPage() {
       }
     },
     onError: (error: any) => {
+      shield.reset();
       toast.error(error.response?.data?.message || 'Registration failed');
     },
   });
@@ -204,6 +209,10 @@ export default function RegisterPage() {
         });
     } else {
       // Individual user registration (not part of any organization)
+      if (!shield.ready) {
+        toast.error('Please complete the verification check first.');
+        return;
+      }
       registerMutation.mutate(payload);
     }
   };
@@ -413,9 +422,11 @@ export default function RegisterPage() {
                 </div>
               </div>
 
+              {!tokenParam && shield.element}
+
               <div className="flex items-center gap-3 rounded-3xl bg-slate-50/80 p-4 text-sm text-slate-500">
                 <ShieldCheck className="h-5 w-5 text-emerald-500" />
-                Your credentials are encrypted in transit and at rest. Enable 2FA from your profile once inside.
+                Your credentials are encrypted in transit. Add a passkey from your profile once inside.
               </div>
 
               <Button

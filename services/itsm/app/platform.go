@@ -28,10 +28,20 @@ func (a *App) platformAuth(r *http.Request) (string, error) {
 	var row struct {
 		Role              string
 		IsActive          bool
+		Pending           bool
 		PasswordChangedAt *time.Time
+		TokensRevokedAt   *time.Time
 	}
-	if err := a.DB.WithContext(r.Context()).Table("users").Select("role, is_active, password_changed_at").Where("id = ?", claims.UserID).Take(&row).Error; err != nil || !row.IsActive {
+	if err := a.DB.WithContext(r.Context()).Table("users").
+		Select("role, is_active, COALESCE(email_verification_pending, false) AS pending, password_changed_at, tokens_revoked_at").
+		Where("id = ?", claims.UserID).Take(&row).Error; err != nil || !row.IsActive {
 		return "", errUnauthorized
+	}
+	if row.Pending {
+		return "", errEmailUnverified
+	}
+	if claims.IssuedAt != nil && tokenRevoked(claims.IssuedAt.Time, row.TokensRevokedAt) {
+		return "", &APIError{Status: http.StatusUnauthorized, Message: "session expired, please sign in again"}
 	}
 	if row.PasswordChangedAt != nil && claims.IssuedAt != nil && claims.IssuedAt.Time.Before(row.PasswordChangedAt.Truncate(time.Second)) {
 		return "", &APIError{Status: http.StatusUnauthorized, Message: "session expired, please sign in again"}
@@ -222,6 +232,8 @@ func (a *App) platformRoutes() {
 	a.platform("POST /users/{id}/verify-email", userAction(func() map[string]interface{} {
 		return map[string]interface{}{"email_verification_pending": false, "updated_at": now()}
 	}, "user.email_verified"))
+
+	a.platformConsoleRoutes()
 
 	a.platform("GET /email", a.platformEmailStatus)
 	a.platform("POST /email/test", a.platformEmailTest)

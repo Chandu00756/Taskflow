@@ -895,6 +895,32 @@ func (a *App) unlockPerson(c *Ctx) error {
 	return c.JSON(http.StatusOK, map[string]string{"message": "account unlocked"})
 }
 
+// resetPersonPasskeys removes someone's passkeys and recovery codes and signs
+// them out, for a person who lost their devices. They set up a new passkey at
+// their next sign-in after confirming a code sent to their email. Only account
+// admins may do this to another admin.
+func (a *App) resetPersonPasskeys(c *Ctx) error {
+	r, err := c.loadPersonRow(c.Param("id"))
+	if err != nil {
+		return err
+	}
+	if r.ID == c.P.UserID {
+		return errBadRequest("manage your own passkeys on your profile")
+	}
+	if auth.IsOrgAdminRole(r.Role) && !c.P.IsAccountAdmin {
+		return errForbidden("only an account admin can reset another admin's passkeys")
+	}
+	var n int64
+	c.DB().Model(&Passkey{}).Where("user_id = ?", r.ID).Count(&n)
+	if n == 0 {
+		return errBadRequest("this person has no passkeys")
+	}
+	resetSignInSecurity(c.DB(), r.ID)
+	a.Invalidate(r.ID)
+	c.audit("security.passkeys_reset", "user", r.ID, "Reset the passkeys of "+r.Email, nil)
+	return c.JSON(http.StatusOK, map[string]string{"message": "Passkeys reset. They will set up a new one at their next sign-in."})
+}
+
 // forgetPerson anonymizes a requester (right to be forgotten).
 func (a *App) forgetPerson(c *Ctx) error {
 	r, err := c.loadPersonRow(c.Param("id"))

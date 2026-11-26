@@ -47,7 +47,16 @@ func TestRegister(t *testing.T) {
 	assert.Equal(t, "testuser", resp.User.Username)
 }
 
+// withoutPasskeys lets a test sign in self-registered owners (admins) on the
+// password-only endpoint, as when PASSKEY_ENFORCEMENT=off.
+func withoutPasskeys(t *testing.T) {
+	prev := passkeyEnforced
+	passkeyEnforced = func() bool { return false }
+	t.Cleanup(func() { passkeyEnforced = prev })
+}
+
 func TestLogin(t *testing.T) {
+	withoutPasskeys(t)
 	db := setupTestDB(t)
 	jwtManager := auth.NewJWTManager("test-secret", 3600, 86400)
 	service := NewUserService(db, jwtManager)
@@ -133,6 +142,7 @@ func withVerification(t *testing.T, required bool) {
 }
 
 func TestLoginBlocksUnverifiedEmail(t *testing.T) {
+	withoutPasskeys(t)
 	withVerification(t, true)
 	db := setupTestDB(t)
 	service := NewUserService(db, auth.NewJWTManager("test-secret", 3600, 86400))
@@ -205,4 +215,59 @@ func TestRegisterOrganizationPendingVerification(t *testing.T) {
 	if assert.NotNil(t, org2.Domain) {
 		assert.Equal(t, "beta.test", *org2.Domain)
 	}
+}
+
+// Bots called POST /api/v1/organizations/register directly and used the
+// access token in the response without ever verifying the address.
+func TestRegisterOrganizationIssuesNoTokenBeforeVerification(t *testing.T) {
+	withVerification(t, true)
+	db := setupTestDB(t)
+	service := NewUserService(db, auth.NewJWTManager("test-secret", 3600, 86400))
+	resp, err := service.RegisterOrganization(context.Background(), &userpb.RegisterOrganizationRequest{
+		OrgName: "Bot Corp", AdminEmail: "bot@botcorp.test", AdminPassword: "Password1!", AdminFullName: "Bot",
+	})
+	require.NoError(t, err)
+	assert.Empty(t, resp.AccessToken, "an unverified admin must not receive a token")
+
+	withVerification(t, false)
+	resp, err = service.RegisterOrganization(context.Background(), &userpb.RegisterOrganizationRequest{
+		OrgName: "Real Corp", AdminEmail: "boss@realcorp.test", AdminPassword: "Password1!", AdminFullName: "Boss",
+	})
+	require.NoError(t, err)
+	assert.NotEmpty(t, resp.AccessToken)
+}
+
+// The role in a self-service sign-up request is ignored.
+func TestRegisterIgnoresRequestedRole(t *testing.T) {
+	withVerification(t, true)
+	db := setupTestDB(t)
+	service := NewUserService(db, auth.NewJWTManager("test-secret", 3600, 86400))
+	_, err := service.Register(context.Background(), &userpb.RegisterRequest{
+		Email: "eve@evil.test", Username: "eve", Password: "password123", Role: userpb.UserRole_USER_ROLE_ADMIN,
+	})
+	require.NoError(t, err)
+	var u models.User
+	require.NoError(t, db.Where("email = ?", "eve@evil.test").First(&u).Error)
+	assert.NotEqual(t, "super_admin", u.Role)
+	assert.NotEqual(t, "org_admin", u.Role)
+}
+
+// Admins must complete a passkey step, which the password-only endpoint
+// cannot do, so it refuses them; plain members still sign in.
+func TestLoginRefusesAdminsWithoutPasskeyStep(t *testing.T) {
+	withVerification(t, false)
+	db := setupTestDB(t)
+	service := NewUserService(db, auth.NewJWTManager("test-secret", 3600, 86400))
+	_, err := service.Register(context.Background(), &userpb.RegisterRequest{Email: "own@corp.test", Username: "own", Password: "password123"})
+	require.NoError(t, err)
+	_, err = service.Login(context.Background(), &userpb.LoginRequest{Email: "own@corp.test", Password: "password123"})
+	assert.Equal(t, codes.FailedPrecondition, status.Code(err))
+	assert.Contains(t, err.Error(), "passkey")
+
+	hash, err := auth.HashPassword("password123")
+	require.NoError(t, err)
+	require.NoError(t, db.Create(&models.User{Email: "mem@corp.test", Username: "mem", Password: hash, Role: "member", IsActive: true}).Error)
+	resp, err := service.Login(context.Background(), &userpb.LoginRequest{Email: "mem@corp.test", Password: "password123"})
+	require.NoError(t, err)
+	assert.NotEmpty(t, resp.AccessToken)
 }

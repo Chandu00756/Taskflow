@@ -16,6 +16,7 @@ import { useAuthStore } from '@/store/auth';
 import { AppearanceSettings } from '@/components/theme/theme-picker';
 import { OrgCard } from '@/components/desk/org-card';
 import { AvatarUploader, NotificationPreferences, OutOfOfficeCard, SessionsCard } from '@/components/profile/personal';
+import { PasskeysCard } from '@/components/profile/passkeys';
 
 const TABS = ['profile', 'organization', 'notifications', 'security', 'appearance'] as const;
 type Tab = (typeof TABS)[number];
@@ -171,6 +172,9 @@ function ProfileContent() {
                   Last sign in: {me.user.last_login ? `${timeAgo(me.user.last_login)} (${fmtDateTime(me.user.last_login)})` : '—'}
                 </div>
               </div>
+            </Card>
+            <Card title={<span className="flex items-center gap-2"><KeyRound className="h-4 w-4 text-slate-400" />Passkeys</span>}>
+              <PasskeysCard />
             </Card>
             <Card title={<span className="flex items-center gap-2"><MonitorSmartphone className="h-4 w-4 text-slate-400" />Active sessions</span>}>
               <SessionsCard />

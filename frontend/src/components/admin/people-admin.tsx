@@ -323,6 +323,11 @@ function PeopleAdminInner({ agents }: { agents: boolean }) {
                             <MenuItem icon={<KeyRound className="h-4 w-4" />} onClick={async () => { close(); if (await confirm({ title: `Reset password for ${p.name}?`, message: 'Their current password stops working and existing sessions are signed out. If email is set up they get a link to choose a new password; otherwise you get a temporary password to hand over.', confirmLabel: 'Reset password' })) act.mutate({ person: p, action: 'reset-password' }); }}>
                               Reset password
                             </MenuItem>
+                            {p.id !== me?.user.id && (
+                              <MenuItem icon={<KeyRound className="h-4 w-4" />} onClick={async () => { close(); if (await confirm({ title: `Reset passkeys for ${p.name}?`, message: 'Use this when someone lost their phone or laptop. Their passkeys and recovery codes are removed and they are signed out; at their next sign-in they set up a new passkey after confirming a code sent to their email.', confirmLabel: 'Reset passkeys', danger: true })) act.mutate({ person: p, action: 'reset-passkeys' }); }}>
+                                Reset passkeys
+                              </MenuItem>
+                            )}
                             {p.locked && <MenuItem icon={<Unlock className="h-4 w-4" />} onClick={() => { close(); act.mutate({ person: p, action: 'unlock' }); }}>Unlock account</MenuItem>}
                             {p.id !== me?.user.id && (
                               p.active ? (

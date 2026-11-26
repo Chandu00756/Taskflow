@@ -142,6 +142,8 @@ services:
       ITSM_HTTP_PORT: "8090"
       DB_MAX_OPEN_CONNS: "40"
       MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-15}
+      TURNSTILE_SITE_KEY: ${TURNSTILE_SITE_KEY:-}
+      DISPOSABLE_EMAIL_DOMAINS: ${DISPOSABLE_EMAIL_DOMAINS:-}
     depends_on:
       postgres:
         condition: service_healthy
@@ -167,6 +169,13 @@ services:
       TRUST_PROXY_HEADERS: "true"
       RATE_LIMIT_RPS: ${RATE_LIMIT_RPS:-50}
       RATE_LIMIT_BURST: ${RATE_LIMIT_BURST:-100}
+      # Sign-up bot guard: Cloudflare Turnstile secret and sign-up limits.
+      ENVIRONMENT: production
+      TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY:-}
+      SIGNUP_MAX_PER_IP_HOUR: ${SIGNUP_MAX_PER_IP_HOUR:-3}
+      SIGNUP_MAX_PER_IP_DAY: ${SIGNUP_MAX_PER_IP_DAY:-10}
+      SIGNUP_MAX_PER_HOUR: ${SIGNUP_MAX_PER_HOUR:-30}
+      DISPOSABLE_EMAIL_DOMAINS: ${DISPOSABLE_EMAIL_DOMAINS:-}
     depends_on:
       - user-service
       - task-service

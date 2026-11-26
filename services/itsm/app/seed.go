@@ -444,6 +444,7 @@ func EnsureSchema(db *gorm.DB) error {
 		`ALTER TABLE users ADD COLUMN IF NOT EXISTS tokens_revoked_at timestamptz`,
 		`ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verification_pending boolean NOT NULL DEFAULT false`,
 		`ALTER TABLE organizations ADD COLUMN IF NOT EXISTS is_suspended boolean NOT NULL DEFAULT false`,
+		`ALTER TABLE users ADD COLUMN IF NOT EXISTS signup_ip text`,
 	}
 	for _, s := range stmts {
 		if err := db.Exec(s).Error; err != nil {
@@ -451,6 +452,9 @@ func EnsureSchema(db *gorm.DB) error {
 		}
 	}
 	if err := db.AutoMigrate(AllModels()...); err != nil {
+		return err
+	}
+	if err := db.AutoMigrate(SecurityModels()...); err != nil {
 		return err
 	}
 	// Ticket numbers and per-entity uniqueness.

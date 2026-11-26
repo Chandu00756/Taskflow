@@ -10,6 +10,8 @@ import { v2, parseApiError } from '@/lib/itsm/api';
 export interface AuthConfig {
   email_enabled: boolean;
   email_verification: boolean;
+  /** Cloudflare Turnstile site key for the sign-up CAPTCHA; empty when off. */
+  turnstile_site_key?: string;
 }
 
 /** Which email features (verification links, reset links) the server has turned on. */

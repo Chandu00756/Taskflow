@@ -248,6 +248,51 @@ Fixes made while building the service desk (all covered by tests):
 * CSV exports neutralize spreadsheet formula injection; attachments are served
   as downloads with a sandboxing CSP; Markdown is rendered without raw HTML.
 
+### Sign-up protection, passkeys and the platform console
+
+* **Bot sign-ups** — `POST /api/v1/organizations/register` returned an access
+  token before the email was verified, so bots used the API directly and never
+  hit the verification gate. No token is issued until the address is verified,
+  and every service desk request from an unverified account is refused (403).
+* **Sign-up guard (gateway)** — `/api/v1/auth/register` and
+  `/api/v1/organizations/register` require a Cloudflare Turnstile token
+  (`X-Captcha-Token`) when `TURNSTILE_SECRET_KEY` is set, refuse a filled hidden
+  form field, throwaway-inbox domains (`DISPOSABLE_EMAIL_DOMAINS` adds more) and
+  links in names, and are limited per IP (`SIGNUP_MAX_PER_IP_HOUR`, default 3;
+  `SIGNUP_MAX_PER_IP_DAY`, 10) and site-wide (`SIGNUP_MAX_PER_HOUR`, 30). The
+  sign-up role field is ignored. Each sign-up's IP is stored (`users.signup_ip`).
+* **Passkeys** — every account signs in at `POST /api/v2/auth/login`. The super
+  admin and organization admins (and anyone who added a passkey) then confirm a
+  passkey (`/auth/passkey/options` + `/auth/passkey/verify`) or a one-time
+  recovery code (`/auth/recovery`). An admin without a passkey sets one up at
+  sign-in after entering a code emailed to them (`/auth/passkey/setup/*`) and
+  receives 10 recovery codes. Passwordless sign-in with a passkey also works.
+  The password-only `/api/v1/auth/login` refuses these accounts.
+  People manage passkeys on their profile (`/api/v2/account/*`); org admins can
+  reset a member's passkeys (`POST /people/{id}/reset-passkeys`); the super
+  admin can reset anyone's from the console.
+  * `PASSKEY_ENFORCEMENT=off` turns the admin requirement off (local runs of
+    `scripts/itsm_smoke_test.py` and `scripts/seed_demo.py`, which sign admins
+    in with a password).
+  * `PASSKEY_SETUP_EMAIL_CODE=off` skips the emailed setup code (only when the
+    admin's mailbox cannot receive mail).
+  * `RESET_PASSKEYS_FOR=<email>` clears that account's passkeys at start-up:
+    the way back in when the super admin lost every passkey and recovery code.
+    Remove it and restart afterwards.
+  * `WEBAUTHN_RP_ID` / `WEBAUTHN_ORIGINS` override the relying party, which
+    defaults to the host of `PUBLIC_URL`.
+  * `go run ./scripts/passkey_e2e -email … -password …` checks every passkey
+    flow against a running stack with a software authenticator.
+* **Platform console** (`/admin/global`, super admin only, 15-minute idle
+  sign-out) — live overview and 30-day sign-up chart; account review that
+  scores each account (unverified, throwaway email, never signed in, links or
+  random-looking names, many sign-ups from one IP or in a burst) and deletes
+  fake ones in bulk (only accounts that never verified or never signed in and
+  own no tickets; empty organizations go with them); organization detail with
+  type-the-name deletion for organizations without data; per-account verify,
+  unlock, deactivate, sign out everywhere and passkey reset; platform-wide
+  security events; a security checklist; email delivery; real health data.
+
 ---
 
 ## 6. Verification

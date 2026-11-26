@@ -16,6 +16,9 @@ so new accounts can be verified through the platform console.
 The script registers a brand-new organization each run, so it is safe to run
 repeatedly against a development or staging environment. It never touches
 existing organizations.
+
+Admins sign in with a passkey; run the stack with PASSKEY_ENFORCEMENT=off
+so this script can sign them in with a password.
 """
 import argparse
 import email

@@ -31,6 +31,11 @@ type User struct {
 	// not yet confirmed their address; they cannot sign in until they do.
 	EmailVerificationPending bool `gorm:"not null;default:false" json:"-"`
 
+	// SignupIP is the client address of a self-service sign-up, used to spot
+	// bursts of fake accounts.
+	// Nullable: accounts created before it was recorded have none.
+	SignupIP *string `gorm:"column:signup_ip" json:"-"`
+
 	// Security questions (JSON: [{question: "Q1", answer_hash: "hash1"}, ...])
 	SecurityQuestions string `gorm:"type:text" json:"security_questions,omitempty"`
 
